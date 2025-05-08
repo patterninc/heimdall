@@ -1,0 +1,38 @@
+---
+services:
+  postgres:
+    image: postgres:16
+    container_name: heimdall_postgres
+    environment:
+      POSTGRES_USER: heimdall
+      POSTGRES_PASSWORD: heimdall
+      POSTGRES_DB: heimdall
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d heimdall -U heimdall"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
+  heimdall:
+    build: .
+    ports:
+      - "9090:9090"
+    container_name: heimdall_server
+    restart: always
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+      - AWS_REGION=${AWS_REGION}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["bash", "-c", "./dist/deploydb -conf /etc/heimdall/heimdall.yaml assets/databases/heimdall/build/heimdall.lst && ./dist/heimdall -conf /etc/heimdall/heimdall.yaml"]
+
+volumes:
+  postgres-db:

@@ -1,0 +1,40 @@
+
+# database settings
+database:
+  connection_string: "postgres://heimdall:heimdall@postgres:5432/heimdall?sslmode=disable"
+
+# workers pool to execute async jobs
+pool:
+  size: 5
+  sleep: 500
+
+# plugins location
+plugin_directory: ./dist/plugins
+
+# auth plugin
+auth:
+  plugin: ./dist/plugins/auth_header.so
+  context:
+    header: X-Heimdall-User
+
+# supported commands
+commands:
+  - name: ping-0.0.1
+    status: active
+    plugin: ping
+    version: 0.0.1
+    description: Test ping command
+    tags:
+      - type:ping
+    cluster_tags:
+      - type:localhost
+
+# supported clusters
+clusters:
+  - name: localhost-0.0.1
+    status: active
+    version: 0.0.1
+    description: Just a localhost
+    tags:
+      - type:localhost
+      - data:local
