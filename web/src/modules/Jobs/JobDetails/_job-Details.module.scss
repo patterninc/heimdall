@@ -1,0 +1,24 @@
+@import '../../global.module.scss';
+
+.jobDetailsContainer {
+  padding-top: 16px;
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+}
+
+.bottomSectionContainer {
+  @extend %bottomSectionContainer;
+}
+
+.pageHeaderContainer {
+  width: 100%;
+}
+
+.informationPaneContainer {
+  min-width: 300px;
+}

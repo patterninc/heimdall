@@ -1,0 +1,20 @@
+
+# tables
+tables/command_statuses.sql
+tables/cluster_statuses.sql
+tables/commands.sql
+tables/command_tags.sql
+tables/command_cluster_tags.sql
+tables/clusters.sql
+tables/cluster_tags.sql
+tables/jobs.sql
+tables/job_tags.sql
+tables/job_statuses.sql
+tables/job_cluster_tags.sql
+tables/job_command_tags.sql
+tables/active_jobs.sql
+
+# static data
+data/command_statuses.sql
+data/cluster_statuses.sql
+data/job_statuses.sql

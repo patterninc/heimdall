@@ -1,0 +1,11 @@
+.preContainer {
+  font-family: Courier, monospace;
+  border-radius: 4px;
+  overflow: auto;
+}
+
+%bottomSectionContainer {
+  pre {
+    @extend .preContainer;
+  }
+}
