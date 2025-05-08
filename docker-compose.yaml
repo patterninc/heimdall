@@ -22,6 +22,7 @@ services:
     build: .
     ports:
       - "9090:9090"
+      - "3000:3000"
     container_name: heimdall_server
     restart: always
     environment:
