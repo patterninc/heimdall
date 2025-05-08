@@ -16,7 +16,7 @@ var (
 
 func init() {
 
-	flag.StringVar(&configFile, `conf`, `/etc/pattern.d/heimdall.yaml`, `config file`)
+	flag.StringVar(&configFile, `conf`, `/etc/heimdall/heimdall.yaml`, `config file`)
 	flag.Parse()
 
 	if len(flag.Args()) != 1 {
