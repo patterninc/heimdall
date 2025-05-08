@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Add rewrites to forward requests to cookie-monster proxy
   async rewrites() {
     const apiUrl = process.env.API_URL || 'http://localhost:9090'
 
