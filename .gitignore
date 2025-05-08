@@ -24,5 +24,8 @@ go.work.sum
 # env file
 .env
 
+# mac
+.DS_Store
+
 # build dir
 dist/

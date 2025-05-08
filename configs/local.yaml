@@ -9,11 +9,11 @@ pool:
   sleep: 500
 
 # plugins location
-plugin_directory: ./dist/plugins
+plugin_directory: ./plugins
 
 # auth plugin
 auth:
-  plugin: ./dist/plugins/auth_header.so
+  plugin: ./plugins/auth_header.so
   context:
     header: X-Heimdall-User
 
