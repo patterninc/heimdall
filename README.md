@@ -42,7 +42,7 @@ cd heimdall
 
 ### 2. Start Heimdall
 
-Ensure you have Docker or an compatible alternative installed.
+Ensure you have Docker or a compatible alternative installed.
 
 ```bash
 docker compose up --build -d
