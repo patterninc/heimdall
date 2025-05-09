@@ -88,14 +88,14 @@ GET /api/v1/job/<job_id>/stderr
 
 Heimdall supports a growing set of pluggable command types:
 
-| Plugin      | Description                          | Execution Mode |
-| ----------- | ------------------------------------ | -------------- |
-| `ping`      | Basic testing utility                | Sync or Async  |
-| `shell`     | Shell command execution              | Sync or Async  |
-| `glue`      | AWS Glue job orchestration           | Sync or Async  |
-| `dynamodb`  | DynamoDB read/write operations       | Sync or Async  |
-| `snowflake` | Query execution in Snowflake         | Async          |
-| `spark`     | Submitting Spark jobs (local or EMR) | Async          |
+| Plugin      | Description                            | Execution Mode |
+| ----------- | -------------------------------------- | -------------- |
+| `ping`      | Basic plugin used for testing          | Sync or Async  |
+| `shell`     | Shell command execution                | Sync or Async  |
+| `glue`      | Pulling Iceberg table metadata         | Sync or Async  |
+| `dynamodb`  | DynamoDB read operation                | Sync or Async  |
+| `snowflake` | Query execution in Snowflake           | Async          |
+| `spark`     | SparkSQL query execution on EMR on EKS | Async          |
 
 ---
 
