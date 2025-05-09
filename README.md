@@ -56,7 +56,7 @@ This starts:
 ### 3. Submit a Test Job (Example: Ping Plugin)
 
 ```bash
-curl -X POST -H "X-Heimdall-User: test_user" \
+curl -X POST -H "X-Heimdall-User: test_user" -H "Content-Type: application/json" \
      -d '{
            "name": "ping-test",
            "version": "0.0.1",
