@@ -91,7 +91,7 @@ Heimdall supports a growing set of pluggable command types:
 | Plugin      | Description                            | Execution Mode |
 | ----------- | -------------------------------------- | -------------- |
 | `ping`      | Basic plugin used for testing          | Sync or Async  |
-| `shell`     | Shell command execution                | Sync or Async  |
+| `shell`     | [Shell command execution](https://github.com/patterninc/heimdall/blob/main/plugins/shell/shell.go)                | Sync or Async  |
 | `glue`      | Pulling Iceberg table metadata         | Sync or Async  |
 | `dynamodb`  | DynamoDB read operation                | Sync or Async  |
 | `snowflake` | Query execution in Snowflake           | Async          |
