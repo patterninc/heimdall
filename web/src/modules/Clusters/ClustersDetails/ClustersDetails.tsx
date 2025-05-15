@@ -12,7 +12,7 @@ type ClusterDetailsProps = {
   id: string
 }
 
-const ClustersDetails = ({ id }: ClusterDetailsProps): JSX.Element => {
+const ClustersDetails = ({ id }: ClusterDetailsProps): React.JSX.Element => {
   const { updateBreadcrumbs } = useContext(BreadcrumbContext)
   useEffect(() => {
     updateBreadcrumbs({

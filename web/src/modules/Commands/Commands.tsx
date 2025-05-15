@@ -25,7 +25,7 @@ import {
   sortData,
 } from '@/common/Services'
 
-const Commands = (): JSX.Element => {
+const Commands = (): React.JSX.Element => {
   const { updateBreadcrumbs } = useContext(BreadcrumbContext)
   const [commandId, setCommandId] = useQueryState('id', { defaultValue: '' })
   const [commandName, setCommandName] = useQueryState('name', {
