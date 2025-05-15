@@ -24,7 +24,7 @@ import {
 import { useQueryState } from 'nuqs'
 import { FilterStatesType } from '@patterninc/react-ui/dist/components/Filter/FilterMenu'
 
-const Cluster = (): JSX.Element => {
+const Cluster = (): React.JSX.Element => {
   const { updateBreadcrumbs } = useContext(BreadcrumbContext)
 
   const [clusterId, setClusterId] = useQueryState('id', { defaultValue: '' })

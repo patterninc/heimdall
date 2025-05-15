@@ -12,7 +12,7 @@ export type ClusterDataTypeProps = {
 const ClusterInformationPane = ({
   clusterData,
   isLoading,
-}: ClusterDataTypeProps): JSX.Element => {
+}: ClusterDataTypeProps): React.JSX.Element => {
   const data = useMemo(() => clusterData?.[0], [clusterData])
   const clusterDetailsData = [
     {

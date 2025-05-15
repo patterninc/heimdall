@@ -15,7 +15,7 @@ type JobDetailsProp = {
   id: string
 }
 
-const JobDetails = ({ id }: JobDetailsProp): JSX.Element => {
+const JobDetails = ({ id }: JobDetailsProp): React.JSX.Element => {
   const { updateBreadcrumbs } = useContext(BreadcrumbContext)
   const pathname = usePathname()
 

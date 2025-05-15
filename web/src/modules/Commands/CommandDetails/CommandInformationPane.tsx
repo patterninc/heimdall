@@ -14,7 +14,7 @@ export type CommandDetailsProps = {
 const CommandInformationPane = ({
   commandData,
   isLoading,
-}: CommandDetailsProps): JSX.Element => {
+}: CommandDetailsProps): React.JSX.Element => {
   const data = useMemo(() => commandData[0], [commandData])
   const commandDetailsData = [
     {

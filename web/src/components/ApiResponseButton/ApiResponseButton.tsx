@@ -6,7 +6,7 @@ type ApiResponseButtonProps = {
   link: string
 }
 
-const ApiResponseButton = ({ link }: ApiResponseButtonProps): JSX.Element => {
+const ApiResponseButton = ({ link }: ApiResponseButtonProps): React.JSX.Element => {
   return (
     <Button
       as='link'

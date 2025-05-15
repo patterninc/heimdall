@@ -34,7 +34,7 @@ type FilterType = {
   status: string[]
 }
 
-const Jobs = (): JSX.Element => {
+const Jobs = (): React.JSX.Element => {
   const { updateBreadcrumbs } = useContext(BreadcrumbContext)
 
   const [jobId, setJobId] = useQueryState('id', { defaultValue: '' })

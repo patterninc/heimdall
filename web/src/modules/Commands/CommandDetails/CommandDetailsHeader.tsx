@@ -17,7 +17,7 @@ import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
 const CommandDetailsHeader = ({
   commandData,
   isLoading,
-}: CommandDetailsProps): JSX.Element => {
+}: CommandDetailsProps): React.JSX.Element => {
   const [yamlContext, setYamlContext] = useState<string>()
   const [tags, setTags] = useState<string>()
   const [clusterTag, setClusterTag] = useState<string>()
