@@ -1,4 +1,5 @@
 import LeftNavContainer from '@/components/NavigationBar/LeftNavContainer'
+
 import dynamic from 'next/dynamic'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
 
@@ -10,6 +11,11 @@ const ReactQueryProvider = dynamic(
 const HeaderContent = dynamic(() => import('../components/Header/Header'), {
   ssr: false,
 })
+
+const ToastContainer = dynamic(
+  () => import('../common/ToastContainer/ToastContainer').then((mod) => mod.default),
+  { ssr: false },
+)
 
 const BreadcrumbProvidercontainer = dynamic(
   () =>
@@ -42,7 +48,10 @@ export default async function RootLayout({
                 <LeftNavContainer />
                 <main className='app-content-layout'>
                   <HeaderContent />
-                  <div className='App-content'>{children}</div>
+                  <div className='App-content'>
+                    <ToastContainer />
+                    {children}
+                  </div>
                 </main>
               </BreadcrumbProvidercontainer>
             </div>
