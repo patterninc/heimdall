@@ -13,7 +13,7 @@ const HeaderContent = dynamic(() => import('../components/Header/Header'), {
 })
 
 const ToastContainer = dynamic(
-  () => import('../common/ToastContainer/ToastContainer').then((mod) => mod.default),
+  () => import('../common/ToastContainer/ToastContainer'),
   { ssr: false },
 )
 
