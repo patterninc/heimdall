@@ -35,7 +35,7 @@ export const AutoRefreshProvider: React.FC<{ children: React.ReactNode }> = ({
             'Error parsing refresh interval from localStorage',
             error,
           )
-          return 0
+          return { label: 'OFF', value: 0 }
         }
       }
       return { label: 'OFF', value: 0 }
