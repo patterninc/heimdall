@@ -33,7 +33,7 @@ const JobDetails = ({ id }: JobDetailsProp): JSX.Element => {
     if (jobData?.status === 'FAILED') {
       toast({
         type: 'error',
-        message: jobData?.error,
+        message: jobData?.error || 'An unknown error occurred',
       })
     }
   }, [updateBreadcrumbs, id, pathname, jobData?.status, jobData?.error])
