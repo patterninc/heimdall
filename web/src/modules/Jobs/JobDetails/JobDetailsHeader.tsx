@@ -1,6 +1,6 @@
 'use client'
 
-import { PageHeader, SectionHeader } from '@patterninc/react-ui'
+import { Alert, PageHeader, SectionHeader } from '@patterninc/react-ui'
 import styles from './_job-Details.module.scss'
 import { JobDataTypesProps } from '../Helper'
 import SyntaxHighlighter from 'react-syntax-highlighter'
@@ -48,6 +48,9 @@ const JobDetailsHeader = ({ jobData }: JobDataTypesProps): JSX.Element => {
             className={`${styles.bottomSectionContainer} bgc-white pat-border-t bdrc-medium-purple`}
           >
             <div className='flex flex-direction-column pat-gap-4 pat-p-4'>
+              {jobData?.status === 'FAILED' ? (
+                <Alert type='error' text={jobData?.error} />
+              ) : null}
               {yamlContext ? (
                 <div>
                   <SectionHeader title='Context' />

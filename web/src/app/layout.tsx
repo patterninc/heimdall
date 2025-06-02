@@ -12,11 +12,6 @@ const HeaderContent = dynamic(() => import('../components/Header/Header'), {
   ssr: false,
 })
 
-const ToastContainer = dynamic(
-  () => import('../common/ToastContainer/ToastContainer'),
-  { ssr: false },
-)
-
 const BreadcrumbProvidercontainer = dynamic(
   () =>
     import('../common/BreadCrumbsProvider/BreadCrumbsProvideContainer').then(
@@ -48,10 +43,7 @@ export default async function RootLayout({
                 <LeftNavContainer />
                 <main className='app-content-layout'>
                   <HeaderContent />
-                  <div className='App-content'>
-                    <ToastContainer />
-                    {children}
-                  </div>
+                  <div className='App-content'>{children}</div>
                 </main>
               </BreadcrumbProvidercontainer>
             </div>
