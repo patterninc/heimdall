@@ -30,7 +30,7 @@ The **DynamoDB Plugin** enables Heimdall to run read-only PartiQL queries agains
     - type:dynamodb
 ```
 
-### 🔐 Cluster Definition (AWS Authentication)
+### 🖥️ Cluster Definition (AWS Authentication)
 
 ```yaml
 - name: dynamo-0.0.1
