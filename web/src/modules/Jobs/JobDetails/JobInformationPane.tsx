@@ -11,7 +11,7 @@ import styles from './_job-Details.module.scss'
 const JobInformationPane = ({
   jobData,
   isLoading,
-}: JobDataTypesProps): JSX.Element => {
+}: JobDataTypesProps): React.JSX.Element => {
   const router = useRouter()
   const jobdetailsData = [
     { label: 'Version', data: jobData?.version, check: !!jobData?.version },

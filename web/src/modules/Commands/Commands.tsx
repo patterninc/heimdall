@@ -26,7 +26,7 @@ import {
 } from '@/common/Services'
 import { AutoRefreshContext } from '@/common/AutoRefreshProvider/context'
 
-const Commands = (): JSX.Element => {
+const Commands = (): React.JSX.Element => {
   const { updateBreadcrumbs } = useContext(BreadcrumbContext)
   const { refreshInterval } = useContext(AutoRefreshContext)
   const [commandId, setCommandId] = useQueryState('id', { defaultValue: '' })

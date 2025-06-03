@@ -35,7 +35,7 @@ type FilterType = {
   status: string[]
 }
 
-const Jobs = (): JSX.Element => {
+const Jobs = (): React.JSX.Element => {
   const { updateBreadcrumbs } = useContext(BreadcrumbContext)
   const { refreshInterval } = useContext(AutoRefreshContext)
 
