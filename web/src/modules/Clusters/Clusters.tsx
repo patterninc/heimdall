@@ -23,10 +23,11 @@ import {
 } from '@/common/Services'
 import { useQueryState } from 'nuqs'
 import { FilterStatesType } from '@patterninc/react-ui/dist/components/Filter/FilterMenu'
+import { AutoRefreshContext } from '@/common/AutoRefreshProvider/context'
 
-const Cluster = (): JSX.Element => {
+const Cluster = (): React.JSX.Element => {
   const { updateBreadcrumbs } = useContext(BreadcrumbContext)
-
+  const { refreshInterval } = useContext(AutoRefreshContext)
   const [clusterId, setClusterId] = useQueryState('id', { defaultValue: '' })
   const [clusterName, setClusterName] = useQueryState('name', {
     defaultValue: '',
@@ -84,6 +85,7 @@ const Cluster = (): JSX.Element => {
   const { data, isLoading, isSuccess } = useQuery({
     queryKey: ['clusters', filterParams],
     queryFn: () => getClusters(filterParams),
+    refetchInterval: refreshInterval.value,
   })
 
   const { data: statusData } = useQuery({

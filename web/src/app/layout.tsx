@@ -1,4 +1,5 @@
 import LeftNavContainer from '@/components/NavigationBar/LeftNavContainer'
+
 import dynamic from 'next/dynamic'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
 
@@ -15,6 +16,14 @@ const BreadcrumbProvidercontainer = dynamic(
   () =>
     import('../common/BreadCrumbsProvider/BreadCrumbsProvideContainer').then(
       (mod) => mod.BreadcrumbProvidercontainer,
+    ),
+  { ssr: false },
+)
+
+const AutoRefreshProvidercontainer = dynamic(
+  () =>
+    import('../common/AutoRefreshProvider/AutoRefreshProviderContainer').then(
+      (mod) => mod.AutoRefreshProvidercontainer,
     ),
   { ssr: false },
 )
@@ -39,11 +48,13 @@ export default async function RootLayout({
           <ReactQueryProvider>
             <div className='App'>
               <BreadcrumbProvidercontainer>
-                <LeftNavContainer />
-                <main className='app-content-layout'>
-                  <HeaderContent />
-                  <div className='App-content'>{children}</div>
-                </main>
+                <AutoRefreshProvidercontainer>
+                  <LeftNavContainer />
+                  <main className='app-content-layout'>
+                    <HeaderContent />
+                    <div className='App-content'>{children}</div>
+                  </main>
+                </AutoRefreshProvidercontainer>
               </BreadcrumbProvidercontainer>
             </div>
           </ReactQueryProvider>

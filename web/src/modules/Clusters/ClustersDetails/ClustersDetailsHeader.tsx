@@ -10,7 +10,7 @@ import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
 const ClustersDetailsHeader = ({
   clusterData,
   isLoading,
-}: ClusterDataTypeProps): JSX.Element => {
+}: ClusterDataTypeProps): React.JSX.Element => {
   const [yamlContext, setYamlContext] = useState<string>()
   const [tags, setTags] = useState<string>()
 
