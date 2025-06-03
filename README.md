@@ -90,12 +90,12 @@ Heimdall supports a growing set of pluggable command types:
 
 | Plugin      | Description                            | Execution Mode |
 | ----------- | -------------------------------------- | -------------- |
-| `ping`      | Basic plugin used for testing          | Sync or Async  |
+| `ping`      | [Basic plugin used for testing](https://github.com/patterninc/heimdall/blob/main/plugins/ping/README.md)          | Sync or Async  |
 | `shell`     | [Shell command execution](https://github.com/patterninc/heimdall/blob/main/plugins/shell/README.md)                | Sync or Async  |
-| `glue`      | Pulling Iceberg table metadata         | Sync or Async  |
-| `dynamodb`  | DynamoDB read operation                | Sync or Async  |
+| `glue`      | [Pulling Iceberg table metadata](https://github.com/patterninc/heimdall/blob/main/plugins/glue/README.md)         | Sync or Async  |
+| `dynamo`    | [DynamoDB read operation](https://github.com/patterninc/heimdall/blob/main/plugins/dynamo/README.md)                | Sync or Async  |
 | `snowflake` | Query execution in Snowflake           | Async          |
-| `spark`     | SparkSQL query execution on EMR on EKS | Async          |
+| `spark`     | [SparkSQL query execution on EMR on EKS](https://github.com/patterninc/heimdall/blob/main/plugins/spark/README.md) | Async          |
 
 ---
 
