@@ -1,0 +1,10 @@
+.autoFreshSelectContainer {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+}
+
+.autoRefreshSelect {
+  width: 104px; // Fixed width ensures the popover menu inherits the same width, preventing options from being cut off or extending beyond the window when selecting longer options like "OFF"
+}

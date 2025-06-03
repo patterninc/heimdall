@@ -19,6 +19,14 @@ const BreadcrumbProvidercontainer = dynamic(
   { ssr: false },
 )
 
+const AutoRefreshProvidercontainer = dynamic(
+  () =>
+    import('../common/AutoRefreshProvider/AutoRefreshProviderContainer').then(
+      (mod) => mod.AutoRefreshProvidercontainer,
+    ),
+  { ssr: false },
+)
+
 export const metadata = {
   title: 'Heimdall',
   description: 'Welcome to the Heimdall application',
@@ -39,11 +47,13 @@ export default async function RootLayout({
           <ReactQueryProvider>
             <div className='App'>
               <BreadcrumbProvidercontainer>
-                <LeftNavContainer />
-                <main className='app-content-layout'>
-                  <HeaderContent />
-                  <div className='App-content'>{children}</div>
-                </main>
+                <AutoRefreshProvidercontainer>
+                  <LeftNavContainer />
+                  <main className='app-content-layout'>
+                    <HeaderContent />
+                    <div className='App-content'>{children}</div>
+                  </main>
+                </AutoRefreshProvidercontainer>
               </BreadcrumbProvidercontainer>
             </div>
           </ReactQueryProvider>

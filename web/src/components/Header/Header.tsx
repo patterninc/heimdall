@@ -6,6 +6,7 @@ import { Breadcrumbs } from '@patterninc/react-ui'
 import { useRouter } from 'next/navigation'
 import { BreadcrumbContext } from '@/common/BreadCrumbsProvider/context'
 import styles from './_header.module.scss'
+import { AutoRefreshSelect } from '@/common/AutoRefreshSelect/AutoRefreshSelect'
 
 const Header = () => {
   const { breadcrumbs, breadcrumbCallout } = useContext(BreadcrumbContext)
@@ -21,6 +22,7 @@ const Header = () => {
         }}
         backButtonProps={{ text: 'Back' }}
       />
+      {breadcrumbs.length <= 1 && <AutoRefreshSelect />}
     </div>
   )
 }
