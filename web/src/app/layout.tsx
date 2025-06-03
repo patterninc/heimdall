@@ -1,4 +1,5 @@
 import LeftNavContainer from '@/components/NavigationBar/LeftNavContainer'
+
 import dynamic from 'next/dynamic'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
 
