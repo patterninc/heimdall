@@ -23,6 +23,7 @@ import {
   noDataAvailableDescription,
   sortData,
 } from '@/common/Services'
+import { AutoRefreshContext } from '@/common/AutoRefreshProvider/context'
 
 type FilterType = {
   id: string
@@ -34,8 +35,9 @@ type FilterType = {
   status: string[]
 }
 
-const Jobs = (): JSX.Element => {
+const Jobs = (): React.JSX.Element => {
   const { updateBreadcrumbs } = useContext(BreadcrumbContext)
+  const { refreshInterval } = useContext(AutoRefreshContext)
 
   const [jobId, setJobId] = useQueryState('id', { defaultValue: '' })
   const [name, setName] = useQueryState('name', { defaultValue: '' })
@@ -90,6 +92,7 @@ const Jobs = (): JSX.Element => {
       getNextPageParam: (lastPage) => lastPage?.nextPage,
       enabled: !!filterParams,
       initialPageParam: 1,
+      refetchInterval: refreshInterval.value,
     })
 
   const { data: jobStatus } = useQuery({

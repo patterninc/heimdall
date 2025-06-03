@@ -24,9 +24,11 @@ import {
   noDataAvailableDescription,
   sortData,
 } from '@/common/Services'
+import { AutoRefreshContext } from '@/common/AutoRefreshProvider/context'
 
-const Commands = (): JSX.Element => {
+const Commands = (): React.JSX.Element => {
   const { updateBreadcrumbs } = useContext(BreadcrumbContext)
+  const { refreshInterval } = useContext(AutoRefreshContext)
   const [commandId, setCommandId] = useQueryState('id', { defaultValue: '' })
   const [commandName, setCommandName] = useQueryState('name', {
     defaultValue: '',
@@ -70,6 +72,7 @@ const Commands = (): JSX.Element => {
   const { data, isSuccess, isLoading } = useQuery({
     queryKey: ['commands', filterParams],
     queryFn: () => getCommands(filterParams),
+    refetchInterval: refreshInterval.value,
   })
 
   const { data: statusData } = useQuery({
