@@ -27,17 +27,18 @@ var (
 	ErrInvalidKeyType         = fmt.Errorf(`invalida key type`)
 )
 
-type snowflakeCommandContext struct {
+type snowflakeCommandContext struct{}
+
+type snowflakeJobContext struct {
+	Query string `yaml:"query,omitempty" json:"query,omitempty"`
+}
+
+type snowflakeClusterContext struct {
 	Account    string `yaml:"account,omitempty" json:"account,omitempty"`
 	User       string `yaml:"user,omitempty" json:"user,omitempty"`
 	Database   string `yaml:"database,omitempty" json:"database,omitempty"`
 	Warehouse  string `yaml:"warehouse,omitempty" json:"warehouse,omitempty"`
 	PrivateKey string `yaml:"private_key,omitempty" json:"private_key,omitempty"`
-	dsn        string
-}
-
-type snowflakeJobContext struct {
-	Query string `yaml:"query,omitempty" json:"query,omitempty"`
 }
 
 func parsePrivateKey(privateKeyBytes []byte) (*rsa.PrivateKey, error) {
@@ -71,53 +72,52 @@ func New(_ *context.Context) (plugin.Handler, error) {
 
 func (s *snowflakeCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
-	// do we have dsn defined?
-	if s.dsn == `` {
-		if c.Context != nil {
-			if err := c.Context.Unmarshal(s); err != nil {
-				return err
-			}
-		}
-
-		// prepare snowflake config
-		privateKeyBytes, err := os.ReadFile(s.PrivateKey)
-		if err != nil {
-			return err
-		}
-
-		// Parse the private key
-		privateKey, err := parsePrivateKey(privateKeyBytes)
-		if err != nil {
-			return err
-		}
-
-		if s.dsn, err = sf.DSN(&sf.Config{
-			Account:       s.Account,
-			User:          s.User,
-			Database:      s.Database,
-			Warehouse:     s.Warehouse,
-			Authenticator: sf.AuthTypeJwt,
-			PrivateKey:    privateKey,
-			Application:   r.UserAgent,
-		}); err != nil {
+	clusterContext := &snowflakeClusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterContext); err != nil {
 			return err
 		}
 	}
 
 	// let's unmarshal job context
-	sc := &snowflakeJobContext{}
-	if err := j.Context.Unmarshal(sc); err != nil {
+	jobContext := &snowflakeJobContext{}
+	if err := j.Context.Unmarshal(jobContext); err != nil {
+		return err
+	}
+
+	// prepare snowflake config
+	privateKeyBytes, err := os.ReadFile(clusterContext.PrivateKey)
+	if err != nil {
+		return err
+	}
+
+	// Parse the private key
+	privateKey, err := parsePrivateKey(privateKeyBytes)
+	if err != nil {
+		return err
+	}
+
+	dsn, err := sf.DSN(&sf.Config{
+		Account:       clusterContext.Account,
+		User:          clusterContext.User,
+		Database:      clusterContext.Database,
+		Warehouse:     clusterContext.Warehouse,
+		Authenticator: sf.AuthTypeJwt,
+		PrivateKey:    privateKey,
+		Application:   r.UserAgent,
+	})
+	if err != nil {
 		return err
 	}
 
 	// open connection
-	db, err := sql.Open(snowflakeDriverName, s.dsn)
+	db, err := sql.Open(snowflakeDriverName, dsn)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	rows, err := db.Query(sc.Query)
+	rows, err := db.Query(jobContext.Query)
 	if err != nil {
 		return err
 	}
