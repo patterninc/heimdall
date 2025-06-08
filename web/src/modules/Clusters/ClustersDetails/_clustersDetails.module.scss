@@ -1,4 +1,4 @@
-@import '../../global.module.scss';
+@use '../../_global.module.scss' as *;
 
 .clustersDetailsContainer {
   padding-top: 16px;

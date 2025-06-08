@@ -12,7 +12,9 @@ import CommandDetailsHeader from './CommandDetailsHeader'
 type CommandDetailsProp = {
   id: string
 }
-export const CommandDetails = ({ id }: CommandDetailsProp): React.JSX.Element => {
+export const CommandDetails = ({
+  id,
+}: CommandDetailsProp): React.JSX.Element => {
   const { updateBreadcrumbs } = useContext(BreadcrumbContext)
   useEffect(() => {
     updateBreadcrumbs({

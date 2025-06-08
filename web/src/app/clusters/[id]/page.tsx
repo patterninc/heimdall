@@ -1,4 +1,6 @@
+'use client'
 import dynamic from 'next/dynamic'
+import { use } from 'react'
 
 const ClusterDetails = dynamic(
   () => import('../../../modules/Clusters/ClustersDetails/ClustersDetails'),
@@ -7,7 +9,8 @@ const ClusterDetails = dynamic(
   },
 )
 
-const ClusterDetailsLayout = ({ params }: { params: { id: string } }) => {
+const ClusterDetailsLayout = (props: { params: Promise<{ id: string }> }) => {
+  const params = use(props.params)
   return <ClusterDetails id={params.id} />
 }
 

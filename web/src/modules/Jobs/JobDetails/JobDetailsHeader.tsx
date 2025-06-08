@@ -9,7 +9,9 @@ import yaml from 'js-yaml'
 import { github } from 'react-syntax-highlighter/dist/esm/styles/hljs'
 import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
 
-const JobDetailsHeader = ({ jobData }: JobDataTypesProps): React.JSX.Element => {
+const JobDetailsHeader = ({
+  jobData,
+}: JobDataTypesProps): React.JSX.Element => {
   const [sql, setSql] = useState<string>()
   const [yamlContext, setYamlContext] = useState<string>()
   const [tags, setTags] = useState<string>()
