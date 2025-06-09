@@ -1,7 +1,7 @@
 'use client'
 import dynamic from 'next/dynamic'
 
-import { use } from 'react'
+import { useEffect, useState } from 'react'
 const CommandDetails = dynamic(
   () =>
     import('../../../modules/Commands/CommandDetails/CommandDetails').then(
@@ -12,9 +12,18 @@ const CommandDetails = dynamic(
   },
 )
 
-const CommandDetailLayout = (props: { params: Promise<{ id: string }> }) => {
-  const params = use(props.params)
-  const { id } = params
+const CommandDetailLayout = ({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) => {
+  const [id, setId] = useState<string>('')
+
+  useEffect(() => {
+    params.then((resolvedParams) => {
+      setId(resolvedParams.id)
+    })
+  }, [params])
 
   return <CommandDetails id={id} />
 }
