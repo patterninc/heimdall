@@ -228,10 +228,17 @@ const Jobs = (): React.JSX.Element => {
       status: {
         type: 'multi-select',
         formLabelProps: { label: 'Status' },
-        options: jobStatus?.map((status: string) => ({ status: status })) || [],
+        options:
+          jobStatus?.map((status: string) => ({
+            status: status,
+            key: `status-${status}`,
+          })) || [],
         selectPlaceholder: '--Select Status--',
         labelKey: 'status',
-        selectedOptions: filter?.status.map((s) => ({ status: s })),
+        selectedOptions: filter?.status.map((s) => ({
+          status: s,
+          key: `selected-${s}`,
+        })),
         stateName: 'status',
       },
     }),

@@ -175,16 +175,16 @@ const Commands = (): React.JSX.Element => {
         type: 'multi-select',
         formLabelProps: { label: 'Status' },
         options: statusData
-          ? statusData?.map((status: string, index: number) => ({
+          ? statusData?.map((status: string) => ({
               status: status,
-              id: index,
+              key: `status-${status}`,
             }))
           : [],
         selectPlaceholder: '--Select Status--',
         labelKey: 'status',
-        selectedOptions: filter?.status.map((s, index) => ({
+        selectedOptions: filter?.status.map((s) => ({
           status: s,
-          id: index,
+          key: `selected-${s}`,
         })),
         stateName: 'status',
       },
