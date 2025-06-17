@@ -28,4 +28,4 @@ mkdir -p ${OUTPUT_DIR}/web ${OUTPUT_DIR}/plugins
 (cd ${WORKING_DIR} && for item in ${PLUGINS}; do go build -buildmode=plugin -ldflags "${LDFLAGS}" -o dist/plugins/$item.so plugins/$item/$item.go; done)
 
 # build web
-(cd ${WORKING_DIR}/web && rm -rf node_modules > /dev/null 2>&1 && npm i && npm run build)
+# (cd ${WORKING_DIR}/web && rm -rf node_modules > /dev/null 2>&1 && npm i && npm run build)

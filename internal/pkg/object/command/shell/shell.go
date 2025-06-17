@@ -7,10 +7,10 @@ import (
 	"path"
 
 	"github.com/patterninc/heimdall/internal/pkg/context"
-	"github.com/patterninc/heimdall/internal/pkg/object/cluster"
-	"github.com/patterninc/heimdall/internal/pkg/object/job"
-	"github.com/patterninc/heimdall/internal/pkg/result"
+	"github.com/patterninc/heimdall/pkg/object/cluster"
+	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
+	"github.com/patterninc/heimdall/pkg/result"
 )
 
 const (

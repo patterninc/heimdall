@@ -6,7 +6,7 @@ import (
 	"github.com/babourine/x/pkg/set"
 
 	"github.com/patterninc/heimdall/internal/pkg/object"
-	"github.com/patterninc/heimdall/internal/pkg/object/status"
+	"github.com/patterninc/heimdall/pkg/object/status"
 	"github.com/patterninc/heimdall/pkg/plugin"
 )
 

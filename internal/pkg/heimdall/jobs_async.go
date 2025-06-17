@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
-	"github.com/patterninc/heimdall/internal/pkg/object/job"
-	"github.com/patterninc/heimdall/internal/pkg/object/job/status"
+	"github.com/patterninc/heimdall/pkg/object/job"
+	"github.com/patterninc/heimdall/pkg/object/job/status"
 )
 
 const (

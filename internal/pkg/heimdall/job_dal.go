@@ -10,7 +10,7 @@ import (
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
 	"github.com/patterninc/heimdall/internal/pkg/object"
-	"github.com/patterninc/heimdall/internal/pkg/object/job"
+	"github.com/patterninc/heimdall/pkg/object/job"
 )
 
 //go:embed queries/job/insert.sql

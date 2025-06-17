@@ -14,11 +14,11 @@ import (
 	"github.com/patterninc/heimdall/internal/pkg/auth"
 	"github.com/patterninc/heimdall/internal/pkg/database"
 	"github.com/patterninc/heimdall/internal/pkg/janitor"
-	"github.com/patterninc/heimdall/internal/pkg/object/cluster"
-	"github.com/patterninc/heimdall/internal/pkg/object/command"
-	"github.com/patterninc/heimdall/internal/pkg/object/job"
 	"github.com/patterninc/heimdall/internal/pkg/pool"
 	"github.com/patterninc/heimdall/internal/pkg/server"
+	"github.com/patterninc/heimdall/pkg/object/cluster"
+	"github.com/patterninc/heimdall/pkg/object/command"
+	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
 )
 

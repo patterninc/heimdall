@@ -1,4 +1,4 @@
-package result
+package column
 
 import (
 	"encoding/json"
@@ -20,9 +20,9 @@ var (
 	})
 )
 
-type columnType string
+type Type string
 
-func (t *columnType) UnmarshalJSON(data []byte) error {
+func (t *Type) UnmarshalJSON(data []byte) error {
 
 	if strings.HasPrefix(string(data), `[`) {
 
@@ -34,7 +34,7 @@ func (t *columnType) UnmarshalJSON(data []byte) error {
 
 		for _, v := range temp {
 			if v != `null` {
-				*t = columnType(temp[0])
+				*t = Type(temp[0])
 				return nil
 			}
 		}
@@ -49,10 +49,14 @@ func (t *columnType) UnmarshalJSON(data []byte) error {
 			return err
 		}
 
-		*t = columnType(temp)
+		*t = Type(temp)
 
 	}
 
 	return nil
 
+}
+
+func (t Type) IsPrimitive() bool {
+	return primitiveTypes.Has(string(t))
 }

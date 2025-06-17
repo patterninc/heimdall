@@ -7,7 +7,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
-	"github.com/patterninc/heimdall/internal/pkg/object/command"
+	"github.com/patterninc/heimdall/pkg/object/command"
 )
 
 //go:embed queries/command/insert.sql
