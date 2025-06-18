@@ -179,12 +179,13 @@ const Cluster = (): React.JSX.Element => {
         formLabelProps: { label: 'Status' },
         options: statusData?.map((s: string) => ({
           status: s,
+          key: `status-${s}`,
         })),
         selectPlaceholder: '--Select Status--',
         labelKey: 'status',
-        selectedOptions: filter?.status?.map((s, index) => ({
+        selectedOptions: filter?.status?.map((s) => ({
           status: s,
-          id: index,
+          key: `selected-${s}`,
         })),
         stateName: 'status',
       },
