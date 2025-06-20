@@ -10,7 +10,7 @@ import (
 
 	sf "github.com/snowflakedb/gosnowflake"
 
-	"github.com/patterninc/heimdall/internal/pkg/context"
+	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"

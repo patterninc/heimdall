@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"path"
 
-	"github.com/patterninc/heimdall/internal/pkg/context"
+	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/patterninc/heimdall/internal/pkg/context"
 	"github.com/patterninc/heimdall/internal/pkg/object/command/snowflake"
+	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/plugin"
 )
 
