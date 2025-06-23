@@ -13,11 +13,11 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/patterninc/heimdall/internal/pkg/aws"
-	"github.com/patterninc/heimdall/internal/pkg/object/cluster"
-	"github.com/patterninc/heimdall/internal/pkg/object/command"
-	"github.com/patterninc/heimdall/internal/pkg/object/job"
-	jobStatus "github.com/patterninc/heimdall/internal/pkg/object/job/status"
-	"github.com/patterninc/heimdall/internal/pkg/object/status"
+	"github.com/patterninc/heimdall/pkg/object/cluster"
+	"github.com/patterninc/heimdall/pkg/object/command"
+	"github.com/patterninc/heimdall/pkg/object/job"
+	jobStatus "github.com/patterninc/heimdall/pkg/object/job/status"
+	"github.com/patterninc/heimdall/pkg/object/status"
 	"github.com/patterninc/heimdall/pkg/plugin"
 )
 

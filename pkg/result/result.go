@@ -15,6 +15,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/linkedin/goavro"
+
+	"github.com/patterninc/heimdall/pkg/result/column"
 )
 
 const (
@@ -29,18 +31,13 @@ var (
 	rxS3 = regexp.MustCompile(`^s3://([^/]+)/(.*)$`)
 )
 
-type column struct {
-	Name string     `yaml:"name,omitempty" json:"name,omitempty"`
-	Type columnType `yaml:"type,omitempty" json:"type,omitempty"`
-}
-
 type Result struct {
-	Columns []*column `yaml:"columns,omitempty" json:"columns,omitempty"`
-	Data    [][]any   `yaml:"data,omitempty" json:"data,omitempty"`
+	Columns []*column.Column `yaml:"columns,omitempty" json:"columns,omitempty"`
+	Data    [][]any          `yaml:"data,omitempty" json:"data,omitempty"`
 }
 
 type avroFields struct {
-	Fields []*column `yaml:"fields,omitempty" json:"fields,omitempty"`
+	Fields []*column.Column `yaml:"fields,omitempty" json:"fields,omitempty"`
 }
 
 func FromRows(rows *sql.Rows) (*Result, error) {
@@ -53,11 +50,11 @@ func FromRows(rows *sql.Rows) (*Result, error) {
 		return nil, err
 	}
 
-	columns := make([]*column, 0, len(columnsTypes))
+	columns := make([]*column.Column, 0, len(columnsTypes))
 	for _, c := range columnsTypes {
-		columns = append(columns, &column{
+		columns = append(columns, &column.Column{
 			Name: c.Name(),
-			Type: columnType(c.DatabaseTypeName()),
+			Type: column.Type(c.DatabaseTypeName()),
 		})
 	}
 
@@ -88,7 +85,7 @@ func FromRows(rows *sql.Rows) (*Result, error) {
 func FromMessage(message string) (*Result, error) {
 
 	return &Result{
-		Columns: []*column{{
+		Columns: []*column.Column{{
 			Name: messageColumn,
 			Type: messageColumnType,
 		}},
@@ -99,7 +96,7 @@ func FromMessage(message string) (*Result, error) {
 
 func FromJson(json map[string]any) (*Result, error) {
 	return &Result{
-		Columns: []*column{{
+		Columns: []*column.Column{{
 			Name: messageColumn,
 			Type: messageColumnType,
 		}},
@@ -168,7 +165,7 @@ func FromAvro(uri string) (*Result, error) {
 					return nil, fmt.Errorf("failed to parse record. unexpected type: %T", recordObject)
 				}
 				for _, c := range r.Columns {
-					if m, ok := record[c.Name].(map[string]any); ok && primitiveTypes.Has(string(c.Type)) {
+					if m, ok := record[c.Name].(map[string]any); ok && c.Type.IsPrimitive() {
 						if v, found := m[string(c.Type)]; found {
 							row = append(row, v)
 						} else {
@@ -195,9 +192,9 @@ func FromDynamo(items []map[string]types.AttributeValue) (*Result, error) {
 	}
 
 	// let's get our columns
-	columns := make([]*column, 0, len(items[0]))
+	columns := make([]*column.Column, 0, len(items[0]))
 	for name, value := range items[0] {
-		ct := columnType(``)
+		ct := column.Type(``)
 		switch vt := value.(type) {
 		case *types.AttributeValueMemberS:
 			ct = `string`
@@ -214,7 +211,7 @@ func FromDynamo(items []map[string]types.AttributeValue) (*Result, error) {
 		default:
 			return nil, fmt.Errorf("unsupported data type in column %s: %+v", name, vt)
 		}
-		columns = append(columns, &column{
+		columns = append(columns, &column.Column{
 			Name: name,
 			Type: ct,
 		})

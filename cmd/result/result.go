@@ -8,10 +8,11 @@ import (
 	"os"
 
 	"github.com/babourine/x/pkg/process"
-	"github.com/patterninc/heimdall/internal/pkg/result"
+	"github.com/patterninc/heimdall/pkg/result"
 )
 
 func main() {
+
 	// Define a flag to specify the input type
 	inputType := flag.String("type", "message", "Specify the input type: 'text' or 'json'")
 	flag.Parse()
@@ -44,4 +45,5 @@ func main() {
 	if err := os.WriteFile(`result.json`, data, 0600); err != nil {
 		process.Bail(`file`, err)
 	}
+
 }

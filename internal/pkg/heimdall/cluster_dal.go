@@ -7,7 +7,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
-	"github.com/patterninc/heimdall/internal/pkg/object/cluster"
+	"github.com/patterninc/heimdall/pkg/object/cluster"
 )
 
 //go:embed queries/cluster/insert.sql

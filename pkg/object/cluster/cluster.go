@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/patterninc/heimdall/internal/pkg/object"
-	"github.com/patterninc/heimdall/internal/pkg/object/status"
+	"github.com/patterninc/heimdall/pkg/object/status"
 )
 
 var (

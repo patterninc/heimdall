@@ -5,8 +5,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/patterninc/heimdall/internal/pkg/object"
-	"github.com/patterninc/heimdall/internal/pkg/object/job/status"
-	"github.com/patterninc/heimdall/internal/pkg/result"
+	"github.com/patterninc/heimdall/pkg/object/job/status"
+	"github.com/patterninc/heimdall/pkg/result"
 )
 
 type Job struct {

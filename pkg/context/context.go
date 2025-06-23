@@ -6,7 +6,7 @@ import (
 
 type Context map[string]any
 
-func New(v interface{}) *Context {
+func New(v any) *Context {
 
 	data, err := json.Marshal(v)
 	if err != nil {
@@ -23,7 +23,7 @@ func New(v interface{}) *Context {
 
 }
 
-func (c *Context) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (c *Context) UnmarshalYAML(unmarshal func(any) error) error {
 
 	value := make(map[string]any)
 
@@ -51,7 +51,7 @@ func (c *Context) UnmarshalJSON(data []byte) error {
 
 }
 
-func (c *Context) Unmarshal(v interface{}) error {
+func (c *Context) Unmarshal(v any) error {
 
 	// let's marshal our data first
 	data, err := json.Marshal(*c)

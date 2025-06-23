@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/patterninc/heimdall/internal/pkg/context"
 	"github.com/patterninc/heimdall/internal/pkg/object/command/spark"
+	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/plugin"
 )
 
