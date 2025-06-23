@@ -27,8 +27,9 @@ const NotFoundPage = () => {
           <span>
             Please check the URL or{' '}
             <Link href='/' className='fc-blue'>
-              return to the dashboard.
+              return to the dashboard
             </Link>
+            {'.'}
           </span>
         }
         thankYouMessage='Thank you for using Heimdall!'
