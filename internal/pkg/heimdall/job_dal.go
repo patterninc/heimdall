@@ -9,7 +9,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
-	"github.com/patterninc/heimdall/internal/pkg/object"
+	"github.com/patterninc/heimdall/pkg/object"
 	"github.com/patterninc/heimdall/pkg/object/job"
 )
 

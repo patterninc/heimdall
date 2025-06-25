@@ -4,7 +4,7 @@ import (
 	"github.com/babourine/x/pkg/set"
 	"github.com/google/uuid"
 
-	"github.com/patterninc/heimdall/internal/pkg/object"
+	"github.com/patterninc/heimdall/pkg/object"
 	"github.com/patterninc/heimdall/pkg/object/job/status"
 	"github.com/patterninc/heimdall/pkg/result"
 )
