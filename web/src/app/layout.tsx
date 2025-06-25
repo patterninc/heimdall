@@ -1,5 +1,4 @@
 import ClientLayout from '@/common/ClientLayout/ClientLayout'
-import { headers } from 'next/headers'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
 
 export const metadata = {
@@ -10,18 +9,16 @@ export const metadata = {
   },
 }
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const headerList = await headers()
-  const user = headerList.get('X-Heimdall-User')
   return (
     <html lang='en' suppressHydrationWarning>
       <body>
         <NuqsAdapter>
-          <ClientLayout user={user}>{children}</ClientLayout>
+          <ClientLayout>{children}</ClientLayout>
         </NuqsAdapter>
       </body>
     </html>

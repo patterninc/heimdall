@@ -33,19 +33,13 @@ const LeftNavContainer = dynamic(
   { ssr: false },
 )
 
-const ClientLayout = ({
-  children,
-  user,
-}: {
-  children: ReactNode
-  user: string | null
-}) => {
+const ClientLayout = ({ children }: { children: ReactNode }) => {
   return (
     <ReactQueryProvider>
       <div className='App'>
         <BreadcrumbProvidercontainer>
           <AutoRefreshProvidercontainer>
-            <LeftNavContainer user={user} />
+            <LeftNavContainer />
             <main className='app-content-layout'>
               <HeaderContent />
               <div className='App-content'>{children}</div>

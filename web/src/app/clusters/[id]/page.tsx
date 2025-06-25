@@ -1,11 +1,12 @@
 'use client'
 import dynamic from 'next/dynamic'
-import { useEffect, useState } from 'react'
+import { use } from 'react'
 
 const ClusterDetails = dynamic(
   () => import('../../../modules/Clusters/ClustersDetails/ClustersDetails'),
   {
     ssr: false,
+    loading: () => <div>Loading cluster details...</div>,
   },
 )
 
@@ -14,15 +15,10 @@ const ClusterDetailsLayout = ({
 }: {
   params: Promise<{ id: string }>
 }) => {
-  const [id, setId] = useState<string>('')
+  const resolvedParams = use(params)
+  const id = resolvedParams.id
 
-  useEffect(() => {
-    params.then((resolvedParams) => {
-      setId(resolvedParams.id)
-    })
-  }, [params])
-
-  if (!id) return null
+  if (!id) return <div>No cluster ID provided</div>
 
   return <ClusterDetails id={id} />
 }
