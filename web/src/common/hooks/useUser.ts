@@ -15,7 +15,12 @@ export function useUser() {
     }
 
     const userFromCookie = getCookie('heimdall-user')
-    setUser(userFromCookie)
+
+    // Decode the URL-encoded value
+    const decodedUser = userFromCookie
+      ? decodeURIComponent(userFromCookie)
+      : null
+    setUser(decodedUser)
   }, [])
 
   return user
