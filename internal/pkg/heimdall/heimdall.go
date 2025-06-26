@@ -33,6 +33,7 @@ const (
 	webUIProxyScheme        = `http`
 	webUIProxyHost          = `127.0.0.1:3000`
 	webUIUsernameHeader     = `X-Heimdall-User`
+	webUIVersionHeader      = `X-Heimdall-Version`
 	defaultUsername         = `user@heimdall`
 )
 
@@ -174,7 +175,9 @@ func (h *Heimdall) Start() error {
 			if u := getUsername(r); u != `` {
 				username = u
 			}
+
 			r.Header.Set(webUIUsernameHeader, username)
+			r.Header.Set(webUIVersionHeader, h.Version)
 
 			proxy.ServeHTTP(w, r)
 
