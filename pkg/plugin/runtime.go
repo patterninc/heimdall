@@ -73,6 +73,16 @@ func (r *Runtime) Close() {
 		if err := copyDir(r.WorkingDirectory, r.ArchiveDirectory); err != nil {
 			// FIXME: implement better error handling
 			fmt.Println(`archive:`, err)
+			return
+		}
+	}()
+
+	// ...and now we make the best effort to remove working directory
+	go func() {
+		if err := os.RemoveAll(r.WorkingDirectory); err != nil {
+			// FIXME: implement better error handling
+			fmt.Println(`cleanup:`, err)
+			return
 		}
 	}()
 
