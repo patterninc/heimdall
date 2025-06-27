@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server'
 export function middleware(request: NextRequest) {
   // Get the user from the incoming headers - handle case sensitivity
   let user = request.headers.get('X-Heimdall-User')
+  const version = request.headers.get('X-Heimdall-Version')
 
   // If not found with proper casing, try lowercase
   if (!user) {
@@ -23,6 +24,15 @@ export function middleware(request: NextRequest) {
   if (user) {
     response.cookies.set('heimdall-user', user, {
       httpOnly: false, // Make it readable by JavaScript
+      sameSite: 'strict',
+      path: '/',
+      secure: process.env.NODE_ENV === 'production',
+    })
+  }
+
+  if (version) {
+    response.cookies.set('heimdall-version', version, {
+      httpOnly: false,
       sameSite: 'strict',
       path: '/',
       secure: process.env.NODE_ENV === 'production',
