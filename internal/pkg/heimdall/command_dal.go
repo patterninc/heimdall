@@ -23,6 +23,9 @@ var queryCommandSelect string
 //go:embed queries/command/status_select.sql
 var queryCommandStatusSelect string
 
+//go:embed queries/command/status_update.sql
+var queryCommandStatusUpdate string
+
 //go:embed queries/command/tags_delete.sql
 var queryCommandTagsDelete string
 
@@ -204,6 +207,28 @@ func (h *Heimdall) getCommandStatus(c *commandRequest) (any, error) {
 	}
 
 	return r, nil
+
+}
+
+func (h *Heimdall) updateCommandStatus(c *commandRequest) (any, error) {
+
+	// open connection
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	rowsAffected, err := sess.Exec(queryCommandStatusUpdate, c.ID, c.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	if rowsAffected == 0 {
+		return nil, ErrUnknownCommandID
+	}
+
+	return h.getCommandStatus(c)
 
 }
 

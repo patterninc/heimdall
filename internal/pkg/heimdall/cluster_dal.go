@@ -190,12 +190,12 @@ func (h *Heimdall) updateClusterStatus(c *clusterRequest) (any, error) {
 	}
 	defer sess.Close()
 
-	RowsAffected, err := sess.Exec(queryClusterStatusUpdate, c.ID, c.Status)
+	rowsAffected, err := sess.Exec(queryClusterStatusUpdate, c.ID, c.Status)
 	if err != nil {
 		return nil, err
 	}
 
-	if RowsAffected == 0 {
+	if rowsAffected == 0 {
 		return nil, ErrUnknownClusterID
 	}
 
