@@ -1,17 +1,26 @@
 package heimdall
 
 import (
+	"database/sql"
 	_ "embed"
 	"encoding/json"
+	"fmt"
 
 	_ "github.com/lib/pq"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
+	"github.com/patterninc/heimdall/pkg/object"
 	"github.com/patterninc/heimdall/pkg/object/command"
 )
 
 //go:embed queries/command/insert.sql
 var queryCommandInsert string
+
+//go:embed queries/command/select.sql
+var queryCommandSelect string
+
+//go:embed queries/command/status_select.sql
+var queryCommandStatusSelect string
 
 //go:embed queries/command/tags_delete.sql
 var queryCommandTagsDelete string
@@ -66,6 +75,14 @@ var (
 	}
 )
 
+var (
+	ErrUnknownCommandID = fmt.Errorf(`unknown command_id`)
+)
+
+type commandRequest struct {
+	ID string `yaml:"id,omitempty" json:"id,omitempty"`
+}
+
 func (h *Heimdall) commandInsert(c *command.Command) error {
 
 	// open connection
@@ -116,6 +133,75 @@ func (h *Heimdall) commandInsert(c *command.Command) error {
 	}
 
 	return sess.Commit()
+
+}
+
+func (h *Heimdall) getCommand(c *commandRequest) (any, error) {
+
+	// open connection
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	row, err := sess.QueryRow(queryCommandSelect, c.ID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	r := &command.Command{
+		Object: object.Object{
+			ID: c.ID,
+		},
+	}
+
+	var commandContext string
+
+	if err := row.Scan(&r.SystemID, &r.Status, &r.Name, &r.Version, &r.Plugin, &r.Description, &commandContext,
+		&r.User, &r.IsSync, &r.CreatedAt, &r.UpdatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrUnknownCommandID
+		} else {
+			return nil, err
+		}
+	}
+
+	if err := commandParseContextAndTags(r, commandContext, sess); err != nil {
+		return nil, err
+	}
+
+	return r, nil
+
+}
+
+func (h *Heimdall) getCommandStatus(c *commandRequest) (any, error) {
+
+	// open connection
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	row, err := sess.QueryRow(queryCommandStatusSelect, c.ID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	r := &command.Command{}
+
+	if err := row.Scan(&r.Status, &r.UpdatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrUnknownCommandID
+		} else {
+			return nil, err
+		}
+	}
+
+	return r, nil
 
 }
 

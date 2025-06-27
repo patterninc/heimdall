@@ -1,17 +1,26 @@
 package heimdall
 
 import (
+	"database/sql"
 	_ "embed"
 	"encoding/json"
+	"fmt"
 
 	_ "github.com/lib/pq"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
+	"github.com/patterninc/heimdall/pkg/object"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 )
 
 //go:embed queries/cluster/insert.sql
 var queryClusterInsert string
+
+//go:embed queries/cluster/select.sql
+var queryClusterSelect string
+
+//go:embed queries/cluster/status_select.sql
+var queryClusterStatusSelect string
 
 //go:embed queries/cluster/tags_delete.sql
 var queryClusterTagsDelete string
@@ -54,6 +63,14 @@ var (
 	}
 )
 
+var (
+	ErrUnknownClusterID = fmt.Errorf(`unknown cluster_id`)
+)
+
+type clusterRequest struct {
+	ID string `yaml:"id,omitempty" json:"id,omitempty"`
+}
+
 func (h *Heimdall) clusterInsert(c *cluster.Cluster) error {
 
 	// open connection
@@ -87,6 +104,75 @@ func (h *Heimdall) clusterInsert(c *cluster.Cluster) error {
 	}
 
 	return sess.Commit()
+
+}
+
+func (h *Heimdall) getCluster(c *clusterRequest) (any, error) {
+
+	// open connection
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	row, err := sess.QueryRow(queryClusterSelect, c.ID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	r := &cluster.Cluster{
+		Object: object.Object{
+			ID: c.ID,
+		},
+	}
+
+	var clusterContext string
+
+	if err := row.Scan(&r.SystemID, &r.Status, &r.Name, &r.Version, &r.Description, &clusterContext,
+		&r.User, &r.CreatedAt, &r.UpdatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrUnknownCommandID
+		} else {
+			return nil, err
+		}
+	}
+
+	if err := clusterParseContextAndTags(r, clusterContext, sess); err != nil {
+		return nil, err
+	}
+
+	return r, nil
+
+}
+
+func (h *Heimdall) getClusterStatus(c *clusterRequest) (any, error) {
+
+	// open connection
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	row, err := sess.QueryRow(queryClusterStatusSelect, c.ID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	r := &cluster.Cluster{}
+
+	if err := row.Scan(&r.Status, &r.UpdatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrUnknownClusterID
+		} else {
+			return nil, err
+		}
+	}
+
+	return r, nil
 
 }
 
