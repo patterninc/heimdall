@@ -92,7 +92,7 @@ func (h *Heimdall) clusterInsert(c *cluster.Cluster) error {
 	}
 
 	// delete all tags for the upserted cluster
-	if err := sess.Exec(queryClusterTagsDelete, clusterID); err != nil {
+	if _, err := sess.Exec(queryClusterTagsDelete, clusterID); err != nil {
 		return err
 	}
 
@@ -103,7 +103,7 @@ func (h *Heimdall) clusterInsert(c *cluster.Cluster) error {
 	}
 
 	if len(tagItems) > 0 {
-		if err := sess.Exec(insertTagsQuery, tagItems...); err != nil {
+		if _, err := sess.Exec(insertTagsQuery, tagItems...); err != nil {
 			return err
 		}
 	}
@@ -190,8 +190,13 @@ func (h *Heimdall) updateClusterStatus(c *clusterRequest) (any, error) {
 	}
 	defer sess.Close()
 
-	if err := sess.Exec(queryClusterStatusUpdate, c.ID, c.Status); err != nil {
+	RowsAffected, err := sess.Exec(queryClusterStatusUpdate, c.ID, c.Status)
+	if err != nil {
 		return nil, err
+	}
+
+	if RowsAffected == 0 {
+		return nil, ErrUnknownClusterID
 	}
 
 	return h.getClusterStatus(c)

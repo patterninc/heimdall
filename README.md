@@ -170,6 +170,7 @@ It centralizes execution logic, logging, and auditing—all accessible via API o
 | `GET /api/v1/commands`            | List configured commands       |
 | `GET /api/v1/cluster/<id>`        | Get cluster details            |
 | `GET /api/v1/cluster/<id>/status` | Check cluster status           |
+| `PUT /api/v1/cluster/<id>/status` | Set cluster status             |
 | `GET /api/v1/clusters`            | List configured clusters       |
 
 ---

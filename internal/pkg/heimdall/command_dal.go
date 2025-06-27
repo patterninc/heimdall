@@ -101,7 +101,7 @@ func (h *Heimdall) commandInsert(c *command.Command) error {
 	}
 
 	// delete all tags for the upserted command
-	if err := sess.Exec(queryCommandTagsDelete, commandID); err != nil {
+	if _, err := sess.Exec(queryCommandTagsDelete, commandID); err != nil {
 		return err
 	}
 
@@ -112,13 +112,13 @@ func (h *Heimdall) commandInsert(c *command.Command) error {
 	}
 
 	if len(tagItems) > 0 {
-		if err := sess.Exec(insertTagsQuery, tagItems...); err != nil {
+		if _, err := sess.Exec(insertTagsQuery, tagItems...); err != nil {
 			return err
 		}
 	}
 
 	// delete all cluster tags for the upserted command
-	if err := sess.Exec(queryCommandClusterTagsDelete, commandID); err != nil {
+	if _, err := sess.Exec(queryCommandClusterTagsDelete, commandID); err != nil {
 		return err
 	}
 
@@ -129,7 +129,7 @@ func (h *Heimdall) commandInsert(c *command.Command) error {
 	}
 
 	if len(clusterTagItems) > 0 {
-		if err := sess.Exec(insertClusterTagsQuery, clusterTagItems...); err != nil {
+		if _, err := sess.Exec(insertClusterTagsQuery, clusterTagItems...); err != nil {
 			return err
 		}
 	}

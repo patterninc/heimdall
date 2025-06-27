@@ -73,7 +73,7 @@ func (h *Heimdall) getAsyncJobs(limit int) ([]*job.Job, error) {
 		}
 
 		if len(jobSystemIDs) > 0 {
-			if err := sess.Exec(updateJobSliceStatusQuery, jobSystemIDs...); err != nil {
+			if _, err := sess.Exec(updateJobSliceStatusQuery, jobSystemIDs...); err != nil {
 				return nil, err
 			}
 		}
@@ -97,7 +97,7 @@ func (h *Heimdall) runAsyncJob(j *job.Job) error {
 	}
 	defer sess.Close()
 
-	if err := sess.Exec(queryJobStatusUpdate, status.Running, ``, j.SystemID); err != nil {
+	if _, err := sess.Exec(queryJobStatusUpdate, status.Running, ``, j.SystemID); err != nil {
 		return h.updateAsyncJobStatus(j, err)
 	}
 
@@ -135,12 +135,12 @@ func (h *Heimdall) updateAsyncJobStatus(j *job.Job, jobError error) error {
 	}
 	defer sess.Close()
 
-	if err := sess.Exec(queryJobStatusUpdate, j.Status, j.Error, j.SystemID); err != nil {
+	if _, err := sess.Exec(queryJobStatusUpdate, j.Status, j.Error, j.SystemID); err != nil {
 		// TODO: implement proper logging
 		fmt.Println(`job status update error:`, err)
 	}
 
-	if err := sess.Exec(queryActiveJobDelete, j.SystemID); err != nil {
+	if _, err := sess.Exec(queryActiveJobDelete, j.SystemID); err != nil {
 		// TODO: implement proper logging
 		fmt.Println(`active job delete error:`, err)
 	}
