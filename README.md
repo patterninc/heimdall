@@ -18,7 +18,7 @@ Originally inspired by [Netflix Genie](https://github.com/Netflix/genie), Heimda
 * 🌍 **Web UI** for visual management
 * 🔐 **Secure orchestration without credential leakage**
 * 🧠 **Dynamic routing based on command / cluster criteria**
-* 📦 **Configurable or self-registering clusters (future)**
+* 📦 **Configurable or self-registering clusters**
 
 ---
 
