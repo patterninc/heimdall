@@ -29,6 +29,7 @@ const (
 	formatErrUnknownPlugin  = "unknown plugin: %s"
 	defaultAPIPrefix        = `/api/v1`
 	methodPOST              = `POST`
+	methodPUT               = `PUT`
 	methodGET               = `GET`
 	webUIProxyScheme        = `http`
 	webUIProxyHost          = `127.0.0.1:3000`
@@ -162,6 +163,7 @@ func (h *Heimdall) Start() error {
 	apiRouter.Methods(methodGET).PathPrefix(`/commands`).HandlerFunc(payloadHandler(h.getCommands))
 	apiRouter.Methods(methodGET).PathPrefix(`/cluster/statuses`).HandlerFunc(payloadHandler(h.getClusterStatuses))
 	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}/status`).HandlerFunc(payloadHandler(h.getClusterStatus))
+	apiRouter.Methods(methodPUT).PathPrefix(`/cluster/{id}/status`).HandlerFunc(payloadHandler(h.updateClusterStatus))
 	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.getCluster))
 	apiRouter.Methods(methodGET).PathPrefix(`/clusters`).HandlerFunc(payloadHandler(h.getClusters))
 

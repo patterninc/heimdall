@@ -40,6 +40,23 @@ func (s *Status) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 }
 
+func (s *Status) UnmarshalJSON(data []byte) error {
+
+	unmarshal := func(v interface{}) error {
+		return json.Unmarshal(data, v)
+	}
+
+	value, err := UnmarshalYaML(unmarshal, statusMapping)
+	if err != nil {
+		return err
+	}
+
+	*s = value
+
+	return nil
+
+}
+
 func (s *Status) MarshalJSON() ([]byte, error) {
 
 	for k, v := range statusMapping {

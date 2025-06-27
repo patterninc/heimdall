@@ -11,6 +11,7 @@ import (
 	"github.com/patterninc/heimdall/internal/pkg/database"
 	"github.com/patterninc/heimdall/pkg/object"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
+	"github.com/patterninc/heimdall/pkg/object/status"
 )
 
 //go:embed queries/cluster/insert.sql
@@ -21,6 +22,9 @@ var queryClusterSelect string
 
 //go:embed queries/cluster/status_select.sql
 var queryClusterStatusSelect string
+
+//go:embed queries/cluster/status_update.sql
+var queryClusterStatusUpdate string
 
 //go:embed queries/cluster/tags_delete.sql
 var queryClusterTagsDelete string
@@ -68,7 +72,8 @@ var (
 )
 
 type clusterRequest struct {
-	ID string `yaml:"id,omitempty" json:"id,omitempty"`
+	ID     string        `yaml:"id,omitempty" json:"id,omitempty"`
+	Status status.Status `yaml:"status,omitempty" json:"status,omitempty"`
 }
 
 func (h *Heimdall) clusterInsert(c *cluster.Cluster) error {
@@ -173,6 +178,23 @@ func (h *Heimdall) getClusterStatus(c *clusterRequest) (any, error) {
 	}
 
 	return r, nil
+
+}
+
+func (h *Heimdall) updateClusterStatus(c *clusterRequest) (any, error) {
+
+	// open connection
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	if err := sess.Exec(queryClusterStatusUpdate, c.ID, c.Status); err != nil {
+		return nil, err
+	}
+
+	return h.getClusterStatus(c)
 
 }
 

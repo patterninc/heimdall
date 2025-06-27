@@ -11,6 +11,7 @@ import (
 	"github.com/patterninc/heimdall/internal/pkg/database"
 	"github.com/patterninc/heimdall/pkg/object"
 	"github.com/patterninc/heimdall/pkg/object/command"
+	"github.com/patterninc/heimdall/pkg/object/status"
 )
 
 //go:embed queries/command/insert.sql
@@ -80,7 +81,8 @@ var (
 )
 
 type commandRequest struct {
-	ID string `yaml:"id,omitempty" json:"id,omitempty"`
+	ID     string        `yaml:"id,omitempty" json:"id,omitempty"`
+	Status status.Status `yaml:"status,omitempty" json:"status,omitempty"`
 }
 
 func (h *Heimdall) commandInsert(c *command.Command) error {
