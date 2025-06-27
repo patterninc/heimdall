@@ -14,8 +14,8 @@ import (
 	"github.com/patterninc/heimdall/pkg/object/status"
 )
 
-//go:embed queries/cluster/insert.sql
-var queryClusterInsert string
+//go:embed queries/cluster/upsert.sql
+var queryClusterUpsert string
 
 //go:embed queries/cluster/select.sql
 var queryClusterSelect string
@@ -76,7 +76,17 @@ type clusterRequest struct {
 	Status status.Status `yaml:"status,omitempty" json:"status,omitempty"`
 }
 
-func (h *Heimdall) clusterInsert(c *cluster.Cluster) error {
+func (h *Heimdall) submitCluster(c *cluster.Cluster) (any, error) {
+
+	if err := h.clusterUpsert(c); err != nil {
+		return nil, err
+	}
+
+	return h.getCluster(&clusterRequest{ID: c.ID})
+
+}
+
+func (h *Heimdall) clusterUpsert(c *cluster.Cluster) error {
 
 	// open connection
 	sess, err := h.Database.NewSession(true)
@@ -86,7 +96,7 @@ func (h *Heimdall) clusterInsert(c *cluster.Cluster) error {
 	defer sess.Close()
 
 	// upsert cluster row
-	clusterID, err := sess.InsertRow(queryClusterInsert, c.Status, c.ID, c.Name, c.Version, c.Description, c.Context.String(), c.User)
+	clusterID, err := sess.InsertRow(queryClusterUpsert, c.Status, c.ID, c.Name, c.Version, c.Description, c.Context.String(), c.User)
 	if err != nil {
 		return err
 	}

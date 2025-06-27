@@ -14,8 +14,8 @@ import (
 	"github.com/patterninc/heimdall/pkg/object/status"
 )
 
-//go:embed queries/command/insert.sql
-var queryCommandInsert string
+//go:embed queries/command/upsert.sql
+var queryCommandUpsert string
 
 //go:embed queries/command/select.sql
 var queryCommandSelect string
@@ -88,7 +88,7 @@ type commandRequest struct {
 	Status status.Status `yaml:"status,omitempty" json:"status,omitempty"`
 }
 
-func (h *Heimdall) commandInsert(c *command.Command) error {
+func (h *Heimdall) commandUpsert(c *command.Command) error {
 
 	// open connection
 	sess, err := h.Database.NewSession(true)
@@ -98,7 +98,7 @@ func (h *Heimdall) commandInsert(c *command.Command) error {
 	defer sess.Close()
 
 	// upsert command row
-	commandID, err := sess.InsertRow(queryCommandInsert, c.Status, c.ID, c.Name, c.Version, c.Plugin, c.Description, c.Context.String(), c.User, c.IsSync)
+	commandID, err := sess.InsertRow(queryCommandUpsert, c.Status, c.ID, c.Name, c.Version, c.Plugin, c.Description, c.Context.String(), c.User, c.IsSync)
 	if err != nil {
 		return err
 	}

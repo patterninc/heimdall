@@ -108,7 +108,7 @@ func (h *Heimdall) Init() error {
 		h.commandHandlers[c.ID] = handler
 
 		// let's record command in the database
-		if err := h.commandInsert(c); err != nil {
+		if err := h.commandUpsert(c); err != nil {
 			return err
 		}
 
@@ -123,7 +123,7 @@ func (h *Heimdall) Init() error {
 		}
 
 		// let's record command in the database
-		if err := h.clusterInsert(c); err != nil {
+		if err := h.clusterUpsert(c); err != nil {
 			return err
 		}
 
@@ -165,6 +165,7 @@ func (h *Heimdall) Start() error {
 	apiRouter.Methods(methodGET).PathPrefix(`/cluster/statuses`).HandlerFunc(payloadHandler(h.getClusterStatuses))
 	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}/status`).HandlerFunc(payloadHandler(h.getClusterStatus))
 	apiRouter.Methods(methodPUT).PathPrefix(`/cluster/{id}/status`).HandlerFunc(payloadHandler(h.updateClusterStatus))
+	apiRouter.Methods(methodPUT).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.submitCluster))
 	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.getCluster))
 	apiRouter.Methods(methodGET).PathPrefix(`/clusters`).HandlerFunc(payloadHandler(h.getClusters))
 
