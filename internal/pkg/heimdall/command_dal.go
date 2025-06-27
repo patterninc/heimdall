@@ -88,6 +88,16 @@ type commandRequest struct {
 	Status status.Status `yaml:"status,omitempty" json:"status,omitempty"`
 }
 
+func (h *Heimdall) submitCommand(c *command.Command) (any, error) {
+
+	if err := h.commandUpsert(c); err != nil {
+		return nil, err
+	}
+
+	return h.getCommand(&commandRequest{ID: c.ID})
+
+}
+
 func (h *Heimdall) commandUpsert(c *command.Command) error {
 
 	// open connection
