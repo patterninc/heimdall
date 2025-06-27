@@ -18,7 +18,7 @@ Originally inspired by [Netflix Genie](https://github.com/Netflix/genie), Heimda
 * 🌍 **Web UI** for visual management
 * 🔐 **Secure orchestration without credential leakage**
 * 🧠 **Dynamic routing based on command / cluster criteria**
-* 📦 **Configurable or self-registering clusters (future)**
+* 📦 **Configurable or self-registering clusters**
 
 ---
 
@@ -156,16 +156,26 @@ It centralizes execution logic, logging, and auditing—all accessible via API o
 
 ## 📦 API Overview
 
-| Endpoint                      | Description                    |
-| ----------------------------- | ------------------------------ |
-| `POST /api/v1/job`            | Submit a job                   |
-| `GET /api/v1/job/<id>`        | Get job details                |
-| `GET /api/v1/job/<id>/status` | Check job status               |
-| `GET /api/v1/job/<id>/stdout` | Get stdout for a completed job |
-| `GET /api/v1/job/<id>/stderr` | Get stderr for a completed job |
-| `GET /api/v1/job/<id>/result` | Get job's result               |
-| `GET /api/v1/commands`        | List configured commands       |
-| `GET /api/v1/clusters`        | List configured clusters       |
+| Endpoint                          | Description                    |
+| --------------------------------- | ------------------------------ |
+| `POST /api/v1/job`                | Submit a job                   |
+| `GET /api/v1/job/<id>`            | Get job details                |
+| `GET /api/v1/job/<id>/status`     | Check job status               |
+| `GET /api/v1/job/<id>/stdout`     | Get stdout for a completed job |
+| `GET /api/v1/job/<id>/stderr`     | Get stderr for a completed job |
+| `GET /api/v1/job/<id>/result`     | Get job's result               |
+| `GET /api/v1/jobs`                | Get list of jobs               |
+| `PUT /api/v1/command/<id>`        | Upsert command details         |
+| `GET /api/v1/command/<id>`        | Get command details            |
+| `GET /api/v1/command/<id>/status` | Check command status           |
+| `PUT /api/v1/command/<id>/status` | Set command status             |
+| `GET /api/v1/commands`            | List configured commands       |
+| `PUT /api/v1/cluster/<id>`        | Upsert cluster details         |
+| `GET /api/v1/cluster/<id>`        | Get cluster details            |
+| `GET /api/v1/cluster/<id>/status` | Check cluster status           |
+| `PUT /api/v1/cluster/<id>/status` | Set cluster status             |
+| `GET /api/v1/clusters`            | List configured clusters       |
+
 
 ---
 

@@ -29,6 +29,7 @@ const (
 	formatErrUnknownPlugin  = "unknown plugin: %s"
 	defaultAPIPrefix        = `/api/v1`
 	methodPOST              = `POST`
+	methodPUT               = `PUT`
 	methodGET               = `GET`
 	webUIProxyScheme        = `http`
 	webUIProxyHost          = `127.0.0.1:3000`
@@ -107,7 +108,7 @@ func (h *Heimdall) Init() error {
 		h.commandHandlers[c.ID] = handler
 
 		// let's record command in the database
-		if err := h.commandInsert(c); err != nil {
+		if err := h.commandUpsert(c); err != nil {
 			return err
 		}
 
@@ -122,7 +123,7 @@ func (h *Heimdall) Init() error {
 		}
 
 		// let's record command in the database
-		if err := h.clusterInsert(c); err != nil {
+		if err := h.clusterUpsert(c); err != nil {
 			return err
 		}
 
@@ -150,16 +151,29 @@ func (h *Heimdall) Start() error {
 	apiRouter := router.PathPrefix(defaultAPIPrefix).Subrouter()
 
 	// job(s) endpoints...
-	apiRouter.Methods(methodGET).PathPrefix(`/cluster/statuses`).HandlerFunc(payloadHandler(h.getClusterStatuses))
-	apiRouter.Methods(methodGET).PathPrefix(`/command/statuses`).HandlerFunc(payloadHandler(h.getCommandStatuses))
 	apiRouter.Methods(methodGET).PathPrefix(`/job/statuses`).HandlerFunc(payloadHandler(h.getJobStatuses))
 	apiRouter.Methods(methodGET).PathPrefix(`/job/{id}/status`).HandlerFunc(payloadHandler(h.getJobStatus))
 	apiRouter.Methods(methodGET).PathPrefix(`/job/{id}/{file}`).HandlerFunc(h.getJobFile)
 	apiRouter.Methods(methodGET).PathPrefix(`/job/{id}`).HandlerFunc(payloadHandler(h.getJob))
 	apiRouter.Methods(methodGET).PathPrefix(`/jobs`).HandlerFunc(payloadHandler(h.getJobs))
 	apiRouter.Methods(methodPOST).PathPrefix(`/job`).HandlerFunc(payloadHandler(h.submitJob))
+	apiRouter.Methods(methodGET).PathPrefix(`/command/statuses`).HandlerFunc(payloadHandler(h.getCommandStatuses))
+	apiRouter.Methods(methodGET).PathPrefix(`/command/{id}/status`).HandlerFunc(payloadHandler(h.getCommandStatus))
+	apiRouter.Methods(methodPUT).PathPrefix(`/command/{id}/status`).HandlerFunc(payloadHandler(h.updateCommandStatus))
+	apiRouter.Methods(methodPUT).PathPrefix(`/command/{id}`).HandlerFunc(payloadHandler(h.submitCommand))
+	apiRouter.Methods(methodGET).PathPrefix(`/command/{id}`).HandlerFunc(payloadHandler(h.getCommand))
 	apiRouter.Methods(methodGET).PathPrefix(`/commands`).HandlerFunc(payloadHandler(h.getCommands))
+	apiRouter.Methods(methodGET).PathPrefix(`/cluster/statuses`).HandlerFunc(payloadHandler(h.getClusterStatuses))
+	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}/status`).HandlerFunc(payloadHandler(h.getClusterStatus))
+	apiRouter.Methods(methodPUT).PathPrefix(`/cluster/{id}/status`).HandlerFunc(payloadHandler(h.updateClusterStatus))
+	apiRouter.Methods(methodPUT).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.submitCluster))
+	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.getCluster))
 	apiRouter.Methods(methodGET).PathPrefix(`/clusters`).HandlerFunc(payloadHandler(h.getClusters))
+
+	// catch all for APIs
+	apiRouter.PathPrefix(`/`).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeAPIError(w, fmt.Errorf("unknown endpoint: %s %s", r.Method, r.URL.Path), nil)
+	})
 
 	// pass everything else to nextjs Web UI
 	router.PathPrefix(`/`).Handler(http.StripPrefix(`/`, http.HandlerFunc(

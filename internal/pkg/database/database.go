@@ -109,24 +109,26 @@ func (s *Session) InsertRow(query string, args ...any) (int64, error) {
 
 }
 
-func (s *Session) Exec(query string, args ...any) error {
+func (s *Session) Exec(query string, args ...any) (int64, error) {
 
 	// are we within transaction?
 	if s.trx != nil {
 
 		if _, err := s.trx.ExecContext(ctx, query, args...); err != nil {
-			return err
+			return 0, err
 		}
 
 	} else {
 
-		if _, err := s.db.Exec(query, args...); err != nil {
-			return err
+		result, err := s.db.Exec(query, args...)
+		if err != nil {
+			return 0, err
 		}
+		return result.RowsAffected()
 
 	}
 
-	return nil
+	return 0, nil
 
 }
 
