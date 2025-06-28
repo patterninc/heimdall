@@ -1,9 +1,17 @@
 'use client'
 
 import React, { useContext, useEffect, useMemo } from 'react'
-import { APP_LOGOS, LeftNavLinkObj, LeftNav } from '@patterninc/react-ui'
+import {
+  APP_LOGOS,
+  LeftNavLinkObj,
+  LeftNav,
+  Icon,
+  Tooltip,
+} from '@patterninc/react-ui'
 import Link from 'next/link'
 import { BreadcrumbContext } from '@/common/BreadCrumbsProvider/context'
+import { getVersion } from '@/common/Services'
+import styles from './_left-nav.module.scss'
 
 type LeftNavBarProps = {
   user: string | null
@@ -61,6 +69,20 @@ const LeftNavBar = ({ user }: LeftNavBarProps) => {
       routerProp='href'
       leftNavLinks={translatedSideContent}
       breadcrumbs={breadcrumbs}
+      footer={({ sidebarExpanded }) => (
+        <>
+          <div className={styles.sidebarFooter}>
+            {sidebarExpanded ? (
+              <Tooltip tooltipContent={`Version: v${getVersion()}`}>
+                <Icon icon='info' />
+              </Tooltip>
+            ) : (
+              <Icon icon='info' />
+            )}
+          </div>
+          <LeftNav.Divider />
+        </>
+      )}
       accountPopoverProps={{
         name: user || 'X-Pattern-User',
         options: [],
