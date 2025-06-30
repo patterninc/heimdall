@@ -5,7 +5,7 @@ import (
 
 	"github.com/babourine/x/pkg/set"
 
-	"github.com/patterninc/heimdall/internal/pkg/context"
+	"github.com/patterninc/heimdall/pkg/context"
 )
 
 const (

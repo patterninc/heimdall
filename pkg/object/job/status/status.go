@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/patterninc/heimdall/internal/pkg/object/status"
+	"github.com/patterninc/heimdall/pkg/object/status"
 )
 
 type Status status.Status

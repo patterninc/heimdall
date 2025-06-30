@@ -9,8 +9,8 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
-	"github.com/patterninc/heimdall/internal/pkg/object"
-	"github.com/patterninc/heimdall/internal/pkg/object/job"
+	"github.com/patterninc/heimdall/pkg/object"
+	"github.com/patterninc/heimdall/pkg/object/job"
 )
 
 //go:embed queries/job/insert.sql
@@ -107,7 +107,7 @@ func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, er
 
 	// is this an async job?
 	if !j.IsSync {
-		if err := sess.Exec(queryActiveJobInsert, jobID); err != nil {
+		if _, err := sess.Exec(queryActiveJobInsert, jobID); err != nil {
 			return 0, err
 		}
 	}
@@ -119,7 +119,7 @@ func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, er
 	}
 
 	if len(tagItems) > 0 {
-		if err := sess.Exec(insertTagsQuery, tagItems...); err != nil {
+		if _, err := sess.Exec(insertTagsQuery, tagItems...); err != nil {
 			return 0, err
 		}
 	}
@@ -131,7 +131,7 @@ func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, er
 	}
 
 	if len(tagClusterItems) > 0 {
-		if err := sess.Exec(insertClusterTagsQuery, tagClusterItems...); err != nil {
+		if _, err := sess.Exec(insertClusterTagsQuery, tagClusterItems...); err != nil {
 			return 0, err
 		}
 	}
@@ -143,7 +143,7 @@ func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, er
 	}
 
 	if len(tagCommandItems) > 0 {
-		if err := sess.Exec(insertCommandTagsQuery, tagCommandItems...); err != nil {
+		if _, err := sess.Exec(insertCommandTagsQuery, tagCommandItems...); err != nil {
 			return 0, err
 		}
 	}

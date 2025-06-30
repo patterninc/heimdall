@@ -1,17 +1,30 @@
 package heimdall
 
 import (
+	"database/sql"
 	_ "embed"
 	"encoding/json"
+	"fmt"
 
 	_ "github.com/lib/pq"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
-	"github.com/patterninc/heimdall/internal/pkg/object/command"
+	"github.com/patterninc/heimdall/pkg/object"
+	"github.com/patterninc/heimdall/pkg/object/command"
+	"github.com/patterninc/heimdall/pkg/object/status"
 )
 
-//go:embed queries/command/insert.sql
-var queryCommandInsert string
+//go:embed queries/command/upsert.sql
+var queryCommandUpsert string
+
+//go:embed queries/command/select.sql
+var queryCommandSelect string
+
+//go:embed queries/command/status_select.sql
+var queryCommandStatusSelect string
+
+//go:embed queries/command/status_update.sql
+var queryCommandStatusUpdate string
 
 //go:embed queries/command/tags_delete.sql
 var queryCommandTagsDelete string
@@ -66,7 +79,26 @@ var (
 	}
 )
 
-func (h *Heimdall) commandInsert(c *command.Command) error {
+var (
+	ErrUnknownCommandID = fmt.Errorf(`unknown command_id`)
+)
+
+type commandRequest struct {
+	ID     string        `yaml:"id,omitempty" json:"id,omitempty"`
+	Status status.Status `yaml:"status,omitempty" json:"status,omitempty"`
+}
+
+func (h *Heimdall) submitCommand(c *command.Command) (any, error) {
+
+	if err := h.commandUpsert(c); err != nil {
+		return nil, err
+	}
+
+	return h.getCommand(&commandRequest{ID: c.ID})
+
+}
+
+func (h *Heimdall) commandUpsert(c *command.Command) error {
 
 	// open connection
 	sess, err := h.Database.NewSession(true)
@@ -76,13 +108,13 @@ func (h *Heimdall) commandInsert(c *command.Command) error {
 	defer sess.Close()
 
 	// upsert command row
-	commandID, err := sess.InsertRow(queryCommandInsert, c.Status, c.ID, c.Name, c.Version, c.Plugin, c.Description, c.Context.String(), c.User, c.IsSync)
+	commandID, err := sess.InsertRow(queryCommandUpsert, c.Status, c.ID, c.Name, c.Version, c.Plugin, c.Description, c.Context.String(), c.User, c.IsSync)
 	if err != nil {
 		return err
 	}
 
 	// delete all tags for the upserted command
-	if err := sess.Exec(queryCommandTagsDelete, commandID); err != nil {
+	if _, err := sess.Exec(queryCommandTagsDelete, commandID); err != nil {
 		return err
 	}
 
@@ -93,13 +125,13 @@ func (h *Heimdall) commandInsert(c *command.Command) error {
 	}
 
 	if len(tagItems) > 0 {
-		if err := sess.Exec(insertTagsQuery, tagItems...); err != nil {
+		if _, err := sess.Exec(insertTagsQuery, tagItems...); err != nil {
 			return err
 		}
 	}
 
 	// delete all cluster tags for the upserted command
-	if err := sess.Exec(queryCommandClusterTagsDelete, commandID); err != nil {
+	if _, err := sess.Exec(queryCommandClusterTagsDelete, commandID); err != nil {
 		return err
 	}
 
@@ -110,12 +142,103 @@ func (h *Heimdall) commandInsert(c *command.Command) error {
 	}
 
 	if len(clusterTagItems) > 0 {
-		if err := sess.Exec(insertClusterTagsQuery, clusterTagItems...); err != nil {
+		if _, err := sess.Exec(insertClusterTagsQuery, clusterTagItems...); err != nil {
 			return err
 		}
 	}
 
 	return sess.Commit()
+
+}
+
+func (h *Heimdall) getCommand(c *commandRequest) (any, error) {
+
+	// open connection
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	row, err := sess.QueryRow(queryCommandSelect, c.ID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	r := &command.Command{
+		Object: object.Object{
+			ID: c.ID,
+		},
+	}
+
+	var commandContext string
+
+	if err := row.Scan(&r.SystemID, &r.Status, &r.Name, &r.Version, &r.Plugin, &r.Description, &commandContext,
+		&r.User, &r.IsSync, &r.CreatedAt, &r.UpdatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrUnknownCommandID
+		} else {
+			return nil, err
+		}
+	}
+
+	if err := commandParseContextAndTags(r, commandContext, sess); err != nil {
+		return nil, err
+	}
+
+	return r, nil
+
+}
+
+func (h *Heimdall) getCommandStatus(c *commandRequest) (any, error) {
+
+	// open connection
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	row, err := sess.QueryRow(queryCommandStatusSelect, c.ID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	r := &command.Command{}
+
+	if err := row.Scan(&r.Status, &r.UpdatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrUnknownCommandID
+		} else {
+			return nil, err
+		}
+	}
+
+	return r, nil
+
+}
+
+func (h *Heimdall) updateCommandStatus(c *commandRequest) (any, error) {
+
+	// open connection
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	rowsAffected, err := sess.Exec(queryCommandStatusUpdate, c.ID, c.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	if rowsAffected == 0 {
+		return nil, ErrUnknownCommandID
+	}
+
+	return h.getCommandStatus(c)
 
 }
 

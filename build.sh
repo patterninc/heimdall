@@ -16,7 +16,7 @@ rm -rf ${OUTPUT_DIR} > /dev/null 2>&1
 mkdir -p ${OUTPUT_DIR}/web ${OUTPUT_DIR}/plugins
 
 # go environment
-(cd ${WORKING_DIR} && go version && go mod tidy)
+(cd ${WORKING_DIR} && go version)
 
 # run tests
 (cd ${WORKING_DIR} && go test ./internal/pkg/... && go test ./pkg/...)

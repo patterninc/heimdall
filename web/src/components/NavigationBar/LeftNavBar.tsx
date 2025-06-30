@@ -44,6 +44,7 @@ const LeftNavBar = ({ user }: LeftNavBarProps) => {
       return {
         ...menu,
         name: menu.name,
+        key: menu.link, // Add unique key based on link
       }
     })
   }, [sidebarContent])

@@ -1,13 +1,12 @@
 import dynamic from 'next/dynamic'
-import { headers } from 'next/headers'
+import { useUser } from '@/common/hooks/useUser'
 
 const LeftNavBar = dynamic(() => import('./LeftNavBar'), {
   ssr: false,
 })
 
 const LeftNavContainer = () => {
-  const header = headers()
-  const user = header.get('X-Heimdall-User')
+  const user = useUser()
   return <LeftNavBar user={user} />
 }
 

@@ -6,7 +6,7 @@ import (
 	"plugin"
 	"strings"
 
-	"github.com/patterninc/heimdall/internal/pkg/context"
+	"github.com/patterninc/heimdall/pkg/context"
 	hp "github.com/patterninc/heimdall/pkg/plugin"
 )
 
