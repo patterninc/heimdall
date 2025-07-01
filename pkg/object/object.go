@@ -40,7 +40,7 @@ func (o *Object) Init() error {
 
 	// adding system tags
 	if o.Tags == nil {
-		o.Tags = set.New[string]([]string{})
+		o.Tags = set.New([]string{})
 	}
 
 	o.Tags.Add(fmt.Sprintf(formatIDTag, o.ID))

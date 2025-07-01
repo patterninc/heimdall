@@ -7,9 +7,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.29.17
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.70
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.82
-	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.43.4
+	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.44.0
 	github.com/aws/aws-sdk-go-v2/service/emrcontainers v1.35.4
-	github.com/aws/aws-sdk-go-v2/service/glue v1.115.0
+	github.com/aws/aws-sdk-go-v2/service/glue v1.117.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.82.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.34.0
 	github.com/babourine/x v1.0.4
@@ -17,7 +17,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.10.9
 	github.com/linkedin/goavro v2.1.0+incompatible
-	github.com/snowflakedb/gosnowflake v1.14.1
+	github.com/snowflakedb/gosnowflake v1.15.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

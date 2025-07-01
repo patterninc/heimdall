@@ -11,7 +11,6 @@ import (
 	"github.com/patterninc/heimdall/internal/pkg/database"
 	"github.com/patterninc/heimdall/pkg/object"
 	"github.com/patterninc/heimdall/pkg/object/command"
-	"github.com/patterninc/heimdall/pkg/object/status"
 )
 
 //go:embed queries/command/upsert.sql
@@ -83,18 +82,13 @@ var (
 	ErrUnknownCommandID = fmt.Errorf(`unknown command_id`)
 )
 
-type commandRequest struct {
-	ID     string        `yaml:"id,omitempty" json:"id,omitempty"`
-	Status status.Status `yaml:"status,omitempty" json:"status,omitempty"`
-}
-
 func (h *Heimdall) submitCommand(c *command.Command) (any, error) {
 
 	if err := h.commandUpsert(c); err != nil {
 		return nil, err
 	}
 
-	return h.getCommand(&commandRequest{ID: c.ID})
+	return h.getCommand(&command.Command{Object: object.Object{ID: c.ID}})
 
 }
 
@@ -151,7 +145,7 @@ func (h *Heimdall) commandUpsert(c *command.Command) error {
 
 }
 
-func (h *Heimdall) getCommand(c *commandRequest) (any, error) {
+func (h *Heimdall) getCommand(c *command.Command) (any, error) {
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -191,7 +185,7 @@ func (h *Heimdall) getCommand(c *commandRequest) (any, error) {
 
 }
 
-func (h *Heimdall) getCommandStatus(c *commandRequest) (any, error) {
+func (h *Heimdall) getCommandStatus(c *command.Command) (any, error) {
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -220,7 +214,7 @@ func (h *Heimdall) getCommandStatus(c *commandRequest) (any, error) {
 
 }
 
-func (h *Heimdall) updateCommandStatus(c *commandRequest) (any, error) {
+func (h *Heimdall) updateCommandStatus(c *command.Command) (any, error) {
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -229,7 +223,7 @@ func (h *Heimdall) updateCommandStatus(c *commandRequest) (any, error) {
 	}
 	defer sess.Close()
 
-	rowsAffected, err := sess.Exec(queryCommandStatusUpdate, c.ID, c.Status)
+	rowsAffected, err := sess.Exec(queryCommandStatusUpdate, c.ID, c.Status, c.User)
 	if err != nil {
 		return nil, err
 	}
