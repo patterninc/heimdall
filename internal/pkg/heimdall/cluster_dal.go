@@ -11,7 +11,6 @@ import (
 	"github.com/patterninc/heimdall/internal/pkg/database"
 	"github.com/patterninc/heimdall/pkg/object"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
-	"github.com/patterninc/heimdall/pkg/object/status"
 )
 
 //go:embed queries/cluster/upsert.sql
@@ -71,18 +70,13 @@ var (
 	ErrUnknownClusterID = fmt.Errorf(`unknown cluster_id`)
 )
 
-type clusterRequest struct {
-	ID     string        `yaml:"id,omitempty" json:"id,omitempty"`
-	Status status.Status `yaml:"status,omitempty" json:"status,omitempty"`
-}
-
 func (h *Heimdall) submitCluster(c *cluster.Cluster) (any, error) {
 
 	if err := h.clusterUpsert(c); err != nil {
 		return nil, err
 	}
 
-	return h.getCluster(&clusterRequest{ID: c.ID})
+	return h.getCluster(&cluster.Cluster{Object: object.Object{ID: c.ID}})
 
 }
 
@@ -122,7 +116,7 @@ func (h *Heimdall) clusterUpsert(c *cluster.Cluster) error {
 
 }
 
-func (h *Heimdall) getCluster(c *clusterRequest) (any, error) {
+func (h *Heimdall) getCluster(c *cluster.Cluster) (any, error) {
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -162,7 +156,7 @@ func (h *Heimdall) getCluster(c *clusterRequest) (any, error) {
 
 }
 
-func (h *Heimdall) getClusterStatus(c *clusterRequest) (any, error) {
+func (h *Heimdall) getClusterStatus(c *cluster.Cluster) (any, error) {
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -191,7 +185,7 @@ func (h *Heimdall) getClusterStatus(c *clusterRequest) (any, error) {
 
 }
 
-func (h *Heimdall) updateClusterStatus(c *clusterRequest) (any, error) {
+func (h *Heimdall) updateClusterStatus(c *cluster.Cluster) (any, error) {
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -200,7 +194,7 @@ func (h *Heimdall) updateClusterStatus(c *clusterRequest) (any, error) {
 	}
 	defer sess.Close()
 
-	rowsAffected, err := sess.Exec(queryClusterStatusUpdate, c.ID, c.Status)
+	rowsAffected, err := sess.Exec(queryClusterStatusUpdate, c.ID, c.Status, c.User)
 	if err != nil {
 		return nil, err
 	}

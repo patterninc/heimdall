@@ -42,12 +42,12 @@ github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 h1:bIqFDwgGXXN1Kpp99pDOdKMTTb5d
 github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3/go.mod h1:H5O/EsxDWyU+LP/V8i5sm8cxoZgc2fdNR9bxlOFrQTo=
 github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.36 h1:GMYy2EOWfzdP3wfVAGXBNKY5vK4K8vMET4sYOYltmqs=
 github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.36/go.mod h1:gDhdAV6wL3PmPqBhiPbnlS447GoWs8HTTOYef9/9Inw=
-github.com/aws/aws-sdk-go-v2/service/dynamodb v1.43.4 h1:Rv6o9v2AfdEIKoAa7pQpJ5ch9ji2HevFUvGY6ufawlI=
-github.com/aws/aws-sdk-go-v2/service/dynamodb v1.43.4/go.mod h1:mWB0GE1bqcVSvpW7OtFA0sKuHk52+IqtnsYU2jUfYAs=
+github.com/aws/aws-sdk-go-v2/service/dynamodb v1.44.0 h1:A99gjqZDbdhjtjJVZrmVzVKO2+p3MSg35bDWtbMQVxw=
+github.com/aws/aws-sdk-go-v2/service/dynamodb v1.44.0/go.mod h1:mWB0GE1bqcVSvpW7OtFA0sKuHk52+IqtnsYU2jUfYAs=
 github.com/aws/aws-sdk-go-v2/service/emrcontainers v1.35.4 h1:4DSQddd2X8DtQ7XkfoxgTQm9Ziqg7OMqTqYexZJiQsE=
 github.com/aws/aws-sdk-go-v2/service/emrcontainers v1.35.4/go.mod h1:1wo3Ol0hdgtW5tnkHDSywVk1uGZgFz3GIczlHWigLSE=
-github.com/aws/aws-sdk-go-v2/service/glue v1.115.0 h1:DRJlsTy48ksZxgWitQbuZu0TXkwtFCZ9EFoKT6pIsRw=
-github.com/aws/aws-sdk-go-v2/service/glue v1.115.0/go.mod h1:AiOhaEmhCSVONWJ9Ul47qOzNNEBXG8saKz1K7vKbRg4=
+github.com/aws/aws-sdk-go-v2/service/glue v1.117.0 h1:Tl20k1TsdD8Ot+tfOgUt49EE9FyGla1e2LhuJe2Gkgk=
+github.com/aws/aws-sdk-go-v2/service/glue v1.117.0/go.mod h1:AiOhaEmhCSVONWJ9Ul47qOzNNEBXG8saKz1K7vKbRg4=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.4 h1:CXV68E2dNqhuynZJPB80bhPQwAKqBWVer887figW6Jc=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.4/go.mod h1:/xFi9KtvBXP97ppCz1TAEvU1Uf66qvid89rbem3wCzQ=
 github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.7.4 h1:nAP2GYbfh8dd2zGZqFRSMlq+/F6cMPBUuCsGAMkN074=
@@ -138,8 +138,8 @@ github.com/rogpeppe/go-internal v1.12.0 h1:exVL4IDcn6na9z1rAb56Vxr+CgyK3nn3O+epU
 github.com/rogpeppe/go-internal v1.12.0/go.mod h1:E+RYuTGaKKdloAfM02xzb0FW3Paa99yedzYV+kq4uf4=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
 github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
-github.com/snowflakedb/gosnowflake v1.14.1 h1:FnnlaSAm6Zyq3ujqa0JmeU1Ivj7Iz+A0C2YGV6nbRSw=
-github.com/snowflakedb/gosnowflake v1.14.1/go.mod h1:+3Eh8swS12G6Fbt/wb5Vcse2Id7VU9HGgKSH8ydiumU=
+github.com/snowflakedb/gosnowflake v1.15.0 h1:1V4dG1EmJ9O81Hv8y1LAE9koZebmx4tnRAPKWvDf8xA=
+github.com/snowflakedb/gosnowflake v1.15.0/go.mod h1:+3Eh8swS12G6Fbt/wb5Vcse2Id7VU9HGgKSH8ydiumU=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.5.2 h1:xuMeJ0Sdp5ZMRXx/aWO6RZxdr3beISkG5/G/aIRr3pY=
 github.com/stretchr/objx v0.5.2/go.mod h1:FRsXN1f5AsAjCGJKqEizvkpNtU+EGNCLh3NxZ/8L+MA=
