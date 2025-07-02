@@ -1,13 +1,7 @@
 'use client'
 
 import React, { useContext, useEffect, useMemo } from 'react'
-import {
-  APP_LOGOS,
-  LeftNavLinkObj,
-  LeftNav,
-  Icon,
-  Tooltip,
-} from '@patterninc/react-ui'
+import { APP_LOGOS, LeftNavLinkObj, LeftNav, Icon } from '@patterninc/react-ui'
 import Link from 'next/link'
 import { BreadcrumbContext } from '@/common/BreadCrumbsProvider/context'
 import { getVersion } from '@/common/Services'
@@ -57,6 +51,8 @@ const LeftNavBar = ({ user }: LeftNavBarProps) => {
     })
   }, [sidebarContent])
 
+  const version = getVersion()
+
   return (
     <LeftNav
       logo={{
@@ -69,20 +65,24 @@ const LeftNavBar = ({ user }: LeftNavBarProps) => {
       routerProp='href'
       leftNavLinks={translatedSideContent}
       breadcrumbs={breadcrumbs}
-      footer={({ sidebarExpanded }) => (
-        <>
-          <div className={styles.sidebarFooter}>
-            {sidebarExpanded ? (
-              <Tooltip tooltipContent={`Version: v${getVersion()}`}>
-                <Icon icon='info' />
-              </Tooltip>
-            ) : (
-              <Icon icon='info' />
-            )}
-          </div>
-          <LeftNav.Divider />
-        </>
-      )}
+      footer={({ sidebarExpanded }) =>
+        sidebarExpanded ? (
+          <>
+            <div className={styles.sidebarFooter}>
+              <>
+                &copy; {new Date().getFullYear()}, v{version}-pattern. Built
+                with &nbsp;
+                <Icon icon='heart' iconSize='12px' color='dark-purple' /> &nbsp;
+                at Pattern
+              </>
+            </div>
+            <LeftNav.Divider />
+          </>
+        ) : (
+          <></>
+        )
+      }
+      hideCopyright={true}
       accountPopoverProps={{
         name: user || 'X-Pattern-User',
         options: [],

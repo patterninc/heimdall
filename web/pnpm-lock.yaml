@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@patterninc/react-ui':
-        specifier: ^4.17.71
-        version: 4.17.71(@babel/core@7.27.4)(eslint@8.57.1)(moment@2.30.1)(prettier@3.5.3)(react-dom@19.1.0(react@19.1.0))(react-is@18.3.1)(react-router-dom@6.30.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(vite@6.3.5(@types/node@20.19.0)(jiti@1.21.7)(sass@1.89.1)(yaml@2.8.0))
+        specifier: ^4.17.118
+        version: 4.17.118(@babel/core@7.27.4)(eslint@8.57.1)(moment@2.30.1)(prettier@3.5.3)(react-dom@19.1.0(react@19.1.0))(react-is@18.3.1)(react-router-dom@6.30.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(vite@6.3.5(@types/node@20.19.0)(jiti@1.21.7)(sass@1.89.1)(yaml@2.8.0))
       '@tanstack/react-query':
         specifier: ^5.66.11
         version: 5.80.6(react@19.1.0)
@@ -797,8 +797,8 @@ packages:
     resolution: {integrity: sha512-dfUnCxiN9H4ap84DvD2ubjw+3vUNpstxa0TneY/Paat8a3R4uQZDLSvWjmznAY/DoahqTHl9V46HF/Zs3F29pg==}
     engines: {node: '>= 10.0.0'}
 
-  '@patterninc/react-ui@4.17.71':
-    resolution: {integrity: sha512-uh+geNZ9zq/jFs6nj56Fk4H0Xt+uO7abTu5HuVN/V/zh7F4EwalaNBEGabvYC/zbx2duw+3JaLFdVvCrrX9S1A==}
+  '@patterninc/react-ui@4.17.118':
+    resolution: {integrity: sha512-CHDL4mwb2P3pR3dIcxlr+k5BBC6IZj1aZ10YGM0Yvf1ifu9OLsMbw7BT9vINTqPVXuk1BHgcn7XOSeVpBDOETg==}
     peerDependencies:
       moment: ^2.22.2
       react-router-dom: ^6.22.3
@@ -4024,7 +4024,7 @@ snapshots:
       '@parcel/watcher-win32-x64': 2.5.1
     optional: true
 
-  '@patterninc/react-ui@4.17.71(@babel/core@7.27.4)(eslint@8.57.1)(moment@2.30.1)(prettier@3.5.3)(react-dom@19.1.0(react@19.1.0))(react-is@18.3.1)(react-router-dom@6.30.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(vite@6.3.5(@types/node@20.19.0)(jiti@1.21.7)(sass@1.89.1)(yaml@2.8.0))':
+  '@patterninc/react-ui@4.17.118(@babel/core@7.27.4)(eslint@8.57.1)(moment@2.30.1)(prettier@3.5.3)(react-dom@19.1.0(react@19.1.0))(react-is@18.3.1)(react-router-dom@6.30.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(vite@6.3.5(@types/node@20.19.0)(jiti@1.21.7)(sass@1.89.1)(yaml@2.8.0))':
     dependencies:
       '@babel/plugin-proposal-private-property-in-object': 7.21.11(@babel/core@7.27.4)
       '@floating-ui/react': 0.27.12(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
