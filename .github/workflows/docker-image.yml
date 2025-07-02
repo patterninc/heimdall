@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - main
-      - 'v*'
     tags:
-      - 'v*'
+      - "v*"
+      - "latest"
 
 jobs:
   docker-build:
@@ -35,14 +35,13 @@ jobs:
       - name: Determine Docker tag
         id: tagger
         run: |
-          REF="${GITHUB_REF#refs/heads/}" # Strip refs/heads/
-          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
-            echo "DOCKER_TAG=latest" >> $GITHUB_ENV
-          elif [[ "${REF}" == v* ]]; then
-            VERSION="${REF#v}"  # Strip the leading 'v'
-            echo "DOCKER_TAG=${VERSION}" >> $GITHUB_ENV
-          else
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+            echo "DOCKER_TAG=$VERSION" >> $GITHUB_ENV
+          elif [[ $GITHUB_REF == refs/heads/main ]]; then
             echo "DOCKER_TAG=dev" >> $GITHUB_ENV
+          elif [[ $GITHUB_REF == refs/tags/latest ]]; then
+            echo "DOCKER_TAG=latest" >> $GITHUB_ENV
           fi
 
       - name: Build and push Docker image

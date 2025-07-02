@@ -57,7 +57,7 @@ func (j *Janitor) cleanupStaleJobs() error {
 		return err
 	}
 
-	if err := sess.Exec(updateStaleJobs, jobSystemIDs...); err != nil {
+	if _, err := sess.Exec(updateStaleJobs, jobSystemIDs...); err != nil {
 		return err
 	}
 
@@ -67,7 +67,7 @@ func (j *Janitor) cleanupStaleJobs() error {
 		return err
 	}
 
-	if err := sess.Exec(deleteStaleJobs, jobSystemIDs...); err != nil {
+	if _, err := sess.Exec(deleteStaleJobs, jobSystemIDs...); err != nil {
 		return err
 	}
 

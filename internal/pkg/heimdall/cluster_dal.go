@@ -1,17 +1,29 @@
 package heimdall
 
 import (
+	"database/sql"
 	_ "embed"
 	"encoding/json"
+	"fmt"
 
 	_ "github.com/lib/pq"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
+	"github.com/patterninc/heimdall/pkg/object"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 )
 
-//go:embed queries/cluster/insert.sql
-var queryClusterInsert string
+//go:embed queries/cluster/upsert.sql
+var queryClusterUpsert string
+
+//go:embed queries/cluster/select.sql
+var queryClusterSelect string
+
+//go:embed queries/cluster/status_select.sql
+var queryClusterStatusSelect string
+
+//go:embed queries/cluster/status_update.sql
+var queryClusterStatusUpdate string
 
 //go:embed queries/cluster/tags_delete.sql
 var queryClusterTagsDelete string
@@ -54,7 +66,21 @@ var (
 	}
 )
 
-func (h *Heimdall) clusterInsert(c *cluster.Cluster) error {
+var (
+	ErrUnknownClusterID = fmt.Errorf(`unknown cluster_id`)
+)
+
+func (h *Heimdall) submitCluster(c *cluster.Cluster) (any, error) {
+
+	if err := h.clusterUpsert(c); err != nil {
+		return nil, err
+	}
+
+	return h.getCluster(&cluster.Cluster{Object: object.Object{ID: c.ID}})
+
+}
+
+func (h *Heimdall) clusterUpsert(c *cluster.Cluster) error {
 
 	// open connection
 	sess, err := h.Database.NewSession(true)
@@ -64,13 +90,13 @@ func (h *Heimdall) clusterInsert(c *cluster.Cluster) error {
 	defer sess.Close()
 
 	// upsert cluster row
-	clusterID, err := sess.InsertRow(queryClusterInsert, c.Status, c.ID, c.Name, c.Version, c.Description, c.Context.String(), c.User)
+	clusterID, err := sess.InsertRow(queryClusterUpsert, c.Status, c.ID, c.Name, c.Version, c.Description, c.Context.String(), c.User)
 	if err != nil {
 		return err
 	}
 
 	// delete all tags for the upserted cluster
-	if err := sess.Exec(queryClusterTagsDelete, clusterID); err != nil {
+	if _, err := sess.Exec(queryClusterTagsDelete, clusterID); err != nil {
 		return err
 	}
 
@@ -81,12 +107,103 @@ func (h *Heimdall) clusterInsert(c *cluster.Cluster) error {
 	}
 
 	if len(tagItems) > 0 {
-		if err := sess.Exec(insertTagsQuery, tagItems...); err != nil {
+		if _, err := sess.Exec(insertTagsQuery, tagItems...); err != nil {
 			return err
 		}
 	}
 
 	return sess.Commit()
+
+}
+
+func (h *Heimdall) getCluster(c *cluster.Cluster) (any, error) {
+
+	// open connection
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	row, err := sess.QueryRow(queryClusterSelect, c.ID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	r := &cluster.Cluster{
+		Object: object.Object{
+			ID: c.ID,
+		},
+	}
+
+	var clusterContext string
+
+	if err := row.Scan(&r.SystemID, &r.Status, &r.Name, &r.Version, &r.Description, &clusterContext,
+		&r.User, &r.CreatedAt, &r.UpdatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrUnknownCommandID
+		} else {
+			return nil, err
+		}
+	}
+
+	if err := clusterParseContextAndTags(r, clusterContext, sess); err != nil {
+		return nil, err
+	}
+
+	return r, nil
+
+}
+
+func (h *Heimdall) getClusterStatus(c *cluster.Cluster) (any, error) {
+
+	// open connection
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	row, err := sess.QueryRow(queryClusterStatusSelect, c.ID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	r := &cluster.Cluster{}
+
+	if err := row.Scan(&r.Status, &r.UpdatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrUnknownClusterID
+		} else {
+			return nil, err
+		}
+	}
+
+	return r, nil
+
+}
+
+func (h *Heimdall) updateClusterStatus(c *cluster.Cluster) (any, error) {
+
+	// open connection
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	rowsAffected, err := sess.Exec(queryClusterStatusUpdate, c.ID, c.Status, c.User)
+	if err != nil {
+		return nil, err
+	}
+
+	if rowsAffected == 0 {
+		return nil, ErrUnknownClusterID
+	}
+
+	return h.getClusterStatus(c)
 
 }
 
