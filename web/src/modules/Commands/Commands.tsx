@@ -276,6 +276,7 @@ const Commands = (): React.JSX.Element => {
           >[]
         }
         hasData={(data && data.length > 0) || false}
+        stickyTableConfig={{ right: 1 }}
         sort={setSortBy}
         sortBy={sortBy}
         noDataFields={{

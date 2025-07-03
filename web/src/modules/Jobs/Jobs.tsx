@@ -312,6 +312,7 @@ const Jobs = (): React.JSX.Element => {
       <StandardTable
         data={sortedData ?? []}
         config={useJobConfig({ sortBy })}
+        stickyTableConfig={{ right: 1 }}
         dataKey={'id'}
         hasData={jobs.length > 0}
         successStatus={isSuccess}
