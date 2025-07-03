@@ -8,36 +8,15 @@ import {
 } from '@patterninc/react-ui'
 import { CommandDetailsProps } from './CommandInformationPane'
 import styles from './_commandDetails.module.scss'
-import { useEffect, useMemo, useState } from 'react'
-import yaml from 'js-yaml'
-import SyntaxHighlighter from 'react-syntax-highlighter'
-import { github } from 'react-syntax-highlighter/dist/esm/styles/hljs'
+import React, { useMemo } from 'react'
 import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
 
 const CommandDetailsHeader = ({
   commandData,
   isLoading,
 }: CommandDetailsProps): React.JSX.Element => {
-  const [yamlContext, setYamlContext] = useState<string>()
-  const [tags, setTags] = useState<string>()
-  const [clusterTag, setClusterTag] = useState<string>()
-
   const data = useMemo(() => commandData[0], [commandData])
 
-  useEffect(() => {
-    if (data?.context) {
-      const yamlString = yaml?.dump(data.context?.properties)
-      setYamlContext(yamlString)
-    }
-    if (data?.tags) {
-      const tags = yaml?.dump(data.tags)
-      setTags(tags)
-    }
-
-    if (data?.cluster_tags) {
-      setClusterTag(yaml?.dump(data.cluster_tags))
-    }
-  }, [commandData, data?.cluster_tags, data?.context, data?.tags])
   return (
     <div className={`${styles.commandDetailsHeader}`}>
       <PageHeader
@@ -54,21 +33,31 @@ const CommandDetailsHeader = ({
               className={`${styles.bottomSectionContainer} bgc-white pat-border-t bdrc-medium-purple`}
             >
               <div className='flex flex-direction-column pat-gap-4 pat-p-4'>
-                {yamlContext ? (
+                {data?.context?.properties ? (
                   <div>
                     <SectionHeader title='Context' />
-                    <SyntaxHighlighter style={github}>
-                      {yamlContext}
-                    </SyntaxHighlighter>
+                    <ul>
+                      {Object.entries(data?.context?.properties || {}).map(
+                        ([key, value]) => (
+                          <li key={key}>
+                            {key}:{String(value)}
+                          </li>
+                        ),
+                      )}
+                    </ul>
                   </div>
                 ) : null}
-                {tags ? (
+                {data?.tags ? (
                   <div>
                     <SectionHeader title='Tags' />
-                    <SyntaxHighlighter style={github}>{tags}</SyntaxHighlighter>
+                    <ul>
+                      {data?.tags.map((value: string) => (
+                        <li key={value}>{value}</li>
+                      ))}
+                    </ul>
                   </div>
                 ) : null}
-                {clusterTag && data.cluster_tags ? (
+                {data?.cluster_tags ? (
                   <div>
                     <SectionHeader title='Cluster Tags' />
                     <ul>

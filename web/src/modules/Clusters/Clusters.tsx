@@ -248,6 +248,7 @@ const Cluster = (): React.JSX.Element => {
             Record<string, unknown>
           >[]
         }
+        stickyTableConfig={{ right: 1 }}
         hasData={(data && data.length > 0) || false}
         sort={setSortBy}
         sortBy={sortBy}
