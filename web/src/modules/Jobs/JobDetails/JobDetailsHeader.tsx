@@ -4,22 +4,12 @@ import { Alert, PageHeader, SectionHeader } from '@patterninc/react-ui'
 import styles from './_job-Details.module.scss'
 import { JobDataTypesProps } from '../Helper'
 import SyntaxHighlighter from 'react-syntax-highlighter'
-import { useEffect, useState } from 'react'
 import { github } from 'react-syntax-highlighter/dist/esm/styles/hljs'
 import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
 
 const JobDetailsHeader = ({
   jobData,
 }: JobDataTypesProps): React.JSX.Element => {
-  const [sql, setSql] = useState<string>()
-
-  useEffect(() => {
-    if (jobData?.context) {
-      const rawSql = jobData.context?.query
-      setSql(rawSql)
-    }
-  }, [jobData])
-
   return (
     <div className={styles.pageHeaderContainer}>
       <PageHeader
@@ -58,11 +48,11 @@ const JobDetailsHeader = ({
                 </div>
               ) : null}
               <div>
-                {sql ? (
+                {jobData?.context?.query ? (
                   <>
                     <SectionHeader title='SQL Query' />
                     <SyntaxHighlighter language='sql' style={github}>
-                      {sql}
+                      {jobData.context.query}
                     </SyntaxHighlighter>
                   </>
                 ) : null}
