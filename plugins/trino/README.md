@@ -51,7 +51,7 @@ Each Trino cluster must define a coordinator `endpoint`, and can optionally set 
       - region:us-west
 ```
 
-🔹 The `endpoint` points to the Trino coordinator. If a `catalog` is defined here, it becomes the default for all jobs targeting this cluster unless overridden in future plugin versions.
+🔹 The `endpoint` points to the Trino coordinator. If a `catalog` is defined here, it becomes the default for all jobs targeting this cluster unless overridden by job-specific configurations.
 
 ---
 
