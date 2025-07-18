@@ -7,6 +7,6 @@ import (
 )
 
 // New creates a new trino plugin handler
-func New(commandCtx *context.Context) (plugin.Handler, error) {
-	return trino.New(commandCtx)
+func New(commandContext *context.Context) (plugin.Handler, error) {
+	return trino.New(commandContext)
 }

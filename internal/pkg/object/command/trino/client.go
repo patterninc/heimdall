@@ -3,30 +3,27 @@ package trino
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"time"
 
+	"github.com/patterninc/heimdall/pkg/object/cluster"
+	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
+	"github.com/patterninc/heimdall/pkg/result"
+	"github.com/patterninc/heimdall/pkg/result/column"
 )
 
-const (
-	failedState string = "FAILED"
-
-	pollInterval = time.Second
-)
-
-type trinoClient struct {
-	endpoint string
-	user     string
-	token    *string
-
-	client *http.Client
-
-	stdout *os.File
+type request struct {
+	endpoint  string
+	headers   http.Header
+	userAgent string
+	client    *http.Client
+	stdout    *os.File
+	nextUri   string
+	result    *result.Result
+	state     string
 }
 
 type trinoColumn struct {
@@ -41,132 +38,142 @@ type stats struct {
 
 type response struct {
 	NextUri string         `json:"nextUri,omitempty"`
-	Columns []trinoColumn  `json:"columns,omitempty"`
+	Columns []*trinoColumn `json:"columns,omitempty"`
 	Data    [][]any        `json:"data,omitempty"`
-	Stats   stats          `json:"stats,omitempty"`
+	Stats   *stats         `json:"stats,omitempty"`
 	Error   map[string]any `json:"error"`
 }
 
-func newTrinoClient(endpoint, user string, token *string, r *plugin.Runtime) *trinoClient {
-	return &trinoClient{
-		endpoint: endpoint,
-		user:     user,
-		token:    token,
-		client:   http.DefaultClient,
-		stdout:   r.Stdout,
-	}
-}
+func newRequest(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (*request, error) {
 
-func (t *trinoClient) Query(query string) (*response, error) {
-	fmt.Fprintf(t.stdout, "Query: %s\n", query)
-	finalOutput := &response{
-		Columns: []trinoColumn{},
-		Data:    [][]any{},
-	}
-
-	resp, err := t.start(query)
-	if err != nil {
-		return nil, err
-	}
-
-	finalOutput.Columns = resp.Columns
-	finalOutput.Data = append(finalOutput.Data, resp.Data...)
-
-	for {
-		if resp.NextUri == "" {
-			break
-		}
-		resp, err = t.poll(resp.NextUri)
-		if err != nil {
+	// get cluster context
+	clusterCtx := &clusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterCtx); err != nil {
 			return nil, err
 		}
+	}
 
-		if resp.Stats.State == failedState {
-			errMessage, _ := json.Marshal(resp.Error)
-			return nil, errors.New(string(errMessage))
+	// get job context
+	jobCtx := &jobContext{}
+	if j.Context != nil {
+		if err := j.Context.Unmarshal(jobCtx); err != nil {
+			return nil, err
 		}
-
-		finalOutput.Columns = resp.Columns
-		finalOutput.Data = append(finalOutput.Data, resp.Data...)
-
-		time.Sleep(pollInterval)
 	}
 
-	return finalOutput, nil
-}
+	// form context for trino request
+	req := &request{
+		endpoint: clusterCtx.Endpoint,
+		headers: http.Header{
+			`Content-Type`:    []string{`application/json`},
+			`User-Agent`:      []string{r.UserAgent},
+			`X-Trino-User`:    []string{j.User},
+			`X-Trino-Source`:  []string{r.UserAgent},
+			`X-Trino-Catalog`: []string{clusterCtx.Catalog},
+		},
+		userAgent: r.UserAgent,
+		client:    &http.Client{},
+		stdout:    r.Stdout,
+		result:    &result.Result{},
+	}
 
-func (t *trinoClient) start(query string) (*response, error) {
-	t.stdout.WriteString("Starting trino query\n")
-	req, err := t.newStartRequest(query)
-	if err != nil {
+	// submit query
+	if err := req.submit(jobCtx.Query); err != nil {
 		return nil, err
 	}
 
-	resp, err := t.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return newResponse(resp)
-}
-
-func (t *trinoClient) poll(uri string) (*response, error) {
-	fmt.Fprintf(t.stdout, "Polling trino query: %s\n", uri)
-	req, err := t.newPollRequest(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := t.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return newResponse(resp)
-}
-
-func (t *trinoClient) newStartRequest(query string) (*http.Request, error) {
-	buffer := bytes.NewBuffer([]byte(query))
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/v1/statement", t.endpoint), buffer)
-	if err != nil {
-		return nil, err
-	}
-	addHeaders(req, t.user, t.token)
 	return req, nil
+
 }
 
-func (t *trinoClient) newPollRequest(nextUri string) (*http.Request, error) {
-	req, err := http.NewRequest(http.MethodGet, nextUri, nil)
+func (r *request) submit(query string) error {
+
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/v1/statement", r.endpoint), bytes.NewBuffer([]byte(query)))
 	if err != nil {
-		return nil, err
+		return err
 	}
-	addHeaders(req, t.user, t.token)
-	return req, nil
+
+	return r.api(req)
+
 }
 
-func addHeaders(req *http.Request, user string, token *string) {
-	header := http.Header{
-		"X-Presto-User": []string{user},
-		"X-Trino-User":  []string{user},
-	}
-	if token != nil {
-		header.Add("Authorization", *token)
-	}
+func (r *request) poll() error {
 
-	req.Header = header
-}
-
-func newResponse(resp *http.Response) (*response, error) {
-	body, err := io.ReadAll(resp.Body)
+	req, err := http.NewRequest(http.MethodGet, r.nextUri, nil)
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	return r.api(req)
+
+}
+
+func (r *request) api(req *http.Request) error {
+
+	// let's set headers
+	req.Header = r.headers
+
+	// make api call
+	resp, err := r.client.Do(req)
+	if err != nil {
+		return err
 	}
 	defer resp.Body.Close()
 
-	output := &response{}
-	if err := json.Unmarshal(body, output); err != nil {
-		return nil, err
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
 	}
 
-	return output, nil
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code [%d]: %s", resp.StatusCode, string(body))
+	}
+
+	output := &response{}
+	if err := json.Unmarshal(body, output); err != nil {
+		return fmt.Errorf("error [%s]: %s", err, string(body))
+	}
+
+	// do we have an error?
+	if output.Error != nil {
+		errorMessage := ``
+		if message, found := output.Error[`message`]; found {
+			errorMessage = message.(string)
+		} else {
+			errorJson, err := json.Marshal(output.Error)
+			if err != nil {
+				return fmt.Errorf("cannot marshal: %v", output.Error)
+			}
+			errorMessage = string(errorJson)
+		}
+		return fmt.Errorf("query failed: %v", errorMessage)
+	}
+
+	// did we get columns metadata?
+	if l := len(output.Columns); l > 0 && r.result.Columns == nil {
+		r.result.Columns = make([]*column.Column, l)
+		for i, c := range output.Columns {
+			r.result.Columns[i] = &column.Column{Name: c.Name, Type: column.Type(c.Type)}
+		}
+	}
+
+	// if we got any data, let's append it...
+	if l := len(output.Data); l > 0 {
+		if r.result.Data == nil {
+			r.result.Data = make([][]any, 0, l*2) // we reserve "two pages of data" to potentially acount for additional rows...
+		}
+		r.result.Data = append(r.result.Data, output.Data...)
+	}
+
+	// do we have next page?
+	r.nextUri = output.NextUri
+
+	// let's record the last state we saw...
+	if output.Stats != nil {
+		r.state = output.Stats.State
+	}
+
+	return nil
+
 }
