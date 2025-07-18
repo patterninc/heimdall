@@ -13,7 +13,7 @@ Originally inspired by [Netflix Genie](https://github.com/Netflix/genie), Heimda
 ## ✨ Key Features
 
 * 🔁 **Sync & Async Job Execution**
-* 🧩 **Plugin-Based Execution Framework**: Shell, Glue, Snowflake, Spark, DynamoDB, and Ping
+* 🧩 **Plugin-Based Execution Framework**: Shell, Glue, Snowflake, Spark, Trino, DynamoDB, and Ping
 * 📬 **REST API** for programmatic access
 * 🌍 **Web UI** for visual management
 * 🔐 **Secure orchestration without credential leakage**
@@ -96,6 +96,7 @@ Heimdall supports a growing set of pluggable command types:
 | `dynamo`    | [DynamoDB read operation](https://github.com/patterninc/heimdall/blob/main/plugins/dynamo/README.md)                | Sync or Async  |
 | `snowflake` | [Query execution in Snowflake](https://github.com/patterninc/heimdall/blob/main/plugins/snowflake/README.md)           | Async          |
 | `spark`     | [SparkSQL query execution on EMR on EKS](https://github.com/patterninc/heimdall/blob/main/plugins/spark/README.md) | Async          |
+| `trino`     | [Query execution in Trino](https://github.com/patterninc/heimdall/blob/main/plugins/trino/README.md) | Async          |
 
 ---
 
