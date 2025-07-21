@@ -38,6 +38,7 @@ type sparkCommandContext struct {
 // sparkJobContext represents the context for a spark job
 type sparkJobContext struct {
 	Query        string            `yaml:"query,omitempty" json:"query,omitempty"`
+	Arguments    []string          `yaml:"arguments,omitempty" json:"arguments,omitempty"`
 	Properties   map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 	ReturnResult bool              `yaml:"return_result,omitempty" json:"return_result,omitempty"`
 }
