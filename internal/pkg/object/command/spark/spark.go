@@ -174,17 +174,16 @@ func (s *sparkCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.
 	// let's set job driver
 	jobDriver := &types.JobDriver{}
 	jobParameters := getSparkSubmitParameters(jobContext)
-
-	if jobContext.ReturnResult || jobContext.Arguments != nil {
-
-		args := jobContext.Arguments
-		if args == nil {
-			args = []string{queryURI, resultURI}
-		}
-
+	if jobContext.Arguments != nil {
 		jobDriver.SparkSubmitJobDriver = &types.SparkSubmitJobDriver{
 			EntryPoint:            s.WrapperURI,
-			EntryPointArguments:   args,
+			EntryPointArguments:   jobContext.Arguments,
+			SparkSubmitParameters: jobParameters,
+		}
+	} else if jobContext.ReturnResult {
+		jobDriver.SparkSubmitJobDriver = &types.SparkSubmitJobDriver{
+			EntryPoint:            s.WrapperURI,
+			EntryPointArguments:   []string{queryURI, resultURI},
 			SparkSubmitParameters: jobParameters,
 		}
 
