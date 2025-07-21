@@ -173,28 +173,7 @@ func (s *sparkCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.
 
 	// let's set job driver
 	jobDriver := &types.JobDriver{}
-	jobParameters := getSparkSubmitParameters(jobContext)
-	if jobContext.Arguments != nil {
-		jobDriver.SparkSubmitJobDriver = &types.SparkSubmitJobDriver{
-			EntryPoint:            s.WrapperURI,
-			EntryPointArguments:   jobContext.Arguments,
-			SparkSubmitParameters: jobParameters,
-		}
-	} else if jobContext.ReturnResult {
-		jobDriver.SparkSubmitJobDriver = &types.SparkSubmitJobDriver{
-			EntryPoint:            s.WrapperURI,
-			EntryPointArguments:   []string{queryURI, resultURI},
-			SparkSubmitParameters: jobParameters,
-		}
-
-	} else {
-
-		jobDriver.SparkSqlJobDriver = &types.SparkSqlJobDriver{
-			EntryPoint:         &queryURI,
-			SparkSqlParameters: jobParameters,
-		}
-
-	}
+	setJobDriver(jobContext, jobDriver, s, queryURI, resultURI)
 
 	// let's prepare job payload
 	jobPayload := &emrcontainers.StartJobRunInput{
@@ -272,6 +251,32 @@ timeoutLoop:
 	}
 
 	return nil
+
+}
+
+func setJobDriver(jobContext *sparkJobContext, jobDriver *types.JobDriver, s *sparkCommandContext, queryURI string, resultURI string) {
+	jobParameters := getSparkSubmitParameters(jobContext)
+	if jobContext.Arguments != nil {
+		jobDriver.SparkSubmitJobDriver = &types.SparkSubmitJobDriver{
+			EntryPoint:            s.WrapperURI,
+			EntryPointArguments:   jobContext.Arguments,
+			SparkSubmitParameters: jobParameters,
+		}
+		return
+	}
+	if jobContext.ReturnResult {
+		jobDriver.SparkSubmitJobDriver = &types.SparkSubmitJobDriver{
+			EntryPoint:            s.WrapperURI,
+			EntryPointArguments:   []string{queryURI, resultURI},
+			SparkSubmitParameters: jobParameters,
+		}
+		return
+	}
+
+	jobDriver.SparkSqlJobDriver = &types.SparkSqlJobDriver{
+		EntryPoint:         &queryURI,
+		SparkSqlParameters: jobParameters,
+	}
 
 }
 
