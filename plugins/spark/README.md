@@ -26,6 +26,10 @@ A Spark command requires a SQL `query` in its job context and optionally job-spe
       queries_uri: s3://bucket/spark/queries
       results_uri: s3://bucket/spark/results
       logs_uri: s3://bucket/spark/logs
+      <!--
+        - For SQL Python usage, provide the path to the `.py` file (e.g., s3://bucket/contrib/spark/spark-sql-s3-wrapper.py).
+        - For Spark Applications(JAR) usage, set this to the path of the JAR file.
+      -->
       wrapper_uri: s3://bucket/contrib/spark/spark-sql-s3-wrapper.py
       properties:
         spark.executor.instances: "1"
@@ -76,7 +80,10 @@ A typical Spark job includes a SQL query and optional Spark properties:
   "command_criteria": ["type:sparksql"],
   "cluster_criteria": ["data_prod"],
   "context": {
+    // For SQL jobs, specify the "query" field. For Spark jobs that execute a custom JAR, use "arguments" and "entry_point".
     "query": "SELECT * FROM my_table WHERE dt='2023-01-01'",
+    "arguments": ["SELECT 1", "s3:///"],
+    "entry_point": "com.your.company.ClassName",
     "properties": {
       "spark.sql.shuffle.partitions": "10"
     },

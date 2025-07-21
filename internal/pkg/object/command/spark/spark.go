@@ -41,6 +41,7 @@ type sparkJobContext struct {
 	Arguments    []string          `yaml:"arguments,omitempty" json:"arguments,omitempty"`
 	Properties   map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 	ReturnResult bool              `yaml:"return_result,omitempty" json:"return_result,omitempty"`
+	EntryPoint   string            `yaml:"entry_point,omitempty" json:"entry_point,omitempty"`
 }
 
 // sparkClusterContext represents the context for a spark cluster
@@ -172,15 +173,18 @@ func (s *sparkCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.
 
 	// let's set job driver
 	jobDriver := &types.JobDriver{}
-	jobParameters := getSparkSqlParameters(jobContext.Properties)
-	if jobContext.ReturnResult {
+	jobParameters := getSparkSubmitParameters(jobContext)
+
+	if jobContext.ReturnResult || jobContext.Arguments != nil {
+
+		args := jobContext.Arguments
+		if args == nil {
+			args = []string{queryURI, resultURI}
+		}
 
 		jobDriver.SparkSubmitJobDriver = &types.SparkSubmitJobDriver{
-			EntryPoint: s.WrapperURI,
-			EntryPointArguments: []string{
-				queryURI,
-				resultURI,
-			},
+			EntryPoint:            s.WrapperURI,
+			EntryPointArguments:   args,
 			SparkSubmitParameters: jobParameters,
 		}
 
@@ -293,14 +297,16 @@ func getClusterID(svc *emrcontainers.Client, clusterName string) (*string, error
 
 }
 
-func getSparkSqlParameters(properties map[string]string) *string {
-
+func getSparkSubmitParameters(context *sparkJobContext) *string {
+	properties := context.Properties
 	conf := make([]string, 0, len(properties))
 
 	for k, v := range properties {
 		conf = append(conf, fmt.Sprintf("--conf %s=%s", k, v))
 	}
-
+	if context.EntryPoint != "" {
+		conf = append(conf, fmt.Sprintf("--class %s", context.EntryPoint))
+	}
 	return aws.String(strings.Join(conf, ` `))
 
 }
