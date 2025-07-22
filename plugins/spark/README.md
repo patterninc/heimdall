@@ -80,10 +80,10 @@ A typical Spark job includes a SQL query and optional Spark properties:
   "command_criteria": ["type:sparksql"],
   "cluster_criteria": ["data_prod"],
   "context": {
-    // For SQL jobs, specify the "query" field. For Spark jobs that execute a custom JAR, use "arguments" and submit_parameters."entry_point".
+    // For SQL jobs, specify the "query" field. For Spark jobs that execute a custom JAR, use "arguments" and parameters."entry_point".
     "query": "SELECT * FROM my_table WHERE dt='2023-01-01'",
     "arguments": ["SELECT 1", "s3:///"],
-    "submit_parameters": {
+    "parameters": {
       // All values in "properties" are passed as `--conf` Spark submit parameters. Defaults from the command or cluster properties are merged in.
       "properties": {
         "spark.executor.memory": "4g",
