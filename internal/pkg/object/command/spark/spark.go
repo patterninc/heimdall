@@ -173,7 +173,7 @@ func (s *sparkCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.
 
 	// let's set job driver
 	jobDriver := &types.JobDriver{}
-	setJobDriver(jobContext, jobDriver, s, queryURI, resultURI)
+	s.setJobDriver(jobContext, jobDriver, queryURI, resultURI)
 
 	// let's prepare job payload
 	jobPayload := &emrcontainers.StartJobRunInput{
@@ -254,7 +254,7 @@ timeoutLoop:
 
 }
 
-func setJobDriver(jobContext *sparkJobContext, jobDriver *types.JobDriver, s *sparkCommandContext, queryURI string, resultURI string) {
+func (s *sparkCommandContext) setJobDriver(jobContext *sparkJobContext, jobDriver *types.JobDriver, queryURI string, resultURI string) {
 	jobParameters := getSparkSubmitParameters(jobContext)
 	if jobContext.Arguments != nil {
 		jobDriver.SparkSubmitJobDriver = &types.SparkSubmitJobDriver{
