@@ -18,7 +18,7 @@ import {
   SortByProps,
 } from '@patterninc/react-ui'
 import { useQueryState } from 'nuqs'
-import { FilterStatesType } from '@patterninc/react-ui/dist/components/Filter/FilterMenu'
+import { FilterStatesType } from '@patterninc/react-ui'
 import {
   noDataAvailable,
   noDataAvailableDescription,
