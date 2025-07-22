@@ -26,6 +26,11 @@ import (
 	"github.com/patterninc/heimdall/pkg/result"
 )
 
+type sparkSubmitParameters struct {
+	Properties map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
+	EntryPoint string            `yaml:"entry_point,omitempty" json:"entry_point,omitempty"`
+}
+
 // spark represents the Spark command context
 type sparkCommandContext struct {
 	QueriesURI string            `yaml:"queries_uri,omitempty" json:"queries_uri,omitempty"`
@@ -37,9 +42,10 @@ type sparkCommandContext struct {
 
 // sparkJobContext represents the context for a spark job
 type sparkJobContext struct {
-	Query        string            `yaml:"query,omitempty" json:"query,omitempty"`
-	Properties   map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
-	ReturnResult bool              `yaml:"return_result,omitempty" json:"return_result,omitempty"`
+	Query        string                 `yaml:"query,omitempty" json:"query,omitempty"`
+	Arguments    []string               `yaml:"arguments,omitempty" json:"arguments,omitempty"`
+	Parameters   *sparkSubmitParameters `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	ReturnResult bool                   `yaml:"return_result,omitempty" json:"return_result,omitempty"`
 }
 
 // sparkClusterContext represents the context for a spark cluster
@@ -104,20 +110,24 @@ func (s *sparkCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.
 		}
 	}
 
+	if jobContext.Parameters == nil {
+		jobContext.Parameters = &sparkSubmitParameters{}
+	}
+
 	// let's prepare job properties
-	if jobContext.Properties == nil {
-		jobContext.Properties = make(map[string]string)
+	if jobContext.Parameters.Properties == nil {
+		jobContext.Parameters.Properties = make(map[string]string)
 	}
 	for k, v := range s.Properties {
-		if _, found := jobContext.Properties[k]; !found {
-			jobContext.Properties[k] = v
+		if _, found := jobContext.Parameters.Properties[k]; !found {
+			jobContext.Parameters.Properties[k] = v
 		}
 	}
 
 	// do we have driver memory setting in the job properties?
-	if value, found := jobContext.Properties[driverMemoryProperty]; found {
+	if value, found := jobContext.Parameters.Properties[driverMemoryProperty]; found {
 		clusterContext.Properties[driverMemoryProperty] = value
-		delete(jobContext.Properties, driverMemoryProperty)
+		delete(jobContext.Parameters.Properties, driverMemoryProperty)
 	}
 
 	// setting AWS client
@@ -171,26 +181,7 @@ func (s *sparkCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.
 
 	// let's set job driver
 	jobDriver := &types.JobDriver{}
-	jobParameters := getSparkSqlParameters(jobContext.Properties)
-	if jobContext.ReturnResult {
-
-		jobDriver.SparkSubmitJobDriver = &types.SparkSubmitJobDriver{
-			EntryPoint: s.WrapperURI,
-			EntryPointArguments: []string{
-				queryURI,
-				resultURI,
-			},
-			SparkSubmitParameters: jobParameters,
-		}
-
-	} else {
-
-		jobDriver.SparkSqlJobDriver = &types.SparkSqlJobDriver{
-			EntryPoint:         &queryURI,
-			SparkSqlParameters: jobParameters,
-		}
-
-	}
+	s.setJobDriver(jobContext, jobDriver, queryURI, resultURI)
 
 	// let's prepare job payload
 	jobPayload := &emrcontainers.StartJobRunInput{
@@ -271,6 +262,32 @@ timeoutLoop:
 
 }
 
+func (s *sparkCommandContext) setJobDriver(jobContext *sparkJobContext, jobDriver *types.JobDriver, queryURI string, resultURI string) {
+	jobParameters := getSparkSubmitParameters(jobContext)
+	if jobContext.Arguments != nil {
+		jobDriver.SparkSubmitJobDriver = &types.SparkSubmitJobDriver{
+			EntryPoint:            s.WrapperURI,
+			EntryPointArguments:   jobContext.Arguments,
+			SparkSubmitParameters: jobParameters,
+		}
+		return
+	}
+	if jobContext.ReturnResult {
+		jobDriver.SparkSubmitJobDriver = &types.SparkSubmitJobDriver{
+			EntryPoint:            s.WrapperURI,
+			EntryPointArguments:   []string{queryURI, resultURI},
+			SparkSubmitParameters: jobParameters,
+		}
+		return
+	}
+
+	jobDriver.SparkSqlJobDriver = &types.SparkSqlJobDriver{
+		EntryPoint:         &queryURI,
+		SparkSqlParameters: jobParameters,
+	}
+
+}
+
 func getClusterID(svc *emrcontainers.Client, clusterName string) (*string, error) {
 
 	// let's get the cluster ID
@@ -292,14 +309,16 @@ func getClusterID(svc *emrcontainers.Client, clusterName string) (*string, error
 
 }
 
-func getSparkSqlParameters(properties map[string]string) *string {
-
+func getSparkSubmitParameters(context *sparkJobContext) *string {
+	properties := context.Parameters.Properties
 	conf := make([]string, 0, len(properties))
 
 	for k, v := range properties {
 		conf = append(conf, fmt.Sprintf("--conf %s=%s", k, v))
 	}
-
+	if context.Parameters.EntryPoint != "" {
+		conf = append(conf, fmt.Sprintf("--class %s", context.Parameters.EntryPoint))
+	}
 	return aws.String(strings.Join(conf, ` `))
 
 }

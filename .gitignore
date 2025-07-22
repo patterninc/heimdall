@@ -27,5 +27,7 @@ go.work.sum
 # mac
 .DS_Store
 
+#idea
+.idea/
 # build dir
 dist/
