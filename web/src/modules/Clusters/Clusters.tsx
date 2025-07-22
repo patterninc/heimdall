@@ -22,7 +22,7 @@ import {
   sortData,
 } from '@/common/Services'
 import { useQueryState } from 'nuqs'
-import { FilterStatesType } from '@patterninc/react-ui/dist/components/Filter/FilterMenu'
+import { FilterStatesType } from '@patterninc/react-ui'
 import { AutoRefreshContext } from '@/common/AutoRefreshProvider/context'
 
 const Cluster = (): React.JSX.Element => {
