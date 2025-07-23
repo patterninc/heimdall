@@ -23,6 +23,8 @@ go.work.sum
 
 # env file
 .env
+# IDEs
+.idea/
 
 # mac
 .DS_Store

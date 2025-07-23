@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
@@ -61,6 +62,7 @@ func newRequest(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (*request, er
 			return nil, err
 		}
 	}
+	jobCtx.Query = normalizeTrinoQuery(jobCtx.Query)
 
 	// form context for trino request
 	req := &request{
@@ -176,4 +178,9 @@ func (r *request) api(req *http.Request) error {
 
 	return nil
 
+}
+
+func normalizeTrinoQuery(query string) string {
+	// Trino does not support semicolon at the end of the query, so we remove it if present
+	return strings.TrimSuffix(query, ";")
 }
