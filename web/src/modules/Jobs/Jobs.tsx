@@ -17,7 +17,7 @@ import { fetchJobs, getJobStatus } from '@/app/api/jobs/jobs'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { ApiParams, JobType, useJobConfig } from './Helper'
 import { useQueryState } from 'nuqs'
-import { FilterStatesType } from '@patterninc/react-ui/dist/components/Filter/FilterMenu'
+import { FilterStatesType } from '@patterninc/react-ui'
 import {
   noDataAvailable,
   noDataAvailableDescription,
