@@ -62,6 +62,12 @@ func newRequest(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (*request, er
 			return nil, err
 		}
 	}
+
+	catalog := clusterCtx.Catalog
+	if jobCtx.Catalog != "" {
+		catalog = jobCtx.Catalog
+	}
+
 	jobCtx.Query = normalizeTrinoQuery(jobCtx.Query)
 
 	// form context for trino request
@@ -72,7 +78,7 @@ func newRequest(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (*request, er
 			`User-Agent`:      []string{r.UserAgent},
 			`X-Trino-User`:    []string{j.User},
 			`X-Trino-Source`:  []string{r.UserAgent},
-			`X-Trino-Catalog`: []string{clusterCtx.Catalog},
+			`X-Trino-Catalog`: []string{catalog},
 		},
 		userAgent: r.UserAgent,
 		client:    &http.Client{},

@@ -25,7 +25,8 @@ type clusterContext struct {
 }
 
 type jobContext struct {
-	Query string `yaml:"query" json:"query"`
+	Query   string `yaml:"query" json:"query"`
+	Catalog string `yaml:"catalog,omitempty" json:"catalog,omitempty"`
 }
 
 // New creates a new trino plugin handler
