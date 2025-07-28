@@ -59,12 +59,12 @@ func (p *postgresCommandContext) handler(r *plugin.Runtime, j *job.Job, c *clust
 	db := &database.Database{ConnectionString: clusterContext.ConnectionString}
 
 	if jobContext.ReturnResult {
-		return handleSyncQuery(db, jobContext.Query, j)
+		return executeSyncQuery(db, jobContext.Query, j)
 	}
-	return p.handleAsyncQueries(db, jobContext.Query, j)
+	return p.executeAsyncQueries(db, jobContext.Query, j)
 }
 
-func handleSyncQuery(db *database.Database, query string, j *job.Job) error {
+func executeSyncQuery(db *database.Database, query string, j *job.Job) error {
 	// Allow a single query, even if it ends with a semicolon
 	queries := splitAndTrimQueries(query)
 	if len(queries) != 1 {
@@ -92,44 +92,30 @@ func handleSyncQuery(db *database.Database, query string, j *job.Job) error {
 	return nil
 }
 
-func (p *postgresCommandContext) handleAsyncQueries(db *database.Database, query string, j *job.Job) error {
-	queries := splitAndTrimQueries(query)
-	if len(queries) == 0 {
-		return fmt.Errorf("no valid queries found in job context")
-	}
-
-	// Track error for async jobs and set job result if any query fails
-	errChan := make(chan error, 1)
-	p.mu.Lock()
-	go func(db *database.Database, queries []string, errChan chan error) {
-		defer p.mu.Unlock()
-		sess, err := db.NewSession(true)
-		if err != nil {
-			errChan <- fmt.Errorf("Async PostgreSQL connection error: %v", err)
-			return
-		}
-		defer sess.Close()
-
-		for i, q := range queries {
-			_, err = sess.Exec(q)
-			if err != nil {
-				errChan <- fmt.Errorf("error at line %d: %s | query: %s", i+1, err.Error(), q)
-				return
-			}
-		}
-		errChan <- nil
-	}(db, queries, errChan)
-
-	err := <-errChan
+func (p *postgresCommandContext) executeAsyncQueries(db *database.Database, query string, j *job.Job) error {
+	sess, err := db.NewSession(false)
 	if err != nil {
 		j.Result = &result.Result{
 			Columns: []*column.Column{{
 				Name: "error",
 				Type: column.Type("string"),
 			}},
-			Data: [][]any{{err.Error()}},
+			Data: [][]any{{fmt.Sprintf("Async PostgreSQL connection error: %v", err)}},
 		}
-		return err
+		return fmt.Errorf("Async PostgreSQL connection error: %v", err)
+	}
+	defer sess.Close()
+
+	_, err = sess.Exec(query)
+	if err != nil {
+		j.Result = &result.Result{
+			Columns: []*column.Column{{
+				Name: "error",
+				Type: column.Type("string"),
+			}},
+			Data: [][]any{{fmt.Sprintf("Async PostgreSQL query execution error: %v", err)}},
+		}
+		return fmt.Errorf("Async PostgreSQL query execution error: %v", err)
 	}
 
 	j.Result = &result.Result{
