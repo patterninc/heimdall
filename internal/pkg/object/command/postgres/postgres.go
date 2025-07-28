@@ -36,24 +36,14 @@ func New(_ *pkgcontext.Context) (plugin.Handler, error) {
 
 // Handler for the PostgreSQL query execution.
 func (p *postgresCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
-	jobContext := &postgresJobContext{}
-	if j.Context != nil {
-		if err := j.Context.Unmarshal(jobContext); err != nil {
-			return fmt.Errorf("failed to unmarshal job context: %w", err)
-		}
-	}
-	if jobContext.Query == "" {
-		return fmt.Errorf("query is required in job context")
+	jobContext, err := validateJobContext(j)
+	if err != nil {
+		return err
 	}
 
-	clusterContext := &postgresClusterContext{}
-	if c.Context != nil {
-		if err := c.Context.Unmarshal(clusterContext); err != nil {
-			return fmt.Errorf("failed to unmarshal cluster context: %w", err)
-		}
-	}
-	if clusterContext.ConnectionString == "" {
-		return fmt.Errorf("connection_string is required in cluster context")
+	clusterContext, err := validateClusterContext(c)
+	if err != nil {
+		return err
 	}
 
 	db := &database.Database{ConnectionString: clusterContext.ConnectionString}
@@ -62,6 +52,32 @@ func (p *postgresCommandContext) handler(r *plugin.Runtime, j *job.Job, c *clust
 		return executeSyncQuery(db, jobContext.Query, j)
 	}
 	return p.executeAsyncQueries(db, jobContext.Query, j)
+}
+
+func validateJobContext(j *job.Job) (*postgresJobContext, error) {
+	jobContext := &postgresJobContext{}
+	if j.Context != nil {
+		if err := j.Context.Unmarshal(jobContext); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal job context: %w", err)
+		}
+	}
+	if jobContext.Query == "" {
+		return nil, fmt.Errorf("query is required in job context")
+	}
+	return jobContext, nil
+}
+
+func validateClusterContext(c *cluster.Cluster) (*postgresClusterContext, error) {
+	clusterContext := &postgresClusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterContext); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal cluster context: %w", err)
+		}
+	}
+	if clusterContext.ConnectionString == "" {
+		return nil, fmt.Errorf("connection_string is required in cluster context")
+	}
+	return clusterContext, nil
 }
 
 func executeSyncQuery(db *database.Database, query string, j *job.Job) error {
