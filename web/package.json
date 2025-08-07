@@ -16,7 +16,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@patterninc/react-ui": "^4.18.4",
+    "@patterninc/react-ui": "^5.0.0",
     "@tanstack/react-query": "^5.66.11",
     "@tanstack/react-query-devtools": "^5.66.11",
     "js-yaml": "^4.1.0",
@@ -28,10 +28,10 @@
     "react-dom": "19.1.0",
     "react-syntax-highlighter": "^15.6.1",
     "recharts": "^2.15.1",
-    "sass": "^1.85.1",
     "sql-formatter": "^15.5.1"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20",
     "@types/react": "19.1.6",
@@ -43,7 +43,7 @@
     "eslint-plugin-prettier": "^5.2.3",
     "postcss": "^8",
     "prettier": "^3.5.2",
-    "tailwindcss": "^3.4.1",
+    "tailwindcss": "^4.1.11",
     "typescript": "^5"
   },
   "overrides": {

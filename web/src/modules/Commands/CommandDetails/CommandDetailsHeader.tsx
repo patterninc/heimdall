@@ -7,7 +7,7 @@ import {
   SectionHeader,
 } from '@patterninc/react-ui'
 import { CommandDetailsProps } from './CommandInformationPane'
-import styles from './_commandDetails.module.scss'
+
 import React, { useMemo } from 'react'
 import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
 
@@ -18,7 +18,7 @@ const CommandDetailsHeader = ({
   const data = useMemo(() => commandData[0], [commandData])
 
   return (
-    <div className={`${styles.commandDetailsHeader}`}>
+    <div className='w-full'>
       <PageHeader
         rightSectionChildren={
           <ApiResponseButton
@@ -30,7 +30,7 @@ const CommandDetailsHeader = ({
             <ListLoading />
           ) : (
             <div
-              className={`${styles.bottomSectionContainer} bgc-white pat-border-t bdrc-medium-purple`}
+              className='rounded overflow-auto bgc-white pat-border-t bdrc-medium-purple'
             >
               <div className='flex flex-direction-column pat-gap-4 pat-p-4'>
                 {data?.context?.properties ? (

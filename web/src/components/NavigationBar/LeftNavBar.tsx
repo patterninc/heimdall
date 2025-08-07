@@ -5,7 +5,7 @@ import { APP_LOGOS, LeftNavLinkObj, LeftNav, Icon } from '@patterninc/react-ui'
 import Link from 'next/link'
 import { BreadcrumbContext } from '@/common/BreadCrumbsProvider/context'
 import { getVersion } from '@/common/Services'
-import styles from './_left-nav.module.scss'
+
 
 type LeftNavBarProps = {
   user: string | null
@@ -68,7 +68,7 @@ const LeftNavBar = ({ user }: LeftNavBarProps) => {
       footer={({ sidebarExpanded }) =>
         sidebarExpanded ? (
           <>
-            <div className={styles.sidebarFooter}>
+            <div className='flex items-center text-[10px] text-purple pl-4 h-5'>
               <>
                 &copy; {new Date().getFullYear()}, v{version}-pattern. Built
                 with &nbsp;

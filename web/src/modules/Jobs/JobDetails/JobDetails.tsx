@@ -3,7 +3,6 @@
 import { BreadcrumbContext } from '@/common/BreadCrumbsProvider/context'
 import { useContext, useEffect } from 'react'
 import JobInformationPane from './JobInformationPane'
-import styles from './_job-Details.module.scss'
 import { JobType } from '../Helper'
 
 import JobDetailsHeader from './JobDetailsHeader'
@@ -32,7 +31,7 @@ const JobDetails = ({ id }: JobDetailsProp): React.JSX.Element => {
   }, [updateBreadcrumbs, id, pathname])
 
   return (
-    <div className={styles.jobDetailsContainer}>
+    <div className='flex flex-col md:flex-row pat-gap-4 pat-pt-4'>
       <JobInformationPane jobData={jobData} isLoading={isLoading} />
       <JobDetailsHeader jobData={jobData} isLoading={isLoading} />
     </div>

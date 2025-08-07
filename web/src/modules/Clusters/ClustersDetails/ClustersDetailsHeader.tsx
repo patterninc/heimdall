@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { ClusterDataTypeProps } from './ClusterInformationPane'
 
-import styles from './_clustersDetails.module.scss'
 import { ListLoading, PageHeader, SectionHeader } from '@patterninc/react-ui'
 import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
 
@@ -12,7 +11,7 @@ const ClustersDetailsHeader = ({
   const data = useMemo(() => clusterData?.[0], [clusterData])
 
   return (
-    <div className={styles.clustersDetailsHeader}>
+    <div className='w-full'>
       <PageHeader
         rightSectionChildren={
           <ApiResponseButton
@@ -24,7 +23,7 @@ const ClustersDetailsHeader = ({
             <ListLoading />
           ) : (
             <div
-              className={`${styles.bottomSectionContainer} bgc-white pat-border-t bdrc-medium-purple`}
+              className='rounded overflow-auto bgc-white pat-border-t bdrc-medium-purple'
             >
               <div className='flex flex-direction-column pat-gap-4 pat-p-4'>
                 {data?.context?.properties ? (

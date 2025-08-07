@@ -2,7 +2,7 @@
 
 import { InformationPane, ListLoading } from '@patterninc/react-ui'
 import { CommandType } from '../Helper'
-import styles from './_commandDetails.module.scss'
+
 
 import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
 import { useMemo } from 'react'
@@ -49,7 +49,7 @@ const CommandInformationPane = ({
     },
   ]
   return (
-    <div className={styles.informationPaneContainer}>
+    <div className='min-w-[300px]'>
       <InformationPane
         header={{
           labelAndData: {

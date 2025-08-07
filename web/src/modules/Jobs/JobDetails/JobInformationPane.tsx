@@ -7,7 +7,6 @@ import {
 import { getStatusColor, JobDataTypesProps } from '../Helper'
 import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
 import { useRouter } from 'next/navigation'
-import styles from './_job-Details.module.scss'
 const JobInformationPane = ({
   jobData,
   isLoading,
@@ -56,7 +55,7 @@ const JobInformationPane = ({
     },
   ]
   return (
-    <div className={styles.informationPaneContainer}>
+    <div className='min-w-[300px]'>
       <InformationPane
         header={{
           labelAndData: {
