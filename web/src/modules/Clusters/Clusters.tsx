@@ -235,7 +235,7 @@ const Cluster = (): React.JSX.Element => {
   }, [setClusterId, setClusterName, setUser, setVersion, setStatus])
 
   return (
-    <div className='pat-pt-4'>
+    <div className='pt-4'>
       <StandardTable
         data={sortedData || []}
         dataKey={'id'}

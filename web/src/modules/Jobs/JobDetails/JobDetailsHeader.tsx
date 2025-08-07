@@ -17,9 +17,9 @@ const JobDetailsHeader = ({
         }
         bottomSectionChildren={
           <div
-            className='rounded overflow-auto bgc-white pat-border-t bdrc-medium-purple'
+            className='rounded overflow-auto bg-white border-t border-medium-purple'
           >
-            <div className='flex flex-direction-column pat-gap-4 pat-p-4'>
+            <div className='flex flex-col gap-4 p-4'>
               {jobData?.status === 'FAILED' ? (
                 <Alert type='error' text={jobData?.error} />
               ) : null}

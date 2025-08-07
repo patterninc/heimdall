@@ -91,7 +91,7 @@ const JobInformationPane = ({
                       styleType='text-blue'
                       as='externalLink'
                       href={`/api/v1/job/${jobData?.id}/stdout`}
-                      className='pat-gap-1'
+                      className='gap-1'
                     >
                       <span>View Stdout</span>
                       <Icon icon='launch' color='dark-blue' iconSize='12px' />
@@ -106,7 +106,7 @@ const JobInformationPane = ({
                       styleType='text-red'
                       as='externalLink'
                       href={`/api/v1/job/${jobData?.id}/stderr`}
-                      className='pat-gap-1'
+                      className='gap-1'
                     >
                       <span>View Stderr</span>
                       <Icon icon='launch' color='dark-red' iconSize='12px' />

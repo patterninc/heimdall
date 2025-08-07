@@ -308,7 +308,7 @@ const Jobs = (): React.JSX.Element => {
   )
 
   return (
-    <div className='pat-pt-4'>
+    <div className='pt-4'>
       <StandardTable
         data={sortedData ?? []}
         config={useJobConfig({ sortBy })}
