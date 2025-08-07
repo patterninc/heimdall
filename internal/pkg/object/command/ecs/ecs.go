@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -21,18 +22,18 @@ import (
 
 // ECS command context structure
 type ecsCommandContext struct {
-	TaskDefinitionTemplate string              `yaml:"task_definition_template,omitempty" json:"task_definition_template,omitempty"`
-	TaskCount              int                 `yaml:"task_count,omitempty" json:"task_count,omitempty"`
-	ContainerOverrides     []containerOverride `yaml:"container_overrides,omitempty" json:"container_overrides,omitempty"`
-	PollingInterval        int                 `yaml:"polling_interval,omitempty" json:"polling_interval,omitempty"` // in seconds
-	Timeout                int                 `yaml:"timeout,omitempty" json:"timeout,omitempty"`                   // in seconds
-	MaxFailCount           int                 `yaml:"max_fail_count,omitempty" json:"max_fail_count,omitempty"`     // max failures before giving up
+	TaskDefinitionTemplate string                    `yaml:"task_definition_template,omitempty" json:"task_definition_template,omitempty"`
+	TaskCount              int                       `yaml:"task_count,omitempty" json:"task_count,omitempty"`
+	ContainerOverrides     []types.ContainerOverride `yaml:"container_overrides,omitempty" json:"container_overrides,omitempty"`
+	PollingInterval        int                       `yaml:"polling_interval,omitempty" json:"polling_interval,omitempty"` // in seconds
+	Timeout                int                       `yaml:"timeout,omitempty" json:"timeout,omitempty"`                   // in seconds
+	MaxFailCount           int                       `yaml:"max_fail_count,omitempty" json:"max_fail_count,omitempty"`     // max failures before giving up
 }
 
 // ECS job context structure
 type ecsJobContext struct {
-	TaskCount          int                 `yaml:"task_count,omitempty" json:"task_count,omitempty"`
-	ContainerOverrides []containerOverride `yaml:"container_overrides,omitempty" json:"container_overrides,omitempty"`
+	TaskCount          int                       `yaml:"task_count,omitempty" json:"task_count,omitempty"`
+	ContainerOverrides []types.ContainerOverride `yaml:"container_overrides,omitempty" json:"container_overrides,omitempty"`
 }
 
 // ECS cluster context structure
@@ -53,35 +54,45 @@ type vpcConfig struct {
 	SecurityGroups []string `yaml:"security_groups,omitempty" json:"security_groups,omitempty"`
 }
 
-// Container override structure
-type containerOverride struct {
-	Name    string   `yaml:"name,omitempty" json:"name,omitempty"`
-	Command []string `yaml:"command,omitempty" json:"command,omitempty"`
+// Task definition wrapper with pre-computed essential containers map
+type taskDefinitionWrapper struct {
+	TaskDefinition      *types.TaskDefinition
+	EssentialContainers map[string]bool
 }
 
-// Task result structure
-type taskResult struct {
-	TaskARN       string  `json:"task_arn"`
-	ExitCode      int     `json:"exit_code"`
-	ExecutionTime float64 `json:"execution_time"` // in seconds
-	Status        string  `json:"status"`
-	Retries       int     `json:"retries"` // Added for retries
+// Task position tracker structure
+type taskTracker struct {
+	Name          string
+	ActiveARN     string
+	Retries       int
+	ExecutionTime float64
+	FailedARNs    []string // History of ARNs for this position
+	Completed     bool
 }
 
 const (
 	defaultPollingInterval = 30   // seconds
 	defaultTaskTimeout     = 3600 // seconds (1 hour)
 	defaultMaxFailCount    = 1
+	defaultTaskCount       = 1
+	startedByPrefix        = "heimdall-job-"
+	errMaxFailCount        = "task %s failed %d times (max: %d), giving up"
+	errPollingTimeout      = "polling timed out after after %v"
 )
 
 var (
-	ctx = ct.Background()
+	ctx                = ct.Background()
+	errMissingTemplate = fmt.Errorf("task definition template is required")
 )
 
-// New creates a new ECS plugin handler
 func New(commandContext *hc.Context) (plugin.Handler, error) {
 
-	e := &ecsCommandContext{}
+	e := &ecsCommandContext{
+		PollingInterval: defaultPollingInterval,
+		Timeout:         defaultTaskTimeout,
+		MaxFailCount:    defaultMaxFailCount,
+		TaskCount:       defaultTaskCount,
+	}
 
 	if commandContext != nil {
 		if err := commandContext.Unmarshal(e); err != nil {
@@ -100,31 +111,13 @@ func (e *ecsCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cl
 	jobContext := &ecsJobContext{}
 	if j.Context != nil {
 		if err := j.Context.Unmarshal(jobContext); err != nil {
-			return fmt.Errorf("failed to unmarshal job context: %w", err)
+			return err
 		}
 	}
 
-	// Fill in command defaults where job context values are not specified
-	if jobContext.TaskCount <= 0 {
-		jobContext.TaskCount = e.TaskCount
-	}
+	// fill in command defaults where job context values are not specified
 	if len(jobContext.ContainerOverrides) == 0 {
 		jobContext.ContainerOverrides = e.ContainerOverrides
-	}
-
-	// Set default task count if not specified
-	if jobContext.TaskCount <= 0 {
-		jobContext.TaskCount = 1
-	}
-
-	// Set default polling interval if not specified
-	if e.PollingInterval == 0 {
-		e.PollingInterval = defaultPollingInterval
-	}
-
-	// Set default timeout if not specified
-	if e.Timeout == 0 {
-		e.Timeout = defaultTaskTimeout
 	}
 
 	// unmarshal cluster context
@@ -135,138 +128,293 @@ func (e *ecsCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cl
 		}
 	}
 
-	// Validate task count
-	if jobContext.TaskCount > clusterContext.MaxTaskCount {
-		return fmt.Errorf("task count (%d) exceeds cluster max task count (%d)",
+	// validate task count
+	if jobContext.TaskCount > clusterContext.MaxTaskCount || jobContext.TaskCount <= 0 {
+		return fmt.Errorf("task count (%d) needs to be above 0 and less than or equal to the cluster max task count (%d)",
 			jobContext.TaskCount, clusterContext.MaxTaskCount)
 	}
 
-	// Initialize AWS session
+	// initialize AWS session
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to load AWS config: %w", err)
+		return err
 	}
 
 	ecsClient := ecs.NewFromConfig(cfg)
 
-	// Load task definition template
-	taskDef, err := loadTaskDefinitionTemplate(e.TaskDefinitionTemplate)
+	// load task definition template
+	taskDefWrapper, err := loadTaskDefinitionTemplate(e.TaskDefinitionTemplate)
 	if err != nil {
-		return fmt.Errorf("failed to load task definition template: %w", err)
-	}
-
-	// Apply overrides from command and cluster context
-	if err := applyOverrides(taskDef, jobContext); err != nil {
 		return err
 	}
 
-	// Register the task definition
+	// Build container overrides for all containers
+	if err := buildContainerOverrides(taskDefWrapper.TaskDefinition, jobContext); err != nil {
+		return err
+	}
+
+	// register the task definition
 	registerInput := &ecs.RegisterTaskDefinitionInput{
-		Family:                  aws.String(fmt.Sprintf("heimdall-task-%s", j.ID)),
+		Family:                  aws.String(aws.ToString(taskDefWrapper.TaskDefinition.Family)),
 		RequiresCompatibilities: []types.Compatibility{types.CompatibilityFargate},
 		NetworkMode:             types.NetworkModeAwsvpc,
 		Cpu:                     aws.String(fmt.Sprintf("%d", clusterContext.CPU)),
 		Memory:                  aws.String(fmt.Sprintf("%d", clusterContext.Memory)),
 		ExecutionRoleArn:        aws.String(clusterContext.ExecutionRoleARN),
 		TaskRoleArn:             aws.String(clusterContext.TaskRoleARN),
-		ContainerDefinitions:    taskDef.ContainerDefinitions,
+		ContainerDefinitions:    taskDefWrapper.TaskDefinition.ContainerDefinitions,
 	}
 
 	registerOutput, err := ecsClient.RegisterTaskDefinition(ctx, registerInput)
 	if err != nil {
-		return fmt.Errorf("failed to register task definition: %w", err)
+		return err
 	}
 
-	// Run tasks
-	_, err = runTasks(ecsClient, registerOutput.TaskDefinition, clusterContext, jobContext, j.ID)
-	if err != nil {
-		return fmt.Errorf("failed to run tasks: %w", err)
+	// Start tracking tasks
+	tasks := make(map[string]*taskTracker)
+	startTime := time.Now()
+
+	for i := 0; i < jobContext.TaskCount; i++ {
+		taskARN, err := runTask(ecsClient, registerOutput.TaskDefinition, clusterContext, jobContext.ContainerOverrides, fmt.Sprintf("%s%s-%d", startedByPrefix, j.ID, i))
+		if err != nil {
+			return err
+		}
+		taskName := fmt.Sprintf("%s%s-%d", startedByPrefix, j.ID, i)
+		tasks[taskName] = &taskTracker{
+			Name:      taskName,
+			ActiveARN: taskARN,
+		}
 	}
 
-	// Poll for task completion using startedBy tag
-	taskResults, err := pollTaskCompletion(ecsClient, clusterContext.ClusterName, j.ID, jobContext, e, taskDef, clusterContext, r)
-	if err != nil {
-		return fmt.Errorf("failed to poll task completion: %w", err)
+	// Poll until all tasks are complete or timeout
+	for time.Since(startTime) < time.Duration(e.Timeout)*time.Second {
+
+		// Describe the uncompleted tasks we're tracking
+		var activeARNs []string
+		for _, tracker := range tasks {
+			if !tracker.Completed {
+				activeARNs = append(activeARNs, tracker.ActiveARN)
+			}
+		}
+
+		describeInput := &ecs.DescribeTasksInput{
+			Cluster: aws.String(clusterContext.ClusterName),
+			Tasks:   activeARNs,
+		}
+
+		describeOutput, err := ecsClient.DescribeTasks(ctx, describeInput)
+		if err != nil {
+			return err
+		}
+
+		// Check if all tasks are complete
+		allComplete := true
+
+		for _, task := range describeOutput.Tasks {
+
+			// If the task is not stopped, it's not complete
+			if aws.ToString(task.LastStatus) != "STOPPED" {
+				allComplete = false
+				continue
+			}
+
+			// If task has stopped, grab its tracker to start updating
+			tracker, exists := tasks[aws.ToString(task.StartedBy)]
+			if !exists {
+				return fmt.Errorf("could not find tracker for StartedBy tag %s", aws.ToString(task.StartedBy))
+			}
+
+			// Check for task failures based on exit code
+			if !isTaskSuccessful(task, taskDefWrapper) {
+
+				tracker.Retries++
+				tracker.FailedARNs = append(tracker.FailedARNs, aws.ToString(task.TaskArn))
+
+				// Exit if we've failed too many times
+				if tracker.Retries >= e.MaxFailCount {
+					// Stop all other running tasks
+					if err := stopAllTasks(ecsClient, clusterContext.ClusterName, tasks); err != nil {
+						return err
+					}
+
+					return fmt.Errorf(errMaxFailCount, tracker.Name, tracker.Retries+1, e.MaxFailCount)
+				}
+
+				newTaskARN, err := runTask(ecsClient, registerOutput.TaskDefinition, clusterContext, jobContext.ContainerOverrides, tracker.Name)
+				if err != nil {
+					return err
+				}
+
+				// Assign the new task ARN to the tracker
+				tracker.ActiveARN = newTaskARN
+
+				// Task failed but will be restarted, so mark as not complete
+				allComplete = false
+				continue
+			}
+
+			// Update the tracker directly
+			tracker.ExecutionTime = time.Since(startTime).Seconds() // Total time from start
+			tracker.Completed = true
+		}
+
+		// If all tasks are complete, break out of the loop
+		if allComplete {
+			break
+		}
+
+		// Wait before next poll
+		time.Sleep(time.Duration(e.PollingInterval) * time.Second)
+
 	}
+
+	// If you're here you've either timed out or all tasks are complete
+	// Create result data from task results
 
 	j.Result = &result.Result{}
-
-	// Set columns
 	j.Result.Columns = []*column.Column{
 		{Name: "task_arn", Type: "string"},
 		{Name: "duration", Type: "float"},
 		{Name: "retries", Type: "int"},
-		{Name: "exit_code", Type: "int"},
-		{Name: "status", Type: "string"},
+		{Name: "failed_arns", Type: "string"},
 	}
 
-	// Create result data from task results
-	j.Result.Data = make([][]interface{}, 0, len(taskResults))
-	for _, taskResult := range taskResults {
+	j.Result.Data = make([][]interface{}, 0, len(tasks))
+	for _, tracker := range tasks {
 		j.Result.Data = append(j.Result.Data, []interface{}{
-			taskResult.TaskARN,
-			taskResult.ExecutionTime,
-			taskResult.Retries,
-			taskResult.ExitCode,
-			taskResult.Status,
+			tracker.ActiveARN,
+			tracker.ExecutionTime,
+			tracker.Retries,
+			strings.Join(tracker.FailedARNs, ","),
 		})
+	}
+
+	// Return error if we timed out
+	if time.Since(startTime) >= time.Duration(e.Timeout)*time.Second {
+		if err := stopAllTasks(ecsClient, clusterContext.ClusterName, tasks); err != nil {
+			return err
+		}
+
+		return fmt.Errorf(errPollingTimeout, time.Duration(e.Timeout)*time.Second)
 	}
 
 	return nil
 
 }
 
-func loadTaskDefinitionTemplate(templatePath string) (*types.TaskDefinition, error) {
-	if templatePath == "" {
-		// Return a basic template if none provided
-		return &types.TaskDefinition{
-			ContainerDefinitions: []types.ContainerDefinition{
-				{
-					Name:  aws.String("main"),
-					Image: aws.String("alpine:latest"),
-				},
-			},
-		}, nil
+func buildContainerOverrides(taskDef *types.TaskDefinition, jobContext *ecsJobContext) error {
+
+	// Create a map of container names
+	existingContainers := make(map[string]bool)
+	for _, container := range taskDef.ContainerDefinitions {
+		existingContainers[aws.ToString(container.Name)] = true
 	}
 
-	data, err := os.ReadFile(templatePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read template file: %w", err)
+	// Create a map of jobContext overrides
+	containerOverridesMap := make(map[string]types.ContainerOverride)
+	for _, containerOverride := range jobContext.ContainerOverrides {
+		// Validate that the container name exists in the task definition template
+		if !existingContainers[aws.ToString(containerOverride.Name)] {
+			return fmt.Errorf("container override '%s' not found in task definition template", aws.ToString(containerOverride.Name))
+		}
+		containerOverridesMap[aws.ToString(containerOverride.Name)] = containerOverride
 	}
 
-	var taskDef types.TaskDefinition
-	if err := json.Unmarshal(data, &taskDef); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal task definition: %w", err)
+	// Build container overrides for all containers in the task definition
+	var containerOverrides []types.ContainerOverride
+	for _, container := range taskDef.ContainerDefinitions {
+		containerName := aws.ToString(container.Name)
+
+		// Use existing override if it exists, otherwise create a blank one
+		if override, exists := containerOverridesMap[containerName]; exists {
+			containerOverrides = append(containerOverrides, override)
+		} else {
+			containerOverrides = append(containerOverrides, types.ContainerOverride{
+				Name: aws.String(containerName),
+			})
+		}
 	}
 
-	return &taskDef, nil
+	jobContext.ContainerOverrides = containerOverrides
+
+	return nil
+
 }
 
-func applyOverrides(taskDef *types.TaskDefinition, jobContext *ecsJobContext) error {
-	// Apply container overrides
-	if len(jobContext.ContainerOverrides) > 0 {
-		for _, override := range jobContext.ContainerOverrides {
-			for i, container := range taskDef.ContainerDefinitions {
-				if aws.ToString(container.Name) == override.Name {
-					if len(override.Command) > 0 {
-						taskDef.ContainerDefinitions[i].Command = override.Command
-					}
-					break
-				}
+// stopAllTasks stops all non-completed tasks
+func stopAllTasks(ecsClient *ecs.Client, clusterName string, tasks map[string]*taskTracker) error {
+
+	for _, t := range tasks {
+		if !t.Completed {
+			stopInput := &ecs.StopTaskInput{
+				Cluster: aws.String(clusterName),
+				Task:    aws.String(t.ActiveARN),
+			}
+
+			_, err := ecsClient.StopTask(ctx, stopInput)
+			if err != nil {
+				return err
 			}
 		}
 	}
 
 	return nil
+
 }
 
-// buildRunTaskInput creates a RunTaskInput with the given parameters
-func buildRunTaskInput(clusterName string, taskDef *types.TaskDefinition, clusterContext *ecsClusterContext, startedBy string) *ecs.RunTaskInput {
-	return &ecs.RunTaskInput{
-		Cluster:        aws.String(clusterName),
+func loadTaskDefinitionTemplate(templatePath string) (*taskDefinitionWrapper, error) {
+
+	if templatePath == "" {
+		return nil, errMissingTemplate
+	}
+
+	data, err := os.ReadFile(templatePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var taskDef types.TaskDefinition
+	if err := json.Unmarshal(data, &taskDef); err != nil {
+		return nil, err
+	}
+
+	// Pre-compute essential containers map
+	essentialContainers := make(map[string]bool)
+	for _, containerDef := range taskDef.ContainerDefinitions {
+		if containerDef.Essential != nil && *containerDef.Essential {
+			essentialContainers[aws.ToString(containerDef.Name)] = true
+		}
+	}
+
+	return &taskDefinitionWrapper{
+		TaskDefinition:      &taskDef,
+		EssentialContainers: essentialContainers,
+	}, nil
+
+}
+
+// runTask runs a single task and returns the task ARN
+func runTask(ecsClient *ecs.Client, taskDef *types.TaskDefinition, clusterContext *ecsClusterContext, containerOverrides []types.ContainerOverride, startedBy string) (string, error) {
+
+	// Create a copy of the overrides and add TASK_NAME env variable
+	finalOverrides := append([]types.ContainerOverride{}, containerOverrides...)
+	for i := range finalOverrides {
+		finalOverrides[i].Environment = append(finalOverrides[i].Environment, types.KeyValuePair{
+			Name:  aws.String("TASK_NAME"),
+			Value: aws.String(startedBy),
+		})
+	}
+
+	// build run task input
+	runTaskInput := &ecs.RunTaskInput{
+		Cluster:        aws.String(clusterContext.ClusterName),
 		TaskDefinition: taskDef.TaskDefinitionArn,
 		LaunchType:     types.LaunchType(clusterContext.LaunchType),
+		Count:          aws.Int32(1),
 		StartedBy:      aws.String(startedBy),
+		Overrides: &types.TaskOverride{
+			ContainerOverrides: finalOverrides,
+		},
 		NetworkConfiguration: &types.NetworkConfiguration{
 			AwsvpcConfiguration: &types.AwsVpcConfiguration{
 				Subnets:        clusterContext.VPCConfig.Subnets,
@@ -275,182 +423,35 @@ func buildRunTaskInput(clusterName string, taskDef *types.TaskDefinition, cluste
 			},
 		},
 	}
-}
 
-// runTasks runs the specified number of tasks
-func runTasks(ecsClient *ecs.Client, taskDef *types.TaskDefinition, clusterContext *ecsClusterContext, jobContext *ecsJobContext, jobID string) ([]string, error) {
-
-	var taskARNs []string
-
-	for i := 0; i < jobContext.TaskCount; i++ {
-		startedBy := fmt.Sprintf("heimdall-job-%s-%d", jobID, i+1)
-
-		runTaskInput := buildRunTaskInput(clusterContext.ClusterName, taskDef, clusterContext, startedBy)
-
-		runTaskOutput, err := ecsClient.RunTask(ctx, runTaskInput)
-		if err != nil {
-			return taskARNs, fmt.Errorf("failed to run task %d: %w", i+1, err)
-		}
-
-		if len(runTaskOutput.Tasks) > 0 {
-			taskARNs = append(taskARNs, aws.ToString(runTaskOutput.Tasks[0].TaskArn))
-		}
+	runTaskOutput, err := ecsClient.RunTask(ctx, runTaskInput)
+	if err != nil {
+		return ``, err
 	}
 
-	return taskARNs, nil
+	if len(runTaskOutput.Tasks) == 0 {
+		return ``, fmt.Errorf("no tasks were created")
+	}
+
+	taskARN := aws.ToString(runTaskOutput.Tasks[0].TaskArn)
+
+	return taskARN, nil
 
 }
 
-// pollTaskCompletion polls for task completion
-func pollTaskCompletion(ecsClient *ecs.Client, clusterName string, jobID string, jobContext *ecsJobContext, commandContext *ecsCommandContext, taskDef *types.TaskDefinition, clusterContext *ecsClusterContext, r *plugin.Runtime) ([]taskResult, error) {
+// tasks are successful if all essential containers exit with a zero exit code
+func isTaskSuccessful(task types.Task, taskDefWrapper *taskDefinitionWrapper) bool {
+	// Check all containers in the running task
+	for _, container := range task.Containers {
+		containerName := aws.ToString(container.Name)
 
-	fmt.Println("Polling for task completion")
-
-	var taskResults []taskResult
-
-	if commandContext.PollingInterval == 0 {
-		commandContext.PollingInterval = defaultPollingInterval
-	}
-
-	if commandContext.Timeout == 0 {
-		commandContext.Timeout = defaultTaskTimeout
-	}
-
-	if commandContext.MaxFailCount == 0 {
-		commandContext.MaxFailCount = defaultMaxFailCount
-	}
-
-	// Start polling time
-	startTime := time.Now()
-	startedByPrefix := fmt.Sprintf("heimdall-job-%s", jobID)
-
-	// Track failures per task
-	taskFailures := make(map[string]int)
-
-	// Poll until all tasks are complete or timeout
-	for time.Since(startTime) < time.Duration(commandContext.Timeout)*time.Second {
-		// List tasks with our startedBy prefix (includes original and restarted tasks)
-		listInput := &ecs.ListTasksInput{
-			Cluster:   aws.String(clusterName),
-			StartedBy: aws.String(startedByPrefix),
-		}
-
-		listOutput, err := ecsClient.ListTasks(ctx, listInput)
-		if err != nil {
-			return nil, err
-		}
-
-		// Tasks may not be running yet, so we need to poll again
-		if len(listOutput.TaskArns) == 0 {
-			r.Stdout.WriteString(fmt.Sprintf("No tasks found with startedBy prefix: %s\n", startedByPrefix))
-			time.Sleep(time.Duration(commandContext.PollingInterval) * time.Second)
-			continue
-		}
-
-		// Describe all tasks
-		describeInput := &ecs.DescribeTasksInput{
-			Cluster: aws.String(clusterName),
-			Tasks:   listOutput.TaskArns,
-		}
-
-		describeOutput, err := ecsClient.DescribeTasks(ctx, describeInput)
-		if err != nil {
-			return nil, err
-		}
-
-		// Check if all tasks are complete
-		allComplete := true
-		taskResults = []taskResult{} // Reset results
-
-		for _, task := range describeOutput.Tasks {
-			taskARN := aws.ToString(task.TaskArn)
-			lastStatus := aws.ToString(task.LastStatus)
-			r.Stdout.WriteString(fmt.Sprintf("Task %s status: %s\n", taskARN, lastStatus))
-
-			if lastStatus == "RUNNING" || lastStatus == "PENDING" {
-				allComplete = false
-				continue
+		if essential, exists := taskDefWrapper.EssentialContainers[containerName]; exists && essential {
+			if container.ExitCode != nil && *container.ExitCode != 0 {
+				return false
 			}
-
-			// Task is complete (STOPPED)
-			var exitCode int
-			var executionTime float64
-
-			if len(task.Containers) > 0 {
-				container := task.Containers[0]
-				if container.ExitCode != nil {
-					exitCode = int(*container.ExitCode)
-				}
-
-				// Calculate execution time if we have start/stop times
-				if task.StartedAt != nil && task.StoppedAt != nil {
-					executionTime = task.StoppedAt.Sub(*task.StartedAt).Seconds()
-				}
-			}
-
-			// Check for task failures
-			if exitCode != 0 {
-				taskFailures[taskARN]++
-				failCount := taskFailures[taskARN]
-				r.Stdout.WriteString(fmt.Sprintf("Task %s failed with exit code %d (failure #%d)\n", taskARN, exitCode, failCount))
-
-				// Exit if we've failed too many times
-				if failCount >= commandContext.MaxFailCount {
-					return taskResults, fmt.Errorf("task %s failed %d times (max: %d), giving up", taskARN, failCount, commandContext.MaxFailCount)
-				}
-
-				// Restart the failed task
-				r.Stdout.WriteString(fmt.Sprintf("Restarting task %s (attempt %d)\n", taskARN, failCount+1))
-
-				// Create new startedBy tag for the restart
-				restartStartedBy := fmt.Sprintf("heimdall-job-%s-restart-%d", jobID, failCount+1)
-
-				runTaskInput := buildRunTaskInput(clusterName, taskDef, clusterContext, restartStartedBy)
-
-				restartOutput, err := ecsClient.RunTask(ctx, runTaskInput)
-				if err != nil {
-					return nil, err
-				}
-
-				if len(restartOutput.Tasks) > 0 {
-					newTaskARN := aws.ToString(restartOutput.Tasks[0].TaskArn)
-					r.Stdout.WriteString(fmt.Sprintf("Task restarted: %s -> %s\n", taskARN, newTaskARN))
-					// Update the failure count for the new task ARN
-					taskFailures[newTaskARN] = failCount
-				}
-
-				// Task failed but will be restarted, so mark as not complete
-				allComplete = false
-				continue
-
-			}
-
-			// Task completed successfully
-			taskResults = append(taskResults, taskResult{
-				TaskARN:       taskARN,
-				ExitCode:      exitCode,
-				ExecutionTime: executionTime,
-				Status:        lastStatus,
-				Retries:       taskFailures[taskARN], // Add retries to the result
-			})
 		}
-
-		if allComplete {
-			r.Stdout.WriteString("All tasks completed successfully\n")
-			break
-		}
-
-		// Wait before next poll
-		time.Sleep(time.Duration(commandContext.PollingInterval) * time.Second)
 	}
 
-	// Check if we timed out
-	if time.Since(startTime) >= time.Duration(commandContext.Timeout)*time.Second {
-		return taskResults, fmt.Errorf("polling timed out after %v", time.Duration(commandContext.Timeout)*time.Second)
-	}
-
-	// Return results without erroring on non-zero exit codes
-	// The task restart logic should be handled elsewhere
-	return taskResults, nil
+	return true
 
 }
