@@ -1,7 +1,6 @@
 import ClientLayout from '@/common/ClientLayout/ClientLayout'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import './globals.css'
-import '../../node_modules/@patterninc/react-ui/dist/pattern-themed-tailwind.css'
 
 export const metadata = {
   title: 'Heimdall',
