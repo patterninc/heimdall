@@ -25,7 +25,7 @@ const ClustersDetails = ({ id }: ClusterDetailsProps): React.JSX.Element => {
   })
 
   return (
-    <div className='flex flex-col md:flex-row gap-4 pt-4 min-w-[300px] md:min-w-[300px]'>
+    <div className='flex flex-col md:flex-row pat-gap-4 pat-pt-4 min-w-[300px]'>
       <ClusterInformationPane clusterData={data} isLoading={isLoading} />
       <ClustersDetailsHeader clusterData={data} isLoading={isLoading} />
     </div>
