@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.3
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.18.3
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.46.0
+	github.com/aws/aws-sdk-go-v2/service/ecs v1.62.0
 	github.com/aws/aws-sdk-go-v2/service/emrcontainers v1.37.0
 	github.com/aws/aws-sdk-go-v2/service/glue v1.123.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.86.0
