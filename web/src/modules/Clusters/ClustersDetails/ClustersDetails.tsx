@@ -4,7 +4,6 @@ import { getCluster } from '@/app/api/clusters/clusters'
 import { BreadcrumbContext } from '@/common/BreadCrumbsProvider/context'
 import { useQuery } from '@tanstack/react-query'
 import { useContext, useEffect } from 'react'
-import styles from './_clustersDetails.module.scss'
 import ClusterInformationPane from './ClusterInformationPane'
 import ClustersDetailsHeader from './ClustersDetailsHeader'
 
@@ -26,7 +25,7 @@ const ClustersDetails = ({ id }: ClusterDetailsProps): React.JSX.Element => {
   })
 
   return (
-    <div className={styles.clustersDetailsContainer}>
+    <div className='flex flex-col md:flex-row gap-4 pt-4 min-w-[300px]'>
       <ClusterInformationPane clusterData={data} isLoading={isLoading} />
       <ClustersDetailsHeader clusterData={data} isLoading={isLoading} />
     </div>

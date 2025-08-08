@@ -27,9 +27,10 @@ type shellJobContext struct {
 }
 
 type runtimeContext struct {
-	Job     *context.Context     `yaml:"job,omitempty" json:"job,omitempty"`
+	Job     *job.Job             `yaml:"job,omitempty" json:"job,omitempty"`
 	Command *shellCommandContext `yaml:"command,omitempty" json:"command,omitempty"`
-	Cluster *context.Context     `yaml:"cluster,omitempty" json:"cluster,omitempty"`
+	Cluster *cluster.Cluster     `yaml:"cluster,omitempty" json:"cluster,omitempty"`
+	Runtime *plugin.Runtime      `yaml:"runtime,omitempty" json:"runtime,omitempty"`
 }
 
 func New(commandContext *context.Context) (plugin.Handler, error) {
@@ -60,9 +61,10 @@ func (s *shellCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.
 	// this will enable us to pass any context into shell command and...
 	// parse those keys in the shell script using `jq` utility
 	rc := &runtimeContext{
-		Job:     j.Context,
+		Job:     j,
 		Command: s,
-		Cluster: c.Context,
+		Cluster: c,
+		Runtime: r,
 	}
 
 	contextContent, err := json.MarshalIndent(rc, ``, `  `)

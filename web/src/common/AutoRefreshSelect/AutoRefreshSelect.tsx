@@ -3,7 +3,7 @@
 import { Select } from '@patterninc/react-ui'
 import { useContext, useState } from 'react'
 import { AutoRefreshContext } from '../AutoRefreshProvider/context'
-import styles from './auto-fresh-select.module.scss'
+
 
 export type RefreshInterval = {
   label: string
@@ -27,9 +27,9 @@ export const AutoRefreshSelect = () => {
   )
 
   return (
-    <div className={styles.autoFreshSelectContainer}>
+    <div className='flex flex-row gap-2 items-center'>
       <span>Auto Refresh:</span>
-      <div className={styles.autoRefreshSelect}>
+      <div className='w-[104px]'>{/* Fixed width ensures the popover menu inherits the same width, preventing options from being cut off or extending beyond the window when selecting longer options like "OFF" */}
         <Select
           options={refreshOptions}
           optionKeyName={'label'}
