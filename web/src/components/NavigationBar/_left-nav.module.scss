@@ -1,8 +1,0 @@
-.sidebarFooter {
-  display: flex;
-  align-items: center;
-  font-size: var(--font-size-10);
-  color: var(--purple);
-  padding-left: 16px;
-  height: 20px; // Total height of the copyright element. Setting this here to prevent jumpiness in the sidebar when collapsing / expanding.
-}

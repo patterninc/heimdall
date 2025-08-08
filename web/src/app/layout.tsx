@@ -1,5 +1,6 @@
 import ClientLayout from '@/common/ClientLayout/ClientLayout'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
+import './globals.css'
 
 export const metadata = {
   title: 'Heimdall',

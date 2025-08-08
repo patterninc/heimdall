@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { ClusterType } from '../Helper'
-import styles from './_clustersDetails.module.scss'
 import { InformationPane, ListLoading } from '@patterninc/react-ui'
 import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
 
@@ -42,7 +41,7 @@ const ClusterInformationPane = ({
     },
   ]
   return (
-    <div className={styles.informationPaneContainer}>
+    <div className='min-w-[300px]'>
       <InformationPane
         header={{
           labelAndData: {

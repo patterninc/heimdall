@@ -7,7 +7,6 @@ import {
 import { getStatusColor, JobDataTypesProps } from '../Helper'
 import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
 import { useRouter } from 'next/navigation'
-import styles from './_job-Details.module.scss'
 const JobInformationPane = ({
   jobData,
   isLoading,
@@ -56,7 +55,7 @@ const JobInformationPane = ({
     },
   ]
   return (
-    <div className={styles.informationPaneContainer}>
+    <div className='min-w-[300px]'>
       <InformationPane
         header={{
           labelAndData: {
@@ -92,7 +91,7 @@ const JobInformationPane = ({
                       styleType='text-blue'
                       as='externalLink'
                       href={`/api/v1/job/${jobData?.id}/stdout`}
-                      className='pat-gap-1'
+                      className='gap-1'
                     >
                       <span>View Stdout</span>
                       <Icon icon='launch' color='dark-blue' iconSize='12px' />
@@ -107,7 +106,7 @@ const JobInformationPane = ({
                       styleType='text-red'
                       as='externalLink'
                       href={`/api/v1/job/${jobData?.id}/stderr`}
-                      className='pat-gap-1'
+                      className='gap-1'
                     >
                       <span>View Stderr</span>
                       <Icon icon='launch' color='dark-red' iconSize='12px' />

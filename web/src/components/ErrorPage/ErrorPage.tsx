@@ -4,14 +4,13 @@ import React from 'react'
 import { ErrorPage, APP_LOGOS } from '@patterninc/react-ui'
 import Link from 'next/link'
 import Image from 'next/image'
-import styles from './_error-page.module.scss'
 
 const NotFoundPage = () => {
   return (
-    <div className={styles.errorPageContainer}>
+    <div className='h-screen flex justify-center items-center'>
       <ErrorPage
         logo={
-          <div className='flex flex-direction-column align-items-center justify-content-center'>
+          <div className='flex flex-col items-center justify-center'>
             <Image
               src={APP_LOGOS.HEIMDALL.isolated}
               alt='Heimdall'
