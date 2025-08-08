@@ -31,9 +31,9 @@ An ECS command requires a task definition template and configuration for running
         environment:
           - name: ENV_VAR
             value: "value"
-    polling_interval: 30  # seconds
-    timeout: 3600  # seconds (1 hour)
-    max_fail_count: 3  # max retries per task
+    polling_interval: "30s"  # 30 seconds
+    timeout: "1h"            # 1 hour
+    max_fail_count: 3        # max retries per task
   tags:
     - type:ecs
   cluster_tags:
@@ -46,6 +46,10 @@ An ECS command requires a task definition template and configuration for running
 - Overrides the command and environment variables for the "main" container
 - Polls for completion every 30 seconds with a 1-hour timeout
 - Retries failed tasks up to 3 times before giving up
+
+**Duration Format:**
+- Use human-readable duration strings: `"30s"`, `"1h"`, `"45m"`, `"2h15m30s"`
+- Examples: `"15s"`, `"1h"`, `"30m"`, `"2h30m"`, `"3600s"`
 
 ---
 
@@ -225,12 +229,12 @@ The plugin tracks tasks using the `startedBy` tag with format `heimdall-job-{job
 
 ### Automatic Variables
 The plugin automatically adds the following environment variable to all containers:
-- `TASK_NAME`: The unique task identifier (e.g., `heimdall-job-abc123-0`)
+- `TASK_NAME`: The unique task identifier (e.g., `heimdall-job-abc123-0`) with the final digit being the task index
 
 ### Custom Variables
 You can add custom environment variables through:
 1. **Task Definition Template**: Base environment variables
-2. **Container Overrides**: Job-specific environment variables
+2. **Container Overrides**: Container Overrides can exist in both command context and job context. Job context will override command context, and command context will override any ENVs in the task definition template.
 
 **Example:**
 ```yaml
@@ -260,7 +264,7 @@ container_overrides:
 * **Network Configuration**: Use private subnets when possible, public subnets only if internet access is required
 * **Container Overrides**: Use overrides for job-specific parameters rather than modifying templates
 * **Retry Configuration**: Set appropriate `max_fail_count` based on your application's reliability
-* **Timeout Settings**: Configure timeouts based on expected job duration
+* **Timeout Settings**: Configure timeouts based on expected job duration using human-readable format
 * **Environment Variables**: Use `TASK_NAME` for task-specific logic in your containers
 
 ---
@@ -338,8 +342,8 @@ container_overrides:
         environment:
           - name: CUSTOM_VAR
             value: custom_value
-    polling_interval: 30
-    timeout: 3600
+    polling_interval: "30s"  # 30 seconds
+    timeout: "1h"            # 1 hour
     max_fail_count: 3
   tags:
     - type:ecs
