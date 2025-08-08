@@ -24,8 +24,8 @@
     "moment-timezone": "^0.5.48",
     "next": "15.3.3",
     "nuqs": "^2.4.1",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "react": "^19",
+    "react-dom": "^19",
     "react-syntax-highlighter": "^15.6.1",
     "recharts": "^2.15.1",
     "sql-formatter": "^15.5.1"
@@ -33,9 +33,9 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",
     "@types/js-yaml": "^4.0.9",
-    "@types/node": "^20",
-    "@types/react": "19.1.6",
-    "@types/react-dom": "19.1.6",
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "@types/react-syntax-highlighter": "^15.5.13",
     "eslint": "^8.57.1",
     "eslint-config-next": "15.3.3",
