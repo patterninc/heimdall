@@ -31,12 +31,6 @@ type ecsCommandContext struct {
 	MaxFailCount           int                       `yaml:"max_fail_count,omitempty" json:"max_fail_count,omitempty"` // max failures before giving up
 }
 
-// ECS job context structure
-type ecsJobContext struct {
-	TaskCount          int                       `yaml:"task_count,omitempty" json:"task_count,omitempty"`
-	ContainerOverrides []types.ContainerOverride `yaml:"container_overrides,omitempty" json:"container_overrides,omitempty"`
-}
-
 // ECS cluster context structure
 type ecsClusterContext struct {
 	CPU              int       `yaml:"cpu,omitempty" json:"cpu,omitempty"`
