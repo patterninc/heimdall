@@ -74,12 +74,17 @@ type taskTracker struct {
 // executionContext holds the final resolved configuration for job execution.
 type executionContext struct {
 	TaskCount             int                       `json:"task_count"`
-	ContainerOverrides    []types.ContainerOverride `json:"container_overrides"`
-	PollingInterval       duration.Duration         `json:"polling_interval"`
-	Timeout               duration.Duration         `json:"timeout"`
-	MaxFailCount          int                       `json:"max_fail_count"`
 	TaskDefinitionWrapper *taskDefinitionWrapper    `json:"task_definition_wrapper"`
+	ContainerOverrides    []types.ContainerOverride `json:"container_overrides"`
 	ClusterConfig         *ecsClusterContext        `json:"cluster_config"`
+
+	PollingInterval duration.Duration `json:"polling_interval"`
+	Timeout         duration.Duration `json:"timeout"`
+	MaxFailCount    int               `json:"max_fail_count"`
+
+	ecsClient  *ecs.Client
+	taskDefARN *string
+	tasks      map[string]*taskTracker
 }
 
 const (
@@ -117,58 +122,32 @@ func New(commandContext *context.Context) (plugin.Handler, error) {
 }
 
 // handler implements the main ECS plugin logic
-func (e *ecsCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (e *ecsCommandContext) handler(r *plugin.Runtime, job *job.Job, cluster *cluster.Cluster) error {
 
 	// Build execution context with resolved configuration and loaded template
-	execCtx, err := buildExecutionContext(e, j, c)
+	execCtx, err := buildExecutionContext(e, job, cluster)
 	if err != nil {
 		return err
 	}
-
-	// initialize AWS session
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return err
-	}
-
-	ecsClient := ecs.NewFromConfig(cfg)
 
 	// register task definition
-	taskDefARN, err := registerTaskDefinition(ecsClient, execCtx)
-	if err != nil {
+	if err := execCtx.registerTaskDefinition(); err != nil {
 		return err
 	}
 
 	// Start tasks
-	tasks, err := startTasks(ecsClient, taskDefARN, execCtx, j.ID)
-	if err != nil {
+	if err := execCtx.startTasks(job.ID); err != nil {
 		return err
 	}
 
 	// Poll for completion
-	tasks, err = pollForCompletion(ecsClient, taskDefARN, execCtx, tasks)
-	if err != nil {
+	if err := execCtx.pollForCompletion(); err != nil {
 		return err
 	}
 
-	// Build result
-	j.Result = &result.Result{}
-	j.Result.Columns = []*column.Column{
-		{Name: "task_arn", Type: "string"},
-		{Name: "duration", Type: "float"},
-		{Name: "retries", Type: "int"},
-		{Name: "failed_arns", Type: "string"},
-	}
-
-	// Create result data from task results
-	j.Result.Data = make([][]interface{}, 0, len(tasks))
-	for _, tracker := range tasks {
-		j.Result.Data = append(j.Result.Data, []interface{}{
-			tracker.ActiveARN,
-			tracker.ExecutionTime,
-			tracker.Retries,
-			strings.Join(tracker.FailedARNs, ","),
-		})
+	// Store results
+	if err := storeResults(execCtx, job); err != nil {
+		return err
 	}
 
 	return nil
@@ -176,7 +155,7 @@ func (e *ecsCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cl
 }
 
 // prepare and register task definition with ECS
-func registerTaskDefinition(ecsClient *ecs.Client, execCtx *executionContext) (*string, error) {
+func (execCtx *executionContext) registerTaskDefinition() error {
 	registerInput := &ecs.RegisterTaskDefinitionInput{
 		Family:                  aws.String(aws.ToString(execCtx.TaskDefinitionWrapper.TaskDefinition.Family)),
 		RequiresCompatibilities: []types.Compatibility{types.CompatibilityFargate},
@@ -188,37 +167,37 @@ func registerTaskDefinition(ecsClient *ecs.Client, execCtx *executionContext) (*
 		ContainerDefinitions:    execCtx.TaskDefinitionWrapper.TaskDefinition.ContainerDefinitions,
 	}
 
-	registerOutput, err := ecsClient.RegisterTaskDefinition(ctx, registerInput)
+	registerOutput, err := execCtx.ecsClient.RegisterTaskDefinition(ctx, registerInput)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return registerOutput.TaskDefinition.TaskDefinitionArn, nil
+	execCtx.taskDefARN = registerOutput.TaskDefinition.TaskDefinitionArn
+
+	return nil
 
 }
 
 // startTasks launches all tasks and returns a map of task trackers
-func startTasks(ecsClient *ecs.Client, taskDefARN *string, execCtx *executionContext, jobID string) (map[string]*taskTracker, error) {
-
-	tasks := make(map[string]*taskTracker)
+func (execCtx *executionContext) startTasks(jobID string) error {
 
 	for i := 0; i < execCtx.TaskCount; i++ {
-		taskARN, err := runTask(ecsClient, taskDefARN, execCtx.ClusterConfig, execCtx.ContainerOverrides, fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, i))
+		taskARN, err := runTask(execCtx.ecsClient, execCtx.taskDefARN, execCtx.ClusterConfig, execCtx.ContainerOverrides, fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, i))
 		if err != nil {
-			return nil, err
+			return err
 		}
 		taskName := fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, i)
-		tasks[taskName] = &taskTracker{
+		execCtx.tasks[taskName] = &taskTracker{
 			Name:      taskName,
 			ActiveARN: taskARN,
 		}
 	}
 
-	return tasks, nil
+	return nil
 }
 
 // monitor tasks until completion, faliure, or timeout
-func pollForCompletion(ecsClient *ecs.Client, taskDefARN *string, execCtx *executionContext, tasks map[string]*taskTracker) (map[string]*taskTracker, error) {
+func (execCtx *executionContext) pollForCompletion() error {
 
 	startTime := time.Now()
 	stopTime := startTime.Add(time.Duration(execCtx.Timeout))
@@ -227,7 +206,7 @@ func pollForCompletion(ecsClient *ecs.Client, taskDefARN *string, execCtx *execu
 	for {
 		// Describe the uncompleted tasks we're tracking
 		var activeARNs []string
-		for _, tracker := range tasks {
+		for _, tracker := range execCtx.tasks {
 			if !tracker.Completed {
 				activeARNs = append(activeARNs, tracker.ActiveARN)
 			}
@@ -243,9 +222,9 @@ func pollForCompletion(ecsClient *ecs.Client, taskDefARN *string, execCtx *execu
 			Tasks:   activeARNs,
 		}
 
-		describeOutput, err := ecsClient.DescribeTasks(ctx, describeInput)
+		describeOutput, err := execCtx.ecsClient.DescribeTasks(ctx, describeInput)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// Check if all tasks are complete
@@ -260,45 +239,45 @@ func pollForCompletion(ecsClient *ecs.Client, taskDefARN *string, execCtx *execu
 			}
 
 			// If task has stopped, grab its tracker to start updating
-			tracker, exists := tasks[aws.ToString(task.StartedBy)]
+			tracker, exists := execCtx.tasks[aws.ToString(task.StartedBy)]
 			if !exists {
-				return nil, fmt.Errorf("could not find tracker for StartedBy tag %s", aws.ToString(task.StartedBy))
+				return fmt.Errorf("could not find tracker for StartedBy tag %s", aws.ToString(task.StartedBy))
 			}
 
 			// Check for task failures based on exit code
-			if !isTaskSuccessful(task, execCtx) {
-
-				tracker.Retries++
-				tracker.FailedARNs = append(tracker.FailedARNs, aws.ToString(task.TaskArn))
-
-				// Exit if we've failed too many times
-				if tracker.Retries >= execCtx.MaxFailCount {
-
-					// Stop all other running tasks
-					reason := fmt.Sprintf(errMaxFailCount, tracker.ActiveARN, tracker.Retries, execCtx.MaxFailCount)
-					if err := stopAllTasks(ecsClient, execCtx.ClusterConfig.ClusterName, tasks, reason); err != nil {
-						return nil, err
-					}
-
-					return nil, fmt.Errorf("%s", reason)
-				}
-
-				newTaskARN, err := runTask(ecsClient, taskDefARN, execCtx.ClusterConfig, execCtx.ContainerOverrides, tracker.Name)
-				if err != nil {
-					return nil, err
-				}
-
-				// Assign the new task ARN to the tracker
-				tracker.ActiveARN = newTaskARN
-
-				// Task failed but will be restarted, so mark as not complete
-				allComplete = false
+			if isTaskSuccessful(task, execCtx) {
+				// Update the tracker directly
+				tracker.ExecutionTime = time.Since(startTime).Seconds() // Total time from start
+				tracker.Completed = true
 				continue
 			}
 
-			// Update the tracker directly
-			tracker.ExecutionTime = time.Since(startTime).Seconds() // Total time from start
-			tracker.Completed = true
+			tracker.Retries++
+			tracker.FailedARNs = append(tracker.FailedARNs, aws.ToString(task.TaskArn))
+
+			// Exit if we've failed too many times
+			if tracker.Retries >= execCtx.MaxFailCount {
+
+				// Stop all other running tasks
+				reason := fmt.Sprintf(errMaxFailCount, tracker.ActiveARN, tracker.Retries, execCtx.MaxFailCount)
+				if err := stopAllTasks(execCtx.ecsClient, execCtx.ClusterConfig.ClusterName, execCtx.tasks, reason); err != nil {
+					return err
+				}
+
+				return fmt.Errorf("%s", reason)
+			}
+
+			newTaskARN, err := runTask(execCtx.ecsClient, execCtx.taskDefARN, execCtx.ClusterConfig, execCtx.ContainerOverrides, tracker.Name)
+			if err != nil {
+				return err
+			}
+
+			// Assign the new task ARN to the tracker
+			tracker.ActiveARN = newTaskARN
+
+			// Task failed but will be restarted, so mark as not complete
+			allComplete = false
+			continue
 		}
 
 		// If all tasks are complete, break out of the loop
@@ -310,7 +289,7 @@ func pollForCompletion(ecsClient *ecs.Client, taskDefARN *string, execCtx *execu
 		if time.Now().After(stopTime) {
 			// Collect ARNs of tasks that did not complete
 			var incompleteARNs []string
-			for _, tracker := range tasks {
+			for _, tracker := range execCtx.tasks {
 				if !tracker.Completed {
 					incompleteARNs = append(incompleteARNs, tracker.ActiveARN)
 				}
@@ -318,12 +297,12 @@ func pollForCompletion(ecsClient *ecs.Client, taskDefARN *string, execCtx *execu
 
 			// Stop all remaining tasks
 			reason := fmt.Sprintf(errPollingTimeout, incompleteARNs, execCtx.Timeout)
-			if err := stopAllTasks(ecsClient, execCtx.ClusterConfig.ClusterName, tasks, reason); err != nil {
-				return nil, err
+			if err := stopAllTasks(execCtx.ecsClient, execCtx.ClusterConfig.ClusterName, execCtx.tasks, reason); err != nil {
+				return err
 			}
 
 			// Return error with information about incomplete tasks
-			return nil, fmt.Errorf("%s", reason)
+			return fmt.Errorf("%s", reason)
 		}
 
 		// Sleep until next poll time
@@ -331,23 +310,25 @@ func pollForCompletion(ecsClient *ecs.Client, taskDefARN *string, execCtx *execu
 	}
 
 	// If you're here, all tasks are complete
-	return tasks, nil
+	return nil
 
 }
 
 func buildExecutionContext(commandCtx *ecsCommandContext, j *job.Job, c *cluster.Cluster) (*executionContext, error) {
 
-	ctx := &executionContext{}
+	execCtx := &executionContext{
+		tasks: make(map[string]*taskTracker),
+	}
 
 	// Create a context from commandCtx and unmarshal onto execCtx (defaults)
 	commandContext := context.New(commandCtx)
-	if err := commandContext.Unmarshal(ctx); err != nil {
+	if err := commandContext.Unmarshal(execCtx); err != nil {
 		return nil, err
 	}
 
 	// Overlay job context (overrides command values)
 	if j.Context != nil {
-		if err := j.Context.Unmarshal(ctx); err != nil {
+		if err := j.Context.Unmarshal(execCtx); err != nil {
 			return nil, err
 		}
 	}
@@ -359,26 +340,33 @@ func buildExecutionContext(commandCtx *ecsCommandContext, j *job.Job, c *cluster
 			return nil, err
 		}
 	}
-	ctx.ClusterConfig = clusterContext
+	execCtx.ClusterConfig = clusterContext
 
 	// Load task definition template
 	taskDefWrapper, err := loadTaskDefinitionTemplate(commandCtx.TaskDefinitionTemplate)
 	if err != nil {
 		return nil, err
 	}
-	ctx.TaskDefinitionWrapper = taskDefWrapper // Store the wrapper for polling
+	execCtx.TaskDefinitionWrapper = taskDefWrapper // Store the wrapper for polling
 
 	// Build container overrides for all containers
-	if err := buildContainerOverrides(ctx); err != nil {
+	if err := buildContainerOverrides(execCtx); err != nil {
 		return nil, err
 	}
 
 	// Validate the resolved configuration
-	if err := validateExecutionContext(ctx); err != nil {
+	if err := validateExecutionContext(execCtx); err != nil {
 		return nil, err
 	}
 
-	return ctx, nil
+	// initialize AWS session
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	execCtx.ecsClient = ecs.NewFromConfig(cfg)
+
+	return execCtx, nil
 
 }
 
@@ -543,5 +531,32 @@ func isTaskSuccessful(task types.Task, execCtx *executionContext) bool {
 	}
 
 	return true
+
+}
+
+// storeResults builds and stores the final result for the job.
+func storeResults(execCtx *executionContext, j *job.Job) error {
+
+	// Build result
+	j.Result = &result.Result{}
+	j.Result.Columns = []*column.Column{
+		{Name: "task_arn", Type: "string"},
+		{Name: "duration", Type: "float"},
+		{Name: "retries", Type: "int"},
+		{Name: "failed_arns", Type: "string"},
+	}
+
+	// Create result data from task results
+	j.Result.Data = make([][]interface{}, 0, len(execCtx.tasks))
+	for _, tracker := range execCtx.tasks {
+		j.Result.Data = append(j.Result.Data, []interface{}{
+			tracker.ActiveARN,
+			tracker.ExecutionTime,
+			tracker.Retries,
+			strings.Join(tracker.FailedARNs, ","),
+		})
+	}
+
+	return nil
 
 }
