@@ -1,7 +1,6 @@
 'use client'
 
 import { Alert, PageHeader, SectionHeader } from '@patterninc/react-ui'
-import styles from './_job-Details.module.scss'
 import { JobDataTypesProps } from '../Helper'
 import SyntaxHighlighter from 'react-syntax-highlighter'
 import { github } from 'react-syntax-highlighter/dist/esm/styles/hljs'
@@ -11,16 +10,16 @@ const JobDetailsHeader = ({
   jobData,
 }: JobDataTypesProps): React.JSX.Element => {
   return (
-    <div className={styles.pageHeaderContainer}>
+    <div className='w-full'>
       <PageHeader
         rightSectionChildren={
           <ApiResponseButton link={`/api/v1/job/${jobData?.id}`} />
         }
         bottomSectionChildren={
           <div
-            className={`${styles.bottomSectionContainer} bgc-white pat-border-t bdrc-medium-purple`}
+            className='rounded overflow-auto bg-white border-t border-medium-purple'
           >
-            <div className='flex flex-direction-column pat-gap-4 pat-p-4'>
+            <div className='flex flex-col gap-4 p-4'>
               {jobData?.status === 'FAILED' ? (
                 <Alert type='error' text={jobData?.error} />
               ) : null}
@@ -51,9 +50,9 @@ const JobDetailsHeader = ({
                 {jobData?.context?.query ? (
                   <>
                     <SectionHeader title='SQL Query' />
-                    <SyntaxHighlighter language='sql' style={github}>
-                      {jobData.context.query}
-                    </SyntaxHighlighter>
+                      <SyntaxHighlighter language='sql' style={github}>
+                        {jobData.context.query}
+                      </SyntaxHighlighter>
                   </>
                 ) : null}
               </div>

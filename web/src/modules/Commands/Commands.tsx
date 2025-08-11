@@ -262,7 +262,7 @@ const Commands = (): React.JSX.Element => {
   }, [data, sortBy])
 
   return (
-    <div className='pat-pt-4'>
+    <div className='pt-4'>
       <StandardTable
         data={sortedData || []}
         dataKey={'id'}

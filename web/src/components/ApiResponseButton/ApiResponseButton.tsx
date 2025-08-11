@@ -16,7 +16,7 @@ const ApiResponseButton = ({
       href={link}
       routerComponent={Link}
       styleType='text-blue'
-      className='pat-gap-2'
+      className='gap-2'
     >
       <span>API Response</span>
       <Icon icon='launch' iconSize='12px' color='dark-blue' />
