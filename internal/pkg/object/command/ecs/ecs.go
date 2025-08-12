@@ -176,7 +176,7 @@ func (execCtx *executionContext) registerTaskDefinition() error {
 func (execCtx *executionContext) startTasks(jobID string) error {
 
 	for i := 0; i < execCtx.TaskCount; i++ {
-		taskARN, err := runTask(execCtx.ecsClient, execCtx.taskDefARN, execCtx.ClusterConfig, execCtx.ContainerOverrides, fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, i))
+		taskARN, err := runTask(execCtx.ecsClient, execCtx.taskDefARN, execCtx.ClusterConfig, execCtx.ContainerOverrides, fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, i), i)
 		if err != nil {
 			return err
 		}
@@ -261,7 +261,7 @@ func (execCtx *executionContext) pollForCompletion() error {
 				return fmt.Errorf("%s", reason)
 			}
 
-			newTaskARN, err := runTask(execCtx.ecsClient, execCtx.taskDefARN, execCtx.ClusterConfig, execCtx.ContainerOverrides, tracker.Name)
+			newTaskARN, err := runTask(execCtx.ecsClient, execCtx.taskDefARN, execCtx.ClusterConfig, execCtx.ContainerOverrides, tracker.Name, tracker.Retries)
 			if err != nil {
 				return err
 			}
@@ -470,15 +470,22 @@ func loadTaskDefinitionTemplate(templatePath string) (*taskDefinitionWrapper, er
 }
 
 // runTask runs a single task and returns the task ARN
-func runTask(ecsClient *ecs.Client, taskDefARN *string, clusterContext *ecsClusterContext, containerOverrides []types.ContainerOverride, startedBy string) (string, error) {
+func runTask(ecsClient *ecs.Client, taskDefARN *string, clusterContext *ecsClusterContext, containerOverrides []types.ContainerOverride, startedBy string, taskNum int) (string, error) {
 
-	// Create a copy of the overrides and add TASK_NAME env variable
+	// Create a copy of the overrides and add TASK_NAME and TASK_NUM env variables
 	finalOverrides := append([]types.ContainerOverride{}, containerOverrides...)
+
 	for i := range finalOverrides {
-		finalOverrides[i].Environment = append(finalOverrides[i].Environment, types.KeyValuePair{
-			Name:  aws.String("TASK_NAME"),
-			Value: aws.String(startedBy),
-		})
+		finalOverrides[i].Environment = append(finalOverrides[i].Environment,
+			types.KeyValuePair{
+				Name:  aws.String("TASK_NAME"),
+				Value: aws.String(startedBy),
+			},
+			types.KeyValuePair{
+				Name:  aws.String("TASK_NUM"),
+				Value: aws.String(fmt.Sprintf("%d", taskNum)),
+			},
+		)
 	}
 
 	// build run task input
