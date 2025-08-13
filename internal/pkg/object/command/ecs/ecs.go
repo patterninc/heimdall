@@ -59,6 +59,7 @@ type taskDefinitionWrapper struct {
 type taskTracker struct {
 	Name          string
 	ActiveARN     string
+	TaskNum       int // Original task number (0, 1, 2, etc.)
 	Retries       int
 	ExecutionTime float64
 	FailedARNs    []string // History of ARNs for this position
@@ -176,7 +177,7 @@ func (execCtx *executionContext) registerTaskDefinition() error {
 func (execCtx *executionContext) startTasks(jobID string) error {
 
 	for i := 0; i < execCtx.TaskCount; i++ {
-		taskARN, err := runTask(execCtx.ecsClient, execCtx.taskDefARN, execCtx.ClusterConfig, execCtx.ContainerOverrides, fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, i), i)
+		taskARN, err := runTask(execCtx, fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, i), i)
 		if err != nil {
 			return err
 		}
@@ -184,6 +185,7 @@ func (execCtx *executionContext) startTasks(jobID string) error {
 		execCtx.tasks[taskName] = &taskTracker{
 			Name:      taskName,
 			ActiveARN: taskARN,
+			TaskNum:   i,
 		}
 	}
 
@@ -254,14 +256,14 @@ func (execCtx *executionContext) pollForCompletion() error {
 
 				// Stop all other running tasks
 				reason := fmt.Sprintf(errMaxFailCount, tracker.ActiveARN, tracker.Retries, execCtx.MaxFailCount)
-				if err := stopAllTasks(execCtx.ecsClient, execCtx.ClusterConfig.ClusterName, execCtx.tasks, reason); err != nil {
+				if err := stopAllTasks(execCtx, reason); err != nil {
 					return err
 				}
 
 				return fmt.Errorf("%s", reason)
 			}
 
-			newTaskARN, err := runTask(execCtx.ecsClient, execCtx.taskDefARN, execCtx.ClusterConfig, execCtx.ContainerOverrides, tracker.Name, tracker.Retries)
+			newTaskARN, err := runTask(execCtx, tracker.Name, tracker.TaskNum)
 			if err != nil {
 				return err
 			}
@@ -291,7 +293,7 @@ func (execCtx *executionContext) pollForCompletion() error {
 
 			// Stop all remaining tasks
 			reason := fmt.Sprintf(errPollingTimeout, incompleteARNs, execCtx.Timeout)
-			if err := stopAllTasks(execCtx.ecsClient, execCtx.ClusterConfig.ClusterName, execCtx.tasks, reason); err != nil {
+			if err := stopAllTasks(execCtx, reason); err != nil {
 				return err
 			}
 
@@ -416,19 +418,19 @@ func buildContainerOverrides(execCtx *executionContext) error {
 }
 
 // stopAllTasks stops all non-completed tasks with the given reason
-func stopAllTasks(ecsClient *ecs.Client, clusterName string, tasks map[string]*taskTracker, reason string) error {
+func stopAllTasks(execCtx *executionContext, reason string) error {
 
-	for _, t := range tasks {
+	for _, t := range execCtx.tasks {
 		if t.Completed {
 			continue
 		}
 		stopInput := &ecs.StopTaskInput{
-			Cluster: aws.String(clusterName),
+			Cluster: aws.String(execCtx.ClusterConfig.ClusterName),
 			Task:    aws.String(t.ActiveARN),
 			Reason:  aws.String(reason),
 		}
 
-		_, err := ecsClient.StopTask(ctx, stopInput)
+		_, err := execCtx.ecsClient.StopTask(ctx, stopInput)
 		if err != nil {
 			return err
 		}
@@ -470,10 +472,10 @@ func loadTaskDefinitionTemplate(templatePath string) (*taskDefinitionWrapper, er
 }
 
 // runTask runs a single task and returns the task ARN
-func runTask(ecsClient *ecs.Client, taskDefARN *string, clusterContext *ecsClusterContext, containerOverrides []types.ContainerOverride, startedBy string, taskNum int) (string, error) {
+func runTask(execCtx *executionContext, startedBy string, taskNum int) (string, error) {
 
 	// Create a copy of the overrides and add TASK_NAME and TASK_NUM env variables
-	finalOverrides := append([]types.ContainerOverride{}, containerOverrides...)
+	finalOverrides := append([]types.ContainerOverride{}, execCtx.ContainerOverrides...)
 
 	for i := range finalOverrides {
 		finalOverrides[i].Environment = append(finalOverrides[i].Environment,
@@ -490,9 +492,9 @@ func runTask(ecsClient *ecs.Client, taskDefARN *string, clusterContext *ecsClust
 
 	// build run task input
 	runTaskInput := &ecs.RunTaskInput{
-		Cluster:        aws.String(clusterContext.ClusterName),
-		TaskDefinition: taskDefARN,
-		LaunchType:     types.LaunchType(clusterContext.LaunchType),
+		Cluster:        aws.String(execCtx.ClusterConfig.ClusterName),
+		TaskDefinition: execCtx.taskDefARN,
+		LaunchType:     types.LaunchType(execCtx.ClusterConfig.LaunchType),
 		Count:          aws.Int32(1),
 		StartedBy:      aws.String(startedBy),
 		Overrides: &types.TaskOverride{
@@ -500,14 +502,14 @@ func runTask(ecsClient *ecs.Client, taskDefARN *string, clusterContext *ecsClust
 		},
 		NetworkConfiguration: &types.NetworkConfiguration{
 			AwsvpcConfiguration: &types.AwsVpcConfiguration{
-				Subnets:        clusterContext.VPCConfig.Subnets,
-				SecurityGroups: clusterContext.VPCConfig.SecurityGroups,
+				Subnets:        execCtx.ClusterConfig.VPCConfig.Subnets,
+				SecurityGroups: execCtx.ClusterConfig.VPCConfig.SecurityGroups,
 				AssignPublicIp: types.AssignPublicIpDisabled,
 			},
 		},
 	}
 
-	runTaskOutput, err := ecsClient.RunTask(ctx, runTaskInput)
+	runTaskOutput, err := execCtx.ecsClient.RunTask(ctx, runTaskInput)
 	if err != nil {
 		return ``, err
 	}
