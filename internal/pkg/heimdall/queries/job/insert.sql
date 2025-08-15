@@ -10,7 +10,8 @@ insert into jobs
     job_context,
     job_error,
     username,
-    is_sync
+    is_sync,
+    store_result_sync
 )
 select
     cm.system_command_id,
@@ -23,7 +24,8 @@ select
     $8, -- job_context
     $9, -- job_error
     $10, -- username
-    $11 -- is_sync
+    $11, -- is_sync
+    $12 -- store_result_sync
 from
     clusters cl,
     commands cm
