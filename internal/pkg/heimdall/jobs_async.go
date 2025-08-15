@@ -51,7 +51,7 @@ func (h *Heimdall) getAsyncJobs(limit int) ([]*job.Job, error) {
 		jobContext, j := ``, &job.Job{}
 
 		if err := rows.Scan(&j.SystemID, &j.CommandID, &j.CluserID, &j.Status, &j.ID, &j.Name,
-			&j.Version, &j.Description, &jobContext, &j.User, &j.IsSync, &j.CreatedAt, &j.UpdatedAt); err != nil {
+			&j.Version, &j.Description, &jobContext, &j.User, &j.IsSync, &j.CreatedAt, &j.UpdatedAt, &j.StoreResultSync); err != nil {
 			return nil, err
 		}
 

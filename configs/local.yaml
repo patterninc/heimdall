@@ -23,6 +23,7 @@ commands:
     status: active
     plugin: ping
     version: 0.0.1
+    store_result_sync: false
     description: Test ping command
     tags:
       - type:ping

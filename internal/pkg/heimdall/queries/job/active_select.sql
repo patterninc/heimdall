@@ -13,7 +13,8 @@ with a as
         jj.username,
         jj.is_sync,
         jj.created_at,
-        jj.updated_at
+        jj.updated_at,
+        jj.store_result_sync
     from
         active_jobs aj
         join jobs jj on jj.system_job_id = aj.system_job_id
@@ -49,4 +50,5 @@ returning
     a.username,
     a.is_sync,
     a.created_at,
-    a.updated_at;
+    a.updated_at,
+    a.store_result_sync;
