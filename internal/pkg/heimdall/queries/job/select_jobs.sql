@@ -14,7 +14,8 @@ select
     cm.command_id,
     cm.command_name,
     cl.cluster_id,
-    cl.cluster_name
+    cl.cluster_name,
+    j.store_result_sync
 from
     jobs j
     join job_statuses js on js.job_status_id = j.job_status_id

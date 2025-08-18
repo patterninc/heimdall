@@ -110,29 +110,41 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 
 	}
 
-	// do we have result to be written?
-	if job.Result != nil {
-
-		// prepare result
-		data, err := json.Marshal(job.Result)
-		if err != nil {
-			return err
-		}
-
-		// write result
-		writeFileFunc := os.WriteFile
-		if strings.HasPrefix(runtime.ResultDirectory, s3Prefix) {
-			writeFileFunc = aws.WriteToS3
-		}
-		if err := writeFileFunc(runtime.ResultDirectory+separator+resultFilename, data, 0600); err != nil {
-			return err
-		}
-
+	if job.StoreResultSync {
+		h.storeResults(runtime, job)
+	} else {
+		go h.storeResults(runtime, job)
 	}
 
 	job.Status = jobStatus.Succeeded
 	return nil
 
+}
+
+func (h *Heimdall) storeResults(runtime *plugin.Runtime, job *job.Job) error {
+	// do we have result to be written?
+	if job.Result == nil {
+		return nil
+	}
+
+	// prepare result
+	data, err := json.Marshal(job.Result)
+	if err != nil {
+
+		return err
+	}
+
+	// write result
+	writeFileFunc := os.WriteFile
+	if strings.HasPrefix(runtime.ResultDirectory, s3Prefix) {
+		writeFileFunc = aws.WriteToS3
+	}
+	if err := writeFileFunc(runtime.ResultDirectory+separator+resultFilename, data, 0600); err != nil {
+
+		return err
+	}
+
+	return nil
 }
 
 func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
