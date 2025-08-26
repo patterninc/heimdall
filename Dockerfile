@@ -1,6 +1,6 @@
 FROM golang:1.24.6
 
-RUN apt-get update && apt-get install -y awscli jq gcc libc6-dev build-essential binutils-gold
+RUN apt-get update && apt-get install -y nodejs npm awscli jq
 
 WORKDIR /go/src/github.com/patterninc/heimdall
 
