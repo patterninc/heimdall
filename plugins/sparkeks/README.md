@@ -65,16 +65,16 @@ Submit a job using the API:
 
 ```json
 {
-  "cluster": {
-    "name": "my-eks-cluster",
-    "context": { ... }
-  },
-  "job": {
-    "context": { ... }
-  },
-  "command": {
-    "type": "sparkeks",
-    "context": { ... }
+  "name": "run-spark-query",
+  "version": "0.0.1",
+  "command_criteria": [
+    "type:sparkeks"
+  ],
+  "cluster_criteria": [
+    "data:prod"
+  ],
+  "context": {
+    "query": "SELECT * from table limit 10;"
   }
 }
 ```
