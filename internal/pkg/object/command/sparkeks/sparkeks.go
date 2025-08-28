@@ -14,10 +14,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	"github.com/kubeflow/spark-operator/v2/api/v1beta2"
 	sparkClientSet "github.com/kubeflow/spark-operator/v2/pkg/client/clientset/versioned"
@@ -322,35 +320,6 @@ func (s *sparkEksCommandContext) handler(r *plugin.Runtime, j *job.Job, c *clust
 	region := os.Getenv(awsRegionEnvVar)
 	if clusterContext.Region != nil {
 		region = *clusterContext.Region
-	}
-
-	var awsConfig aws.Config
-	var err error
-	if region != "" {
-		awsConfig, err = awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
-	} else {
-		awsConfig, err = awsconfig.LoadDefaultConfig(ctx)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to load AWS config: %w", err)
-	}
-
-	// Handle role assumption if specified
-	if clusterContext.RoleARN != nil {
-		stsSvc := sts.NewFromConfig(awsConfig)
-		assumeRoleOutput, err := stsSvc.AssumeRole(ctx, &sts.AssumeRoleInput{
-			RoleArn:         aws.String(*clusterContext.RoleARN),
-			RoleSessionName: assumeRoleSession,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to assume role %s: %w", *clusterContext.RoleARN, err)
-		}
-
-		awsConfig.Credentials = credentials.NewStaticCredentialsProvider(
-			*assumeRoleOutput.Credentials.AccessKeyId,
-			*assumeRoleOutput.Credentials.SecretAccessKey,
-			*assumeRoleOutput.Credentials.SessionToken,
-		)
 	}
 
 	// Create spark operator clients
