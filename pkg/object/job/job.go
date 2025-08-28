@@ -13,6 +13,7 @@ type Job struct {
 	object.Object   `yaml:",inline" json:",inline"`
 	Status          status.Status    `yaml:"status,omitempty" json:"status,omitempty"`
 	IsSync          bool             `yaml:"is_sync,omitempty" json:"is_sync,omitempty"`
+	StoreResultSync bool             `yaml:"store_result_sync,omitempty" json:"store_result_sync,omitempty"`
 	Error           string           `yaml:"error,omitempty" json:"error,omitempty"`
 	CommandCriteria *set.Set[string] `yaml:"command_criteria,omitempty" json:"command_criteria,omitempty"`
 	ClusterCriteria *set.Set[string] `yaml:"cluster_criteria,omitempty" json:"cluster_criteria,omitempty"`
