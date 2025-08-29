@@ -48,6 +48,10 @@ const (
 	stderrLogSuffix                       = "stderr.log"
 	defaultSparkAppAPIVersion             = "sparkoperator.k8s.io/v1beta2"
 	defaultSparkAppKind                   = "SparkApplication"
+
+	queriesPath = "queries"
+	resultsPath = "results"
+	logsPath    = "logs"
 )
 
 var (
@@ -70,9 +74,7 @@ var (
 )
 
 type sparkEksCommandContext struct {
-	QueriesURI    string            `yaml:"queries_uri,omitempty" json:"queries_uri,omitempty"`
-	ResultsURI    string            `yaml:"results_uri,omitempty" json:"results_uri,omitempty"`
-	LogsURI       string            `yaml:"logs_uri,omitempty" json:"logs_uri,omitempty"`
+	JobsURI       string            `yaml:"jobs_uri,omitempty" json:"jobs_uri,omitempty"`
 	WrapperURI    string            `yaml:"wrapper_uri,omitempty" json:"wrapper_uri,omitempty"`
 	Properties    map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 	KubeNamespace string            `yaml:"kube_namespace,omitempty" json:"kube_namespace,omitempty"`
@@ -90,6 +92,21 @@ type sparkEksClusterContext struct {
 	Image                *string           `yaml:"image,omitempty" json:"image,omitempty"`
 	Region               *string           `yaml:"region,omitempty" json:"region,omitempty"`
 	SparkApplicationFile string            `yaml:"spark_application_file,omitempty" json:"spark_application_file,omitempty"`
+}
+
+// New creates a new Spark EKS plugin handler.
+func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
+	s := &sparkEksCommandContext{
+		KubeNamespace: defaultNamespace,
+	}
+
+	if commandContext != nil {
+		if err := commandContext.Unmarshal(s); err != nil {
+			return nil, err
+		}
+	}
+
+	return s.handler, nil
 }
 
 // handler executes the Spark EKS job submission and execution.
@@ -135,22 +152,16 @@ func (s *sparkEksCommandContext) handler(r *plugin.Runtime, j *job.Job, c *clust
 	}
 
 	// Upload query to S3
-	queryURI := fmt.Sprintf("%s/%s/query.sql", s.QueriesURI, j.ID)
+	queryURI := fmt.Sprintf("%s/%s/%s/query.sql", s.JobsURI, j.ID, queriesPath)
 	if err := uploadFileToS3(queryURI, jobContext.Query); err != nil {
 		return fmt.Errorf("failed to upload query to S3: %w", err)
 	}
 
-	// Create log URI directory if LogsURI is specified
-	logURI := fmt.Sprintf("%s/%s/.keepdir", s.LogsURI, j.ID)
-	// Create a zero-byte file to establish the directory structure in S3
-	if err := uploadFileToS3(logURI, ""); err != nil {
-		return fmt.Errorf("failed to create log directory in S3: %w", err)
-	}
-
-	logURI = strings.TrimSuffix(logURI, "/.keepdir")
+	// Set log URI prefix for logs
+	logURI := fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, logsPath)
 
 	// Generate and submit Spark application
-	resultURI := fmt.Sprintf("%s/%s", s.ResultsURI, j.ID)
+	resultURI := fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, resultsPath)
 	appName := fmt.Sprintf("%s-%s", applicationPrefix, j.ID)
 
 	sparkApp, err := s.generateSparkApp(r, clusterContext, jobContext, appName, queryURI, resultURI, logURI, s.WrapperURI)
@@ -213,21 +224,6 @@ func (s *sparkEksCommandContext) handler(r *plugin.Runtime, j *job.Job, c *clust
 	}
 
 	return nil
-}
-
-// New creates a new Spark EKS plugin handler.
-func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
-	s := &sparkEksCommandContext{
-		KubeNamespace: defaultNamespace,
-	}
-
-	if commandContext != nil {
-		if err := commandContext.Unmarshal(s); err != nil {
-			return nil, err
-		}
-	}
-
-	return s.handler, nil
 }
 
 // uploadFileToS3 uploads content to S3
@@ -606,24 +602,46 @@ func (s *sparkEksCommandContext) loadTemplate(r *plugin.Runtime, sparkApplicatio
 func (s *sparkEksCommandContext) monitorJobAndCollectLogs(r *plugin.Runtime, sparkClient *sparkClientSet.Clientset, kubeClient *kubernetes.Clientset, appName, namespace, logURI string) error {
 	r.Stdout.WriteString(fmt.Sprintf("Monitoring Spark application: %s\n", appName))
 
-	timeout := time.Now().Add(jobTimeout)
+	monitorCtx, cancel := context.WithTimeout(ctx, jobTimeout)
+	defer cancel()
 	lastReport := time.Now()
 	var finalSparkApp *v1beta2.SparkApplication
 
-	for time.Now().Before(timeout) {
+	for {
+		// Handle context cancellation and timeout distinctly
+		if monitorCtx.Err() != nil {
+			if finalSparkApp != nil {
+				s.collectSparkApplicationLogs(r, kubeClient, finalSparkApp, logURI)
+			}
+			if monitorCtx.Err() == context.DeadlineExceeded {
+				// Timeout reached, attempt to delete the SparkApplication
+				_ = sparkClient.SparkoperatorV1beta2().SparkApplications(namespace).Delete(ctx, appName, metav1.DeleteOptions{})
+				return fmt.Errorf("spark job timed out after %v", jobTimeout)
+			}
+			if monitorCtx.Err() == context.Canceled {
+				// Canceled externally, attempt to delete the SparkApplication
+				_ = sparkClient.SparkoperatorV1beta2().SparkApplications(namespace).Delete(ctx, appName, metav1.DeleteOptions{})
+				return fmt.Errorf("spark job monitoring canceled externally")
+			}
+			return monitorCtx.Err()
+		}
+
 		time.Sleep(jobCheckInterval)
 
-		sparkApp, err := sparkClient.SparkoperatorV1beta2().SparkApplications(namespace).Get(ctx, appName, metav1.GetOptions{})
+		sparkApp, err := sparkClient.SparkoperatorV1beta2().SparkApplications(namespace).Get(monitorCtx, appName, metav1.GetOptions{})
 		if err != nil {
-			// If the SparkApplication is deleted manually, attempt cleanup and return error
-			r.Stderr.WriteString(fmt.Sprintf("Failed to get application status: %v\n", err))
-			_ = sparkClient.SparkoperatorV1beta2().SparkApplications(namespace).Delete(ctx, appName, metav1.DeleteOptions{})
-			return fmt.Errorf("spark application not found or deleted: %w", err)
+			// SparkApplication deleted externally, don't attempt redundant deletion
+			r.Stderr.WriteString(fmt.Sprintf("Spark application %s/%s not found or deleted externally: %v\n", namespace, appName, err))
+			if finalSparkApp != nil {
+				s.collectSparkApplicationLogs(r, kubeClient, finalSparkApp, logURI)
+			}
+			return fmt.Errorf("spark application %s/%s not found or deleted externally: %w", namespace, appName, err)
 		}
 
 		finalSparkApp = sparkApp
 		state := sparkApp.Status.AppState.State
 
+		// Print state every 30 seconds
 		if time.Since(lastReport) >= statusReportInterval || s.isTerminalState(string(state)) {
 			printState(r.Stdout, state)
 			lastReport = time.Now()
@@ -631,6 +649,7 @@ func (s *sparkEksCommandContext) monitorJobAndCollectLogs(r *plugin.Runtime, spa
 
 		if state == v1beta2.ApplicationStateRunning {
 			s.collectSparkApplicationLogs(r, kubeClient, sparkApp, logURI)
+			continue
 		}
 
 		switch state {
@@ -663,13 +682,6 @@ func (s *sparkEksCommandContext) monitorJobAndCollectLogs(r *plugin.Runtime, spa
 			return fmt.Errorf("Deleted spark app due to unknown state")
 		}
 	}
-
-	// Timeout case - try to collect logs and cleanup
-	if finalSparkApp != nil {
-		s.collectSparkApplicationLogs(r, kubeClient, finalSparkApp, logURI)
-	}
-	_ = sparkClient.SparkoperatorV1beta2().SparkApplications(namespace).Delete(ctx, appName, metav1.DeleteOptions{})
-	return fmt.Errorf("spark job timed out after %v", jobTimeout)
 }
 
 // collectSparkApplicationLogs collects logs from Spark application pods
