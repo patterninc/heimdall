@@ -494,9 +494,9 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 		s3aResultURI := updateS3ToS3aURI(execCtx.resultURI)
 		mainAppFile := s3aWrapperURI
 		if jobContext.ReturnResult {
-			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, s3aResultURI}
+			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User, s3aResultURI}
 		} else {
-			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI}
+			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User}
 		}
 		sparkApp.Spec.MainApplicationFile = &mainAppFile
 	}
