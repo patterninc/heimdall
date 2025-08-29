@@ -121,6 +121,8 @@ type executionContext struct {
 	sparkClient *sparkClientSet.Clientset
 	kubeClient  *kubernetes.Clientset
 
+	awsConfig aws.Config
+
 	appName      string
 	queryURI     string
 	resultURI    string
@@ -219,6 +221,13 @@ func buildExecutionContextAndURI(r *plugin.Runtime, j *job.Job, c *cluster.Clust
 		execCtx.clusterContext.Properties = make(map[string]string)
 	}
 
+	// Load AWS config once and store in execCtx
+	awsConfig, err := awsconfig.LoadDefaultConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load AWS config: %w", err)
+	}
+	execCtx.awsConfig = awsConfig
+
 	// Set URIs and App Name
 	execCtx.appName = fmt.Sprintf("%s-%s", applicationPrefix, j.ID)
 	execCtx.queryURI = fmt.Sprintf("%s/%s/%s/%s", s.JobsURI, j.ID, queriesPath, queryFileName)
@@ -226,7 +235,7 @@ func buildExecutionContextAndURI(r *plugin.Runtime, j *job.Job, c *cluster.Clust
 	execCtx.logURI = fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, logsPath)
 
 	// Upload query to S3
-	if err := uploadFileToS3(execCtx.queryURI, execCtx.jobContext.Query); err != nil {
+	if err := uploadFileToS3(execCtx.awsConfig, execCtx.queryURI, execCtx.jobContext.Query); err != nil {
 		return nil, fmt.Errorf("failed to upload query to S3: %w", err)
 	}
 
@@ -294,7 +303,7 @@ func (e *executionContext) getAndStoreResults() error {
 		return nil
 	}
 
-	returnResultFileURI, err := getS3FileURI(e.resultURI, avroFileExtension)
+	returnResultFileURI, err := getS3FileURI(e.awsConfig, e.resultURI, avroFileExtension)
 	if err != nil {
 		e.runtime.Stdout.WriteString(fmt.Sprintf("failed to find .avro file in results directory %s: %s", e.resultURI, err))
 		return fmt.Errorf("failed to find .avro file in results directory %s: %w", e.resultURI, err)
@@ -308,20 +317,16 @@ func (e *executionContext) getAndStoreResults() error {
 }
 
 // uploadFileToS3 uploads content to S3.
-func uploadFileToS3(fileURI, content string) error {
+func uploadFileToS3(awsConfig aws.Config, fileURI, content string) error {
 	s3Parts := rxS3.FindAllStringSubmatch(fileURI, -1)
 	if len(s3Parts) == 0 || len(s3Parts[0]) < 3 {
 		return fmt.Errorf("unexpected S3 URI format: %s", fileURI)
 	}
 	bucket, key := s3Parts[0][1], s3Parts[0][2]
 
-	awsConfig, err := awsconfig.LoadDefaultConfig(ctx)
-	if err != nil {
-		return err
-	}
 	uploader := manager.NewUploader(s3.NewFromConfig(awsConfig))
 
-	_, err = uploader.Upload(ctx, &s3.PutObjectInput{
+	_, err := uploader.Upload(ctx, &s3.PutObjectInput{
 		Bucket: &bucket,
 		Key:    &key,
 		Body:   strings.NewReader(content),
@@ -335,17 +340,13 @@ func updateS3ToS3aURI(uri string) string {
 }
 
 // getS3FileURI finds a file in an S3 directory that matches the given extension.
-func getS3FileURI(directoryURI, matchingExtension string) (string, error) {
+func getS3FileURI(awsConfig aws.Config, directoryURI, matchingExtension string) (string, error) {
 	s3Parts := rxS3.FindAllStringSubmatch(directoryURI, -1)
 	if len(s3Parts) == 0 || len(s3Parts[0]) < 3 {
 		return "", fmt.Errorf("invalid S3 URI format: %s", directoryURI)
 	}
 	bucket, prefix := s3Parts[0][1], s3Parts[0][2]
 
-	awsConfig, err := awsconfig.LoadDefaultConfig(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to load AWS config: %w", err)
-	}
 	svc := s3.NewFromConfig(awsConfig)
 
 	result, err := svc.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
@@ -416,7 +417,7 @@ func getAndUploadPodContainerLogs(execCtx *executionContext, pod corev1.Pod, con
 	}
 	if string(logContent) != "" {
 		logURI := fmt.Sprintf("%s/%s-%s", execCtx.logURI, pod.Name, logType)
-		if err := uploadFileToS3(logURI, string(logContent)); err != nil {
+		if err := uploadFileToS3(execCtx.awsConfig, logURI, string(logContent)); err != nil {
 			execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Pod %s, container %s: %s upload error: %v\n", pod.Name, container.Name, logType, err))
 		}
 	}
