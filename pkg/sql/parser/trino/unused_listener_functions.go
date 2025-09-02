@@ -807,26 +807,6 @@ func (l *trinoListener) ExitSetTimeZone(ctx *grammar.SetTimeZoneContext) {
 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
 }
 
-// EnterMerge is called when production merge is entered.
-func (l *trinoListener) EnterMerge(ctx *grammar.MergeContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// ExitMerge is called when production merge is exited.
-func (l *trinoListener) ExitMerge(ctx *grammar.MergeContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// // EnterRootQuery is called when production rootQuery is entered.
-// func (l *trinoListener) EnterRootQuery(ctx *grammar.RootQueryContext) {
-// 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-// }
-
-// // ExitRootQuery is called when production rootQuery is exited.
-// func (l *trinoListener) ExitRootQuery(ctx *grammar.RootQueryContext) {
-// 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-// }
-
 // EnterWithFunction is called when production withFunction is entered.
 func (l *trinoListener) EnterWithFunction(ctx *grammar.WithFunctionContext) {
 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
@@ -846,7 +826,6 @@ func (l *trinoListener) ExitWithFunction(ctx *grammar.WithFunctionContext) {
 // func (l *trinoListener) ExitQuery(ctx *grammar.QueryContext) {
 // 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
 // }
-
 
 // EnterTableElement is called when production tableElement is entered.
 func (l *trinoListener) EnterTableElement(ctx *grammar.TableElementContext) {

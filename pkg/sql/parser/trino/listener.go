@@ -56,3 +56,12 @@ func (l *trinoListener) EnterDelete(ctx *grammar.DeleteContext) {
 func (l *trinoListener) EnterTableName(ctx *grammar.TableNameContext) {
 	l.addTableAccess(ctx.QualifiedName(), parser.SELECT)
 }
+
+func (l *trinoListener) EnterUpdate(ctx *grammar.UpdateContext) {
+	l.addTableAccess(ctx.QualifiedName(), parser.UPDATE)
+}
+
+// EnterMerge is called when production merge is entered.
+func (l *trinoListener) EnterMerge(ctx *grammar.MergeContext) {
+	l.addTableAccess(ctx.QualifiedName(), parser.INSERT)
+}

@@ -262,6 +262,103 @@ func TestParseSQLSelect(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "SELECT with cross join in subquery",
+			query: `SELECT
+					dag_id,
+					COUNT(*) AS task_count,
+					COUNT_IF(CAST(json_extract(task, '$.t') AS varchar) = 'EQUAL') AS task_equal_count
+				FROM (
+					SELECT
+						dag_id,
+						task
+					FROM
+						airflow.public.serialized_dag
+						CROSS JOIN UNNEST(
+							MAP_VALUES(
+								CAST(json_extract(data, '$.tasks') AS map(varchar, json))
+							)
+						) AS t(task)
+				) AS task_unnested
+				GROUP BY dag_id`,
+			expected: []*parser.TableAccess{
+				{
+					Access:  parser.SELECT,
+					Schema:  "public",
+					Name:    "serialized_dag",
+					Catalog: "airflow",
+				},
+			},
+		},
+		{
+			name: "Complex query with multiples joins #1",
+			query: `SELECT username AS username 
+					FROM (SELECT j.job_id,
+						j.job_name,
+						j.job_version,
+						j.job_error,
+						j.username,
+						from_unixtime(j.created_at) AS created_at,
+						js.job_status_name AS job_status,
+						if(j.is_sync, 'sync', 'async') AS job_type,
+						cl.cluster_id,
+						cm.command_id
+					FROM heimdall.public.jobs j
+					JOIN heimdall.public.job_statuses js ON js.job_status_id = j.job_status_id
+					JOIN heimdall.public.clusters cl ON cl.system_cluster_id = j.job_cluster_id
+					JOIN heimdall.public.commands cm ON cm.system_command_id = j.job_command_id
+					WHERE from_unixtime(j.created_at) >= CURRENT_TIMESTAMP - INTERVAL '45' DAY
+					) AS virtual_table GROUP BY username ORDER BY username ASC
+					LIMIT 1000`,
+			expected: []*parser.TableAccess{
+				{
+					Access:  parser.SELECT,
+					Catalog: "heimdall",
+					Schema:  "public",
+					Name:    "jobs",
+				},
+				{
+					Access:  parser.SELECT,
+					Catalog: "heimdall",
+					Schema:  "public",
+					Name:    "job_statuses",
+				},
+				{
+					Access:  parser.SELECT,
+					Catalog: "heimdall",
+					Schema:  "public",
+					Name:    "clusters",
+				},
+				{
+					Access:  parser.SELECT,
+					Catalog: "heimdall",
+					Schema:  "public",
+					Name:    "commands",
+				},
+			},
+		},
+		{
+			name: "Complex query with unnest",
+			query: `SELECT
+						*
+						FROM
+						airflow.public.serialized_dag,
+						UNNEST(
+							CAST(
+							json_extract(CAST(data AS JSON), '$.dag.tasks') AS ARRAY(JSON)
+							)
+						) AS t (task)
+						where dag_id='dag_id_from_query'  
+						LIMIT 1001`,
+			expected: []*parser.TableAccess{
+				{
+					Access:  parser.SELECT,
+					Schema:  "public",
+					Name:    "serialized_dag",
+					Catalog: "airflow",
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
