@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 func TestUpdateS3ToS3aURI(t *testing.T) {
@@ -23,9 +25,11 @@ func TestUpdateS3ToS3aURI(t *testing.T) {
 
 func TestGetSparkSubmitParameters(t *testing.T) {
 	ctx := &sparkEksJobContext{
-		Properties: map[string]string{
-			"spark.executor.memory": "4g",
-			"spark.driver.cores":    "2",
+		Parameters: &sparkEksJobParameters{
+			Properties: map[string]string{
+				"spark.executor.memory": "4g",
+				"spark.driver.cores":    "2",
+			},
 		},
 	}
 	params := getSparkSubmitParameters(ctx)
@@ -36,7 +40,9 @@ func TestGetSparkSubmitParameters(t *testing.T) {
 
 func TestGetSparkSubmitParameters_Empty(t *testing.T) {
 	ctx := &sparkEksJobContext{
-		Properties: map[string]string{},
+		Parameters: &sparkEksJobParameters{
+			Properties: map[string]string{},
+		},
 	}
 	params := getSparkSubmitParameters(ctx)
 	if params != nil {
@@ -44,8 +50,18 @@ func TestGetSparkSubmitParameters_Empty(t *testing.T) {
 	}
 }
 
+func TestGetSparkSubmitParameters_NilParameters(t *testing.T) {
+	ctx := &sparkEksJobContext{
+		Parameters: nil,
+	}
+	params := getSparkSubmitParameters(ctx)
+	if params != nil {
+		t.Errorf("Expected nil for nil parameters, got %v", params)
+	}
+}
+
 func TestGetS3FileURI_InvalidFormat(t *testing.T) {
-	_, err := getS3FileURI("invalid-uri", "avro")
+	_, err := getS3FileURI(aws.Config{}, "invalid-uri", "avro")
 	if err == nil {
 		t.Error("Expected error for invalid S3 URI format")
 	}
@@ -54,10 +70,10 @@ func TestGetS3FileURI_InvalidFormat(t *testing.T) {
 func TestGetS3FileURI_ValidFormat(t *testing.T) {
 	// This test only checks parsing, not actual AWS interaction
 	uri := "s3://bucket/path/"
-	_, err := getS3FileURI(uri, "avro")
+	_, err := getS3FileURI(aws.Config{}, uri, "avro")
 	// Should not error on parsing, but will error on AWS call (which is fine for unit test context)
-	if err == nil || !strings.Contains(err.Error(), "failed to load AWS config") {
-		t.Logf("Expected AWS config error, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "failed to list S3 objects") {
+		t.Logf("Expected AWS list objects error, got: %v", err)
 	}
 }
 

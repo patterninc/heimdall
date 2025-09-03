@@ -95,10 +95,14 @@ type sparkEksCommandContext struct {
 	KubeNamespace string            `yaml:"kube_namespace,omitempty" json:"kube_namespace,omitempty"`
 }
 
+type sparkEksJobParameters struct {
+	Properties map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
+}
+
 type sparkEksJobContext struct {
-	Query        string            `yaml:"query,omitempty" json:"query,omitempty"`
-	Properties   map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
-	ReturnResult bool              `yaml:"return_result,omitempty" json:"return_result,omitempty"`
+	Query        string                 `yaml:"query,omitempty" json:"query,omitempty"`
+	Parameters   *sparkEksJobParameters `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	ReturnResult bool                   `yaml:"return_result,omitempty" json:"return_result,omitempty"`
 }
 
 type sparkEksClusterContext struct {
@@ -209,12 +213,17 @@ func buildExecutionContextAndURI(r *plugin.Runtime, j *job.Job, c *cluster.Clust
 	execCtx.clusterContext = clusterContext
 
 	// Initialize and merge properties from command -> job
-	if execCtx.jobContext.Properties == nil {
-		execCtx.jobContext.Properties = make(map[string]string)
+	if execCtx.jobContext.Parameters == nil {
+		execCtx.jobContext.Parameters = &sparkEksJobParameters{
+			Properties: make(map[string]string),
+		}
+	}
+	if execCtx.jobContext.Parameters.Properties == nil {
+		execCtx.jobContext.Parameters.Properties = make(map[string]string)
 	}
 	for k, v := range s.Properties {
-		if _, found := execCtx.jobContext.Properties[k]; !found {
-			execCtx.jobContext.Properties[k] = v
+		if _, found := execCtx.jobContext.Parameters.Properties[k]; !found {
+			execCtx.jobContext.Parameters.Properties[k] = v
 		}
 	}
 	if execCtx.clusterContext.Properties == nil {
@@ -373,11 +382,11 @@ func printState(writer io.Writer, state v1beta2.ApplicationStateType) {
 
 // getSparkSubmitParameters returns Spark submit parameters as a string.
 func getSparkSubmitParameters(context *sparkEksJobContext) *string {
-	if len(context.Properties) == 0 {
+	if context.Parameters == nil || len(context.Parameters.Properties) == 0 {
 		return nil
 	}
-	conf := make([]string, 0, len(context.Properties))
-	for k, v := range context.Properties {
+	conf := make([]string, 0, len(context.Parameters.Properties))
+	for k, v := range context.Parameters.Properties {
 		conf = append(conf, fmt.Sprintf("--conf %s=%s", k, v))
 	}
 	result := strings.Join(conf, ` `)
@@ -401,8 +410,34 @@ func isPodInValidPhase(pod corev1.Pod) bool {
 		pod.Status.Phase == corev1.PodFailed
 }
 
+// writeLastLinesToStderr writes the last 100 lines of log content to stderr if it's from a driver pod
+func writeLastLinesToStderr(execCtx *executionContext, pod corev1.Pod, logContent string) {
+	// Check if this is a driver pod by looking for "driver" in the pod name
+	if !strings.Contains(pod.Name, "driver") {
+		return
+	}
+
+	lines := strings.Split(strings.TrimSpace(logContent), "\n")
+	if len(lines) == 0 {
+		return
+	}
+
+	// Get last 100 lines or all lines if fewer than 100
+	startIndex := 0
+	if len(lines) > 100 {
+		startIndex = len(lines) - 100
+	}
+
+	lastLines := lines[startIndex:]
+	if len(lastLines) > 0 {
+		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("\n=== Last %d lines from driver pod %s ===\n", len(lastLines), pod.Name))
+		execCtx.runtime.Stderr.WriteString(strings.Join(lastLines, "\n"))
+		execCtx.runtime.Stderr.WriteString("\n=== End of driver logs ===\n\n")
+	}
+}
+
 // getAndUploadPodContainerLogs fetches logs from a specific container in a pod and uploads them to S3.
-func getAndUploadPodContainerLogs(execCtx *executionContext, pod corev1.Pod, container corev1.Container, previous bool, logType string) {
+func getAndUploadPodContainerLogs(execCtx *executionContext, pod corev1.Pod, container corev1.Container, previous bool, logType string, writeToStderr bool) {
 	logOptions := &corev1.PodLogOptions{Container: container.Name, Previous: previous}
 	req := execCtx.kubeClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, logOptions)
 	logs, err := req.Stream(ctx)
@@ -416,6 +451,11 @@ func getAndUploadPodContainerLogs(execCtx *executionContext, pod corev1.Pod, con
 		return
 	}
 	if string(logContent) != "" {
+		// Write to stderr if requested and this is stdout logs (not previous/stderr logs)
+		if writeToStderr && !previous && logType == stdoutLogSuffix {
+			writeLastLinesToStderr(execCtx, pod, string(logContent))
+		}
+
 		logURI := fmt.Sprintf("%s/%s-%s", execCtx.logURI, pod.Name, logType)
 		if err := uploadFileToS3(execCtx.awsConfig, logURI, string(logContent)); err != nil {
 			execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Pod %s, container %s: %s upload error: %v\n", pod.Name, container.Name, logType, err))
@@ -424,16 +464,16 @@ func getAndUploadPodContainerLogs(execCtx *executionContext, pod corev1.Pod, con
 }
 
 // getSparkApplicationPodLogs fetches logs from pods and uploads them to S3.
-func getSparkApplicationPodLogs(execCtx *executionContext, pods []corev1.Pod) error {
+func getSparkApplicationPodLogs(execCtx *executionContext, pods []corev1.Pod, writeToStderr bool) error {
 	for _, pod := range pods {
 		if !isPodInValidPhase(pod) {
 			continue
 		}
 		for _, container := range pod.Spec.Containers {
 			// Get current logs and upload
-			getAndUploadPodContainerLogs(execCtx, pod, container, false, stdoutLogSuffix)
+			getAndUploadPodContainerLogs(execCtx, pod, container, false, stdoutLogSuffix, writeToStderr)
 			// Get logs from previous (failed) runs and upload
-			getAndUploadPodContainerLogs(execCtx, pod, container, true, stderrLogSuffix)
+			getAndUploadPodContainerLogs(execCtx, pod, container, true, stderrLogSuffix, false)
 		}
 	}
 	return nil
@@ -532,40 +572,40 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 
 	// Driver and Executor resources are handled by deleting from job properties after use
 	// to avoid them being added to sparkConf directly.
-	if driverCores := jobContext.Properties[sparkDriverCoresKey]; driverCores != "" {
+	if driverCores := jobContext.Parameters.Properties[sparkDriverCoresKey]; driverCores != "" {
 		if cores, err := strconv.ParseInt(driverCores, 10, 32); err == nil {
 			cores32 := int32(cores)
 			sparkApp.Spec.Driver.Cores = &cores32
 		}
-		delete(jobContext.Properties, sparkDriverCoresKey)
+		delete(jobContext.Parameters.Properties, sparkDriverCoresKey)
 	}
-	if driverMemory := jobContext.Properties[sparkDriverMemoryKey]; driverMemory != "" {
+	if driverMemory := jobContext.Parameters.Properties[sparkDriverMemoryKey]; driverMemory != "" {
 		sparkApp.Spec.Driver.Memory = &driverMemory
-		delete(jobContext.Properties, sparkDriverMemoryKey)
+		delete(jobContext.Parameters.Properties, sparkDriverMemoryKey)
 	}
-	if executorInstances := jobContext.Properties[sparkExecutorInstancesKey]; executorInstances != "" {
+	if executorInstances := jobContext.Parameters.Properties[sparkExecutorInstancesKey]; executorInstances != "" {
 		if instances, err := strconv.ParseInt(executorInstances, 10, 32); err == nil {
 			instances32 := int32(instances)
 			sparkApp.Spec.Executor.Instances = &instances32
 		}
-		delete(jobContext.Properties, sparkExecutorInstancesKey)
+		delete(jobContext.Parameters.Properties, sparkExecutorInstancesKey)
 	}
-	if executorCores := jobContext.Properties[sparkExecutorCoresKey]; executorCores != "" {
+	if executorCores := jobContext.Parameters.Properties[sparkExecutorCoresKey]; executorCores != "" {
 		if cores, err := strconv.ParseInt(executorCores, 10, 32); err == nil {
 			cores32 := int32(cores)
 			sparkApp.Spec.Executor.Cores = &cores32
 		}
-		delete(jobContext.Properties, sparkExecutorCoresKey)
+		delete(jobContext.Parameters.Properties, sparkExecutorCoresKey)
 	}
-	if executorMemory := jobContext.Properties[sparkExecutorMemoryKey]; executorMemory != "" {
+	if executorMemory := jobContext.Parameters.Properties[sparkExecutorMemoryKey]; executorMemory != "" {
 		sparkApp.Spec.Executor.Memory = &executorMemory
-		delete(jobContext.Properties, sparkExecutorMemoryKey)
+		delete(jobContext.Parameters.Properties, sparkExecutorMemoryKey)
 	}
 
 	for k, v := range clusterContext.Properties {
 		sparkApp.Spec.SparkConf[k] = v
 	}
-	for k, v := range jobContext.Properties {
+	for k, v := range jobContext.Parameters.Properties {
 		sparkApp.Spec.SparkConf[k] = v
 	}
 }
@@ -636,7 +676,7 @@ func (e *executionContext) monitorJobAndCollectLogs() error {
 	for {
 		if monitorCtx.Err() != nil {
 			if finalSparkApp != nil {
-				collectSparkApplicationLogs(e, finalSparkApp)
+				collectSparkApplicationLogs(e, finalSparkApp, true)
 			}
 			if monitorCtx.Err() == context.DeadlineExceeded {
 				return fmt.Errorf("spark job timed out after %v", jobTimeout)
@@ -650,7 +690,7 @@ func (e *executionContext) monitorJobAndCollectLogs() error {
 		if err != nil {
 			e.runtime.Stderr.WriteString(fmt.Sprintf("Spark application %s/%s not found or deleted externally: %v\n", namespace, appName, err))
 			if finalSparkApp != nil {
-				collectSparkApplicationLogs(e, finalSparkApp)
+				collectSparkApplicationLogs(e, finalSparkApp, true)
 			}
 			return fmt.Errorf("spark application %s/%s not found: %w", namespace, appName, err)
 		}
@@ -664,17 +704,17 @@ func (e *executionContext) monitorJobAndCollectLogs() error {
 		}
 
 		if state == v1beta2.ApplicationStateRunning {
-			collectSparkApplicationLogs(e, sparkApp)
+			collectSparkApplicationLogs(e, sparkApp, false)
 			continue
 		}
 
 		switch state {
 		case v1beta2.ApplicationStateCompleted:
-			collectSparkApplicationLogs(e, sparkApp)
+			collectSparkApplicationLogs(e, sparkApp, false)
 			e.runtime.Stdout.WriteString("Spark job completed successfully\n")
 			return nil
 		case v1beta2.ApplicationStateFailed:
-			collectSparkApplicationLogs(e, sparkApp)
+			collectSparkApplicationLogs(e, sparkApp, true)
 			errorMessage := sparkApp.Status.AppState.ErrorMessage
 			if errorMessage == "" {
 				errorMessage = unknownErrorMsg
@@ -682,7 +722,7 @@ func (e *executionContext) monitorJobAndCollectLogs() error {
 			e.runtime.Stderr.WriteString(fmt.Sprintf("Spark job failed: %s\n", errorMessage))
 			return fmt.Errorf("spark job failed: %s", errorMessage)
 		case v1beta2.ApplicationStateFailedSubmission, v1beta2.ApplicationStateUnknown:
-			collectSparkApplicationLogs(e, finalSparkApp)
+			collectSparkApplicationLogs(e, finalSparkApp, true)
 			msg := sparkJobSubmissionFailedMsg
 			if state == v1beta2.ApplicationStateUnknown {
 				msg = sparkAppUnknownStateMsg
@@ -693,7 +733,7 @@ func (e *executionContext) monitorJobAndCollectLogs() error {
 }
 
 // collectSparkApplicationLogs collects logs from Spark application pods.
-func collectSparkApplicationLogs(execCtx *executionContext, sparkApp *v1beta2.SparkApplication) {
+func collectSparkApplicationLogs(execCtx *executionContext, sparkApp *v1beta2.SparkApplication, writeToStderr bool) {
 	if sparkApp == nil {
 		return
 	}
@@ -703,7 +743,7 @@ func collectSparkApplicationLogs(execCtx *executionContext, sparkApp *v1beta2.Sp
 		return
 	}
 
-	if err := getSparkApplicationPodLogs(execCtx, pods); err != nil {
+	if err := getSparkApplicationPodLogs(execCtx, pods, writeToStderr); err != nil {
 		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Warning: failed to collect pod logs: %v\n", err))
 	}
 }
