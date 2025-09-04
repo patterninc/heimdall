@@ -9,7 +9,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.18.3
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.46.0
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.62.0
-	github.com/aws/aws-sdk-go-v2/service/eks v1.70.0
 	github.com/aws/aws-sdk-go-v2/service/emrcontainers v1.37.0
 	github.com/aws/aws-sdk-go-v2/service/glue v1.123.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.86.0
@@ -17,10 +16,15 @@ require (
 	github.com/babourine/x v1.0.4
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
+	github.com/kubeflow/spark-operator/v2 v2.3.0
 	github.com/lib/pq v1.10.9
 	github.com/linkedin/goavro v2.1.0+incompatible
 	github.com/snowflakedb/gosnowflake v1.15.0
 	gopkg.in/yaml.v3 v3.0.1
+	k8s.io/api v0.33.4
+	k8s.io/apimachinery v0.33.4
+	k8s.io/client-go v0.33.4
+	sigs.k8s.io/yaml v1.5.0
 )
 
 require (
@@ -71,7 +75,6 @@ require (
 	github.com/klauspost/asmfmt v1.3.2 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
-	github.com/kubeflow/spark-operator/v2 v2.3.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/minio/asm2plan9s v0.0.0-20200509001527-cdd76441f9d8 // indirect
 	github.com/minio/c2goasm v0.0.0-20190812172519-36a3d3bbc4f3 // indirect
@@ -105,9 +108,6 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/linkedin/goavro.v1 v1.0.5 // indirect
-	k8s.io/api v0.33.4 // indirect
-	k8s.io/apimachinery v0.33.4 // indirect
-	k8s.io/client-go v0.33.4 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738 // indirect
@@ -115,5 +115,4 @@ require (
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
-	sigs.k8s.io/yaml v1.5.0 // indirect
 )

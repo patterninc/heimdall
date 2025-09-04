@@ -1,6 +1,7 @@
 package sparkeks
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	"github.com/kubeflow/spark-operator/v2/api/v1beta2"
 	sparkClientSet "github.com/kubeflow/spark-operator/v2/pkg/client/clientset/versioned"
@@ -70,9 +72,9 @@ const (
 )
 
 var (
-	ctx           = context.Background()
-	rxS3          = regexp.MustCompile(`^s3://([^/]+)/(.*)$`)
-	runtimeStates = []v1beta2.ApplicationStateType{
+	ctx               = context.Background()
+	rxS3              = regexp.MustCompile(`^s3://([^/]+)/(.*)$`)
+	runtimeStates     = []v1beta2.ApplicationStateType{
 		v1beta2.ApplicationStateCompleted,
 		v1beta2.ApplicationStateFailed,
 		v1beta2.ApplicationStateFailedSubmission,
@@ -481,15 +483,8 @@ func getSparkApplicationPodLogs(execCtx *executionContext, pods []corev1.Pod, wr
 
 // createSparkClients creates Kubernetes and Spark clients for the EKS cluster.
 func createSparkClients(execCtx *executionContext) error {
-	region := os.Getenv(awsRegionEnvVar)
-	if execCtx.clusterContext.Region != nil {
-		region = *execCtx.clusterContext.Region
-	}
-
-	// Update kubeconfig using AWS CLI
-	cmd := exec.Command("aws", "eks", "update-kubeconfig", "--region", region, "--name", execCtx.cluster.Name)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to update kubeconfig: ensure AWS CLI is installed and configured: %w", err)
+	if err := updateKubeConfig(execCtx); err != nil {
+		return fmt.Errorf("failed to update kubeconfig: %w", err)
 	}
 
 	// Load from updated kubeconfig
@@ -515,6 +510,61 @@ func createSparkClients(execCtx *executionContext) error {
 	execCtx.kubeClient = kubeClient
 
 	execCtx.runtime.Stdout.WriteString(fmt.Sprintf("Successfully created Spark Operator and Kubernetes clients for cluster: %s\n", execCtx.cluster.Name))
+	return nil
+}
+
+func updateKubeConfig(execCtx *executionContext) error {
+	region := os.Getenv(awsRegionEnvVar)
+	if execCtx.clusterContext.Region != nil {
+		region = *execCtx.clusterContext.Region
+	}
+	roleArn := ""
+	if execCtx.clusterContext.RoleARN != nil {
+		roleArn = *execCtx.clusterContext.RoleARN
+	}
+	args := []string{
+		"eks", "update-kubeconfig",
+		"--region", region,
+		"--name", execCtx.cluster.Name,
+	}
+	if roleArn != "" {
+		// Include role-arn so the kubeconfig will exec get-token with that role later
+		args = append(args, "--role-arn", roleArn)
+	}
+
+	cmd := exec.CommandContext(ctx, "aws", args...)
+	// If a role ARN is provided, assume it first and run the command with those temp creds.
+	// This is required because update-kubeconfig uses current creds for DescribeCluster.
+	if roleArn != "" {
+		awsCfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
+		if err != nil {
+			return fmt.Errorf("load AWS config for STS assume-role: %w", err)
+		}
+		stsClient := sts.NewFromConfig(awsCfg)
+		in := &sts.AssumeRoleInput{
+			RoleArn:         aws.String(roleArn),
+			RoleSessionName: aws.String(execCtx.job.ID),
+		}
+		out, err := stsClient.AssumeRole(ctx, in)
+		if err != nil {
+			return fmt.Errorf("sts:AssumeRole for %s failed: %w", roleArn, err)
+		}
+
+		env := os.Environ()
+		env = append(env,
+			fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", aws.ToString(out.Credentials.AccessKeyId)),
+			fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", aws.ToString(out.Credentials.SecretAccessKey)),
+			fmt.Sprintf("AWS_SESSION_TOKEN=%s", aws.ToString(out.Credentials.SessionToken)),
+		)
+		cmd.Env = env
+	}
+	var combined bytes.Buffer
+	cmd.Stdout = &combined
+	cmd.Stderr = &combined
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to update kubeconfig (aws eks update-kubeconfig): %w; output: %s", err, combined.String())
+	}
 	return nil
 }
 
