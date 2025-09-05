@@ -13,17 +13,19 @@ func TestParseSQLCreate(t *testing.T) {
 	tests := []struct {
 		name     string
 		query    string
-		expected []*parser.TableAccess
+		expected []parser.Access
 	}{
 		{
 			name:  "simple CREATE TABLE without catalog",
 			query: "CREATE TABLE public.sales (id INT, amount DECIMAL)",
-			expected: []*parser.TableAccess{{
-				Name:    "sales",
-				Schema:  "public",
-				Catalog: defaultCatalog,
-				Access:  parser.CREATE,
-			}},
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "sales",
+					Schema:  "public",
+					Catalog: defaultCatalog,
+					Act:     parser.CREATE,
+				},
+			},
 		},
 		{
 			name: "Create table with partitions",
@@ -35,12 +37,14 @@ func TestParseSQLCreate(t *testing.T) {
 			WITH (
 				partitioned_by = ARRAY['log_date']
 			);`,
-			expected: []*parser.TableAccess{{
-				Name:    "logs",
-				Schema:  "default",
-				Catalog: defaultCatalog,
-				Access:  parser.CREATE,
-			}},
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "logs",
+					Schema:  "default",
+					Catalog: defaultCatalog,
+					Act:     parser.CREATE,
+				},
+			},
 		},
 		{
 			name: "Create table as select",
@@ -50,18 +54,18 @@ func TestParseSQLCreate(t *testing.T) {
 				FROM catalog.public.orders
 				GROUP BY customer_id
 				HAVING SUM(amount) > 1000;`,
-			expected: []*parser.TableAccess{
-				{
-					Name:    "top_customers",
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "top_customers",
 					Schema:  "default",
 					Catalog: "test_catalog",
-					Access:  parser.CREATE,
+					Act:     parser.CREATE,
 				},
-				{
-					Name:    "orders",
+				&parser.TableAccess{
+					Table:   "orders",
 					Schema:  "public",
 					Catalog: "catalog",
-					Access:  parser.SELECT,
+					Act:     parser.SELECT,
 				},
 			},
 		},
@@ -70,7 +74,7 @@ func TestParseSQLCreate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			receiver := trino.NewTrinoAccessReceiver(defaultCatalog)
-			result, err := receiver.ParseTableAccess(tt.query)
+			result, err := receiver.ParseAccess(tt.query)
 			if err != nil {
 				t.Errorf("Unexpected error in test %s: %v", tt.name, err)
 			}

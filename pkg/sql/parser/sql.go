@@ -1,9 +1,17 @@
 package parser
 
-type AccessType int
+type AccessKind int
 
 const (
-	SELECT AccessType = iota
+	TableAccessKind AccessKind = iota
+	SchemaAccessKind
+	CatalogAccessKind
+)
+
+type Action int
+
+const (
+	SELECT Action = iota
 	INSERT
 	UPDATE
 	DELETE
@@ -12,13 +20,22 @@ const (
 	ALTER
 )
 
-type TableAccess struct {
-	Name    string
-	Schema  string
-	Catalog string
-	Access  AccessType
+type Access interface {
+	Kind() AccessKind
+	Action() Action
 }
 
+type TableAccess struct {
+    Catalog string
+    Schema  string
+    Table   string
+    Act     Action
+}
+
+func (t *TableAccess) Kind() AccessKind { return TableAccessKind }
+func (t *TableAccess) Action() Action   { return t.Act }
+
+
 type AccessReceiver interface {
-	ParseTableAccess(sql string) ([]*TableAccess, error)
+	ParseAccess(sql string) ([]Access, error)
 }

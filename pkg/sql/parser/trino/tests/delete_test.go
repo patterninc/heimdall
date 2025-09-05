@@ -13,52 +13,71 @@ func TestParseSQLDelete(t *testing.T) {
 	tests := []struct {
 		name     string
 		query    string
-		expected []*parser.TableAccess
+		expected []parser.Access
 	}{
 		{
 			name:  "simple DELETE from single table without catalog",
 			query: "DELETE FROM public.sales",
-			expected: []*parser.TableAccess{{
-				Name:    "sales",
-				Schema:  "public",
-				Catalog: defaultCatalog,
-				Access:  parser.DELETE,
-			}},
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "sales",
+					Schema:  "public",
+					Catalog: defaultCatalog,
+					Act:     parser.DELETE,
+				},
+			},
 		},
 		{
 			name:  "simple DELETE from single table with catalog",
 			query: "DELETE FROM catalog_name.schema_name.sales",
-			expected: []*parser.TableAccess{{
-				Name:    "sales",
-				Schema:  "schema_name",
-				Catalog: "catalog_name",
-				Access:  parser.DELETE,
-			}},
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "sales",
+					Schema:  "schema_name",
+					Catalog: "catalog_name",
+					Act:     parser.DELETE,
+				},
+			},
+		},
+		{
+			name:  "simple DELETE from single table with catalog",
+			query: "DELETE FROM catalog_name.schema_name.sales",
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "sales",
+					Schema:  "schema_name",
+					Catalog: "catalog_name",
+					Act:     parser.DELETE,
+				},
+			},
 		},
 		{
 			name:  "DELETE with WHERE clause",
 			query: "DELETE FROM public.sales WHERE id = 1",
-			expected: []*parser.TableAccess{{
-				Name:    "sales",
-				Schema:  "public",
-				Catalog: defaultCatalog,
-				Access:  parser.DELETE,
-			}},
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "sales",
+					Schema:  "public",
+					Catalog: defaultCatalog,
+					Act:     parser.DELETE,
+				},
+			},
 		},
 		{
 			name:  "DELETE with subquery in where clause",
 			query: "DELETE FROM public.sales WHERE id IN (SELECT id FROM catalog_name.public.second_table WHERE amount > 100)",
-			expected: []*parser.TableAccess{{
-				Name:    "sales",
-				Schema:  "public",
-				Catalog: defaultCatalog,
-				Access:  parser.DELETE,
-			},
-				{
-					Name:    "second_table",
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "sales",
+					Schema:  "public",
+					Catalog: defaultCatalog,
+					Act:     parser.DELETE,
+				},
+				&parser.TableAccess{
+					Table:   "second_table",
 					Schema:  "public",
 					Catalog: "catalog_name",
-					Access:  parser.SELECT,
+					Act:     parser.SELECT,
 				},
 			},
 		},
@@ -70,24 +89,24 @@ func TestParseSQLDelete(t *testing.T) {
 					JOIN public.blacklist b ON c.email = b.email
 					WHERE b.active = true
 				);`,
-			expected: []*parser.TableAccess{
-				{
-					Name:    "orders",
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "orders",
 					Schema:  "public",
 					Catalog: "analytics",
-					Access:  parser.DELETE,
+					Act:     parser.DELETE,
 				},
-				{
-					Name:    "customers",
+				&parser.TableAccess{
+					Table:   "customers",
 					Schema:  "public",
 					Catalog: defaultCatalog,
-					Access:  parser.SELECT,
+					Act:     parser.SELECT,
 				},
-				{
-					Name:    "blacklist",
+				&parser.TableAccess{
+					Table:   "blacklist",
 					Schema:  "public",
 					Catalog: defaultCatalog,
-					Access:  parser.SELECT,
+					Act:     parser.SELECT,
 				},
 			},
 		},
@@ -96,7 +115,7 @@ func TestParseSQLDelete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			receiver := trino.NewTrinoAccessReceiver(defaultCatalog)
-			result, err := receiver.ParseTableAccess(tt.query)
+			result, err := receiver.ParseAccess(tt.query)
 			if err != nil {
 				t.Errorf("Unexpected error in test %s: %v", tt.name, err)
 			}

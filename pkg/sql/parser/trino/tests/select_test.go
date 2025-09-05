@@ -17,16 +17,16 @@ func TestParseSQLSelect(t *testing.T) {
 	tests := []struct {
 		name     string
 		query    string
-		expected []*parser.TableAccess
+		expected []parser.Access
 	}{
 		{
 			name:  "Single table select",
 			query: "SELECT * FROM schema1.table1",
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema1",
-					Name:    "table1",
+					Table:   "table1",
 					Catalog: defaultCatalog,
 				},
 			},
@@ -34,11 +34,11 @@ func TestParseSQLSelect(t *testing.T) {
 		{
 			name:  "Single table select with alias",
 			query: "SELECT * FROM schema1.table1 as t1",
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema1",
-					Name:    "table1",
+					Table:   "table1",
 					Catalog: defaultCatalog,
 				},
 			},
@@ -46,17 +46,17 @@ func TestParseSQLSelect(t *testing.T) {
 		{
 			name:  "Multiple tables",
 			query: "SELECT * FROM schema1.table1, testCatalog.schema2.table2",
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema1",
-					Name:    "table1",
+					Table:   "table1",
 					Catalog: defaultCatalog,
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema2",
-					Name:    "table2",
+					Table:   "table2",
 					Catalog: "testCatalog",
 				},
 			},
@@ -64,17 +64,17 @@ func TestParseSQLSelect(t *testing.T) {
 		{
 			name:  "Join tables",
 			query: "SELECT * FROM ( SELECT * FROM schema1.table1, schema2.table2 )as b",
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema1",
-					Name:    "table1",
+					Table:   "table1",
 					Catalog: defaultCatalog,
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema2",
-					Name:    "table2",
+					Table:   "table2",
 					Catalog: defaultCatalog,
 				},
 			},
@@ -82,17 +82,17 @@ func TestParseSQLSelect(t *testing.T) {
 		{
 			name:  "Join tables",
 			query: "SELECT * FROM ( SELECT * FROM test_catalog.schema1.table1, schema2.table2 )as b",
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema1",
-					Name:    "table1",
+					Table:   "table1",
 					Catalog: "test_catalog",
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema2",
-					Name:    "table2",
+					Table:   "table2",
 					Catalog: defaultCatalog,
 				},
 			},
@@ -100,17 +100,17 @@ func TestParseSQLSelect(t *testing.T) {
 		{
 			name:  "Join with ON clause",
 			query: "SELECT a.col1, b.col2 FROM schema1.table1 a JOIN schema2.table2 b ON a.id = b.id",
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema1",
-					Name:    "table1",
+					Table:   "table1",
 					Catalog: defaultCatalog,
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema2",
-					Name:    "table2",
+					Table:   "table2",
 					Catalog: defaultCatalog,
 				},
 			},
@@ -118,17 +118,17 @@ func TestParseSQLSelect(t *testing.T) {
 		{
 			name:  "Subquery in FROM clause",
 			query: "SELECT * FROM schema1.table1 WHERE id IN (SELECT id FROM schema2.table2)",
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema1",
-					Name:    "table1",
+					Table:   "table1",
 					Catalog: defaultCatalog,
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema2",
-					Name:    "table2",
+					Table:   "table2",
 					Catalog: defaultCatalog,
 				},
 			},
@@ -136,17 +136,17 @@ func TestParseSQLSelect(t *testing.T) {
 		{
 			name:  "Subquery with alias",
 			query: "SELECT * FROM (SELECT * FROM schema.table WHERE id IN (SELECT id FROM schema2.table2)) as sub",
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema",
-					Name:    "table",
+					Table:   "table",
 					Catalog: defaultCatalog,
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema2",
-					Name:    "table2",
+					Table:   "table2",
 					Catalog: defaultCatalog,
 				},
 			},
@@ -154,17 +154,17 @@ func TestParseSQLSelect(t *testing.T) {
 		{
 			name:  "Complex query with multiple joins and subqueries",
 			query: "SELECT * FROM schema.table LEFT JOIN schema2.table2 ON schema.table.id = schema2.table2.id",
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema",
-					Name:    "table",
+					Table:   "table",
 					Catalog: defaultCatalog,
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema2",
-					Name:    "table2",
+					Table:   "table2",
 					Catalog: defaultCatalog,
 				},
 			},
@@ -172,17 +172,17 @@ func TestParseSQLSelect(t *testing.T) {
 		{
 			name:  "EXISTS subquery",
 			query: "SELECT * FROM schema1.table1 WHERE EXISTS (SELECT 1 FROM schema2.table2 WHERE schema2.table2.id = schema1.table1.id)",
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema1",
-					Name:    "table1",
+					Table:   "table1",
 					Catalog: defaultCatalog,
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema2",
-					Name:    "table2",
+					Table:   "table2",
 					Catalog: defaultCatalog,
 				},
 			},
@@ -198,29 +198,29 @@ func TestParseSQLSelect(t *testing.T) {
 				)
 				AND col4 NOT IN (SELECT col4 FROM schema4.table4 WHERE col4 = 'value4')
 			`,
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema1",
-					Name:    "table1",
+					Table:   "table1",
 					Catalog: defaultCatalog,
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema2",
-					Name:    "table2",
+					Table:   "table2",
 					Catalog: defaultCatalog,
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema3",
-					Name:    "table3",
+					Table:   "table3",
 					Catalog: defaultCatalog,
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "schema4",
-					Name:    "table4",
+					Table:   "table4",
 					Catalog: defaultCatalog,
 				},
 			},
@@ -247,17 +247,17 @@ func TestParseSQLSelect(t *testing.T) {
 				JOIN sales.customers ON recent_orders.customer_id = customers.customer_id
 			WHERE
 				customers.is_active = TRUE;`,
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "sales",
-					Name:    "orders",
+					Table:   "orders",
 					Catalog: defaultCatalog,
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "sales",
-					Name:    "customers",
+					Table:   "customers",
 					Catalog: defaultCatalog,
 				},
 			},
@@ -281,11 +281,11 @@ func TestParseSQLSelect(t *testing.T) {
 						) AS t(task)
 				) AS task_unnested
 				GROUP BY dag_id`,
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "public",
-					Name:    "serialized_dag",
+					Table:   "serialized_dag",
 					Catalog: "airflow",
 				},
 			},
@@ -310,30 +310,30 @@ func TestParseSQLSelect(t *testing.T) {
 					WHERE from_unixtime(j.created_at) >= CURRENT_TIMESTAMP - INTERVAL '45' DAY
 					) AS virtual_table GROUP BY username ORDER BY username ASC
 					LIMIT 1000`,
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Catalog: "heimdall",
 					Schema:  "public",
-					Name:    "jobs",
+					Table:   "jobs",
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Catalog: "heimdall",
 					Schema:  "public",
-					Name:    "job_statuses",
+					Table:   "job_statuses",
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Catalog: "heimdall",
 					Schema:  "public",
-					Name:    "clusters",
+					Table:   "clusters",
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Catalog: "heimdall",
 					Schema:  "public",
-					Name:    "commands",
+					Table:   "commands",
 				},
 			},
 		},
@@ -350,11 +350,11 @@ func TestParseSQLSelect(t *testing.T) {
 						) AS t (task)
 						where dag_id='dag_id_from_query'  
 						LIMIT 1001`,
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.SELECT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "public",
-					Name:    "serialized_dag",
+					Table:   "serialized_dag",
 					Catalog: "airflow",
 				},
 			},
@@ -364,7 +364,7 @@ func TestParseSQLSelect(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			receiver := trino.NewTrinoAccessReceiver(defaultCatalog)
-			result, err := receiver.ParseTableAccess(tt.query)
+			result, err := receiver.ParseAccess(tt.query)
 			if err != nil {
 				t.Errorf("Unexpected error in test %s: %v", tt.name, err)
 			}

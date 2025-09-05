@@ -13,35 +13,38 @@ func TestParseSQLDrop(t *testing.T) {
 	tests := []struct {
 		name     string
 		query    string
-		expected []*parser.TableAccess
+		expected []parser.Access
 	}{
 		{
 			name:  "simple Drop TABLE without catalog",
 			query: "DROP TABLE public.sales",
-			expected: []*parser.TableAccess{{
-				Name:    "sales",
-				Schema:  "public",
-				Catalog: defaultCatalog,
-				Access:  parser.DROP,
-			}},
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "sales",
+					Schema:  "public",
+					Catalog: defaultCatalog,
+					Act:     parser.DROP,
+				},
+			},
 		},
 		{
-			name: "Drop table with catalog",
+			name:  "Drop table with catalog",
 			query: `DROP TABLE  IF EXISTS test_catalog.public.sales;`,
-			expected: []*parser.TableAccess{{
-				Name:    "sales",
-				Schema:  "public",
-				Catalog: "test_catalog",
-				Access:  parser.DROP,
-			}},
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "sales",
+					Schema:  "public",
+					Catalog: "test_catalog",
+					Act:     parser.DROP,
+				},
+			},
 		},
-
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			receiver := trino.NewTrinoAccessReceiver(defaultCatalog)
-			result, err := receiver.ParseTableAccess(tt.query)
+			result, err := receiver.ParseAccess(tt.query)
 			if err != nil {
 				t.Errorf("Unexpected error in test %s: %v", tt.name, err)
 			}

@@ -13,7 +13,7 @@ func TestParseSQLMergeInto(t *testing.T) {
 	tests := []struct {
 		name     string
 		query    string
-		expected []*parser.TableAccess
+		expected []parser.Access
 	}{
 		{
 			name: "Simple MERGE INTO with catalog and schema",
@@ -28,17 +28,17 @@ func TestParseSQLMergeInto(t *testing.T) {
 					WHEN NOT MATCHED THEN
 						INSERT (customer_id, name, email, updated_at)
 						VALUES (s.customer_id, s.name, s.email, s.updated_at);`,
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.INSERT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.INSERT,
 					Schema:  "public",
-					Name:    "customers",
+					Table:   "customers",
 					Catalog: "analytics",
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "staging",
-					Name:    "new_customers",
+					Table:   "new_customers",
 					Catalog: "analytics",
 				},
 			},
@@ -51,17 +51,17 @@ func TestParseSQLMergeInto(t *testing.T) {
 					WHEN NOT MATCHED THEN
 						INSERT (sku, name, category)
 						VALUES (s.sku, s.name, s.category);`,
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.INSERT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.INSERT,
 					Schema:  "public",
-					Name:    "products",
+					Table:   "products",
 					Catalog: defaultCatalog,
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Schema:  "public",
-					Name:    "incoming_products",
+					Table:   "incoming_products",
 					Catalog: defaultCatalog,
 				},
 			},
@@ -92,18 +92,18 @@ func TestParseSQLMergeInto(t *testing.T) {
 				WHEN NOT MATCHED THEN
 				INSERT (id )
 				VALUES (source.id);`,
-			expected: []*parser.TableAccess{
-				{
-					Access:  parser.INSERT,
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Act:     parser.INSERT,
 					Catalog: "catalog_name",
 					Schema:  "public",
-					Name:    "table_name",
+					Table:   "table_name",
 				},
-				{
-					Access:  parser.SELECT,
+				&parser.TableAccess{
+					Act:     parser.SELECT,
 					Catalog: "catalog_name2",
 					Schema:  "public2",
-					Name:    "table_name2",
+					Table:   "table_name2",
 				},
 			},
 		},
@@ -112,7 +112,7 @@ func TestParseSQLMergeInto(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			receiver := trino.NewTrinoAccessReceiver(defaultCatalog)
-			result, err := receiver.ParseTableAccess(tt.query)
+			result, err := receiver.ParseAccess(tt.query)
 			if err != nil {
 				t.Errorf("Unexpected error in test %s: %v", tt.name, err)
 			}

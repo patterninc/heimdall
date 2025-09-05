@@ -13,29 +13,29 @@ func TestParseSQLUpdate(t *testing.T) {
 	tests := []struct {
 		name     string
 		query    string
-		expected []*parser.TableAccess
+		expected []parser.Access
 	}{
 		{
 			name:  "simple UPDATE on single table without catalog",
 			query: "UPDATE public.sales SET amount = 200 WHERE id = 1",
-			expected: []*parser.TableAccess{
-				{
-					Name:    "sales",
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "sales",
 					Schema:  "public",
 					Catalog: defaultCatalog,
-					Access:  parser.UPDATE,
+					Act:     parser.UPDATE,
 				},
 			},
 		},
 		{
 			name:  "UPDATE with catalog and schema",
 			query: "UPDATE my_catalog.public.sales SET amount = 200 WHERE id = 1",
-			expected: []*parser.TableAccess{
-				{
-					Name:    "sales",
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "sales",
 					Schema:  "public",
 					Catalog: "my_catalog",
-					Access:  parser.UPDATE,
+					Act:     parser.UPDATE,
 				},
 			},
 		},
@@ -46,24 +46,24 @@ func TestParseSQLUpdate(t *testing.T) {
 					WHERE EXISTS (
 						SELECT 1 FROM catalog_name.public.promotions p WHERE p.employee_id = e.employee_id
 					)`,
-			expected: []*parser.TableAccess{
-				{
-					Name:    "employees",
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "employees",
 					Schema:  "public",
 					Catalog: defaultCatalog,
-					Access:  parser.UPDATE,
+					Act:     parser.UPDATE,
 				},
-				{
-					Name:    "promotions",
+				&parser.TableAccess{
+					Table:   "promotions",
 					Schema:  "public",
 					Catalog: "catalog_name",
-					Access:  parser.SELECT,
+					Act:     parser.SELECT,
 				},
 			},
 		},
 		{
-			name:"Update with join in select statement",
-			query:`UPDATE analytics.public.payments
+			name: "Update with join in select statement",
+			query: `UPDATE analytics.public.payments
 					SET flagged = true
 					WHERE customer_id IN (
 						SELECT c.customer_id
@@ -71,24 +71,24 @@ func TestParseSQLUpdate(t *testing.T) {
 						JOIN public.review_list r ON c.email = r.email
 						WHERE r.needs_review = true
 					)`,
-			expected: []*parser.TableAccess{
-				{
-					Name:    "payments",
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "payments",
 					Schema:  "public",
 					Catalog: "analytics",
-					Access:  parser.UPDATE,
+					Act:     parser.UPDATE,
 				},
-				{
-					Name:    "customers",
+				&parser.TableAccess{
+					Table:   "customers",
 					Schema:  "public",
 					Catalog: defaultCatalog,
-					Access:  parser.SELECT,
+					Act:     parser.SELECT,
 				},
-				{
-					Name:    "review_list",
+				&parser.TableAccess{
+					Table:   "review_list",
 					Schema:  "public",
 					Catalog: defaultCatalog,
-					Access:  parser.SELECT,
+					Act:     parser.SELECT,
 				},
 			},
 		},
@@ -97,7 +97,7 @@ func TestParseSQLUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			receiver := trino.NewTrinoAccessReceiver(defaultCatalog)
-			result, err := receiver.ParseTableAccess(tt.query)
+			result, err := receiver.ParseAccess(tt.query)
 			if err != nil {
 				t.Errorf("Unexpected error in test %s: %v", tt.name, err)
 			}

@@ -13,44 +13,50 @@ func TestParseSQLAlter(t *testing.T) {
 	tests := []struct {
 		name     string
 		query    string
-		expected []*parser.TableAccess
+		expected []parser.Access
 	}{
 		{
 			name:  "Alter table add column",
 			query: "ALTER TABLE public.users ADD COLUMN email VARCHAR;",
-			expected: []*parser.TableAccess{{
-				Name:    "users",
-				Schema:  "public",
-				Catalog: defaultCatalog,
-				Access:  parser.ALTER,
-			}},
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "users",
+					Schema:  "public",
+					Catalog: defaultCatalog,
+					Act:     parser.ALTER,
+				},
+			},
 		},
 		{
 			name:  "Alter table with catalog",
 			query: "ALTER TABLE test_catalog.public.inventory DROP COLUMN obsolete_flag;",
-			expected: []*parser.TableAccess{{
-				Name:    "inventory",
-				Schema:  "public",
-				Catalog: "test_catalog",
-				Access:  parser.ALTER,
-			}},
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "inventory",
+					Schema:  "public",
+					Catalog: "test_catalog",
+					Act:     parser.ALTER,
+				},
+			},
 		},
 		{
 			name:  "Alter table rename table",
 			query: "ALTER TABLE schema_name.old_table_name RENAME TO schema_name.new_table_name;",
-			expected: []*parser.TableAccess{{
-				Name:    "old_table_name",
-				Schema:  "schema_name",
-				Catalog: defaultCatalog,
-				Access:  parser.ALTER,
-			}},
+			expected: []parser.Access{
+				&parser.TableAccess{
+					Table:   "old_table_name",
+					Schema:  "schema_name",
+					Catalog: defaultCatalog,
+					Act:     parser.ALTER,
+				},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			receiver := trino.NewTrinoAccessReceiver(defaultCatalog)
-			result, err := receiver.ParseTableAccess(tt.query)
+			result, err := receiver.ParseAccess(tt.query)
 			if err != nil {
 				t.Errorf("Unexpected error in test %s: %v", tt.name, err)
 			}
