@@ -71,3 +71,17 @@ func (l *trinoListener) EnterCreateTableAsSelect(ctx *grammar.CreateTableAsSelec
 func (l *trinoListener) EnterCreateTable(ctx *grammar.CreateTableContext) {
 	l.addTableAccess(ctx.QualifiedName(), parser.CREATE)
 }
+
+func (l *trinoListener) EnterDropTable(ctx *grammar.DropTableContext) {
+	l.addTableAccess(ctx.QualifiedName(), parser.DROP)
+}
+
+// EnterAddColumn is called when production addColumn is entered.
+func (l *trinoListener) EnterAddColumn(ctx *grammar.AddColumnContext) {
+	l.addTableAccess(ctx.QualifiedName(), parser.ALTER)
+}
+
+// EnterDropColumn is called when production dropColumn is entered.
+func (l *trinoListener) EnterDropColumn(ctx *grammar.DropColumnContext) {
+	l.addTableAccess(ctx.QualifiedName(0), parser.ALTER)
+}

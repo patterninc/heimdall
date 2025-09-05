@@ -8,6 +8,8 @@ const (
 	UPDATE
 	DELETE
 	CREATE
+	DROP
+	ALTER
 )
 
 type TableAccess struct {

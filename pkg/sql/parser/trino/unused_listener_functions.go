@@ -133,16 +133,6 @@ func (l *trinoListener) ExitSetSchemaAuthorization(ctx *grammar.SetSchemaAuthori
 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
 }
 
-// EnterDropTable is called when production dropTable is entered.
-func (l *trinoListener) EnterDropTable(ctx *grammar.DropTableContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// ExitDropTable is called when production dropTable is exited.
-func (l *trinoListener) ExitDropTable(ctx *grammar.DropTableContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
 // EnterTruncateTable is called when production truncateTable is entered.
 func (l *trinoListener) EnterTruncateTable(ctx *grammar.TruncateTableContext) {
 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
@@ -193,16 +183,6 @@ func (l *trinoListener) ExitRenameTable(ctx *grammar.RenameTableContext) {
 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
 }
 
-// EnterAddColumn is called when production addColumn is entered.
-func (l *trinoListener) EnterAddColumn(ctx *grammar.AddColumnContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// ExitAddColumn is called when production addColumn is exited.
-func (l *trinoListener) ExitAddColumn(ctx *grammar.AddColumnContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
 // EnterRenameColumn is called when production renameColumn is entered.
 func (l *trinoListener) EnterRenameColumn(ctx *grammar.RenameColumnContext) {
 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
@@ -210,16 +190,6 @@ func (l *trinoListener) EnterRenameColumn(ctx *grammar.RenameColumnContext) {
 
 // ExitRenameColumn is called when production renameColumn is exited.
 func (l *trinoListener) ExitRenameColumn(ctx *grammar.RenameColumnContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// EnterDropColumn is called when production dropColumn is entered.
-func (l *trinoListener) EnterDropColumn(ctx *grammar.DropColumnContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// ExitDropColumn is called when production dropColumn is exited.
-func (l *trinoListener) ExitDropColumn(ctx *grammar.DropColumnContext) {
 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
 }
 
@@ -814,16 +784,6 @@ func (l *trinoListener) EnterTableElement(ctx *grammar.TableElementContext) {
 
 // ExitTableElement is called when production tableElement is exited.
 func (l *trinoListener) ExitTableElement(ctx *grammar.TableElementContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// EnterColumnDefinition is called when production columnDefinition is entered.
-func (l *trinoListener) EnterColumnDefinition(ctx *grammar.ColumnDefinitionContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// ExitColumnDefinition is called when production columnDefinition is exited.
-func (l *trinoListener) ExitColumnDefinition(ctx *grammar.ColumnDefinitionContext) {
 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
 }
 
@@ -1787,16 +1747,6 @@ func (l *trinoListener) EnterLegacyArrayType(ctx *grammar.LegacyArrayTypeContext
 
 // ExitLegacyArrayType is called when production legacyArrayType is exited.
 func (l *trinoListener) ExitLegacyArrayType(ctx *grammar.LegacyArrayTypeContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// EnterGenericType is called when production genericType is entered.
-func (l *trinoListener) EnterGenericType(ctx *grammar.GenericTypeContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// ExitGenericType is called when production genericType is exited.
-func (l *trinoListener) ExitGenericType(ctx *grammar.GenericTypeContext) {
 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
 }
 

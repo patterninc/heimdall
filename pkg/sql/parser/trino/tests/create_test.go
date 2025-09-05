@@ -9,7 +9,7 @@ import (
 	"github.com/patterninc/heimdall/pkg/sql/parser/trino"
 )
 
-func TestParseSQLCreateTable(t *testing.T) {
+func TestParseSQLCreate(t *testing.T) {
 	tests := []struct {
 		name     string
 		query    string
