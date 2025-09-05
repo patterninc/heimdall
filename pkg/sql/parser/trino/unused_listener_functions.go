@@ -173,16 +173,6 @@ func (l *trinoListener) ExitCommentColumn(ctx *grammar.CommentColumnContext) {
 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
 }
 
-// EnterRenameTable is called when production renameTable is entered.
-func (l *trinoListener) EnterRenameTable(ctx *grammar.RenameTableContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// ExitRenameTable is called when production renameTable is exited.
-func (l *trinoListener) ExitRenameTable(ctx *grammar.RenameTableContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
 // EnterRenameColumn is called when production renameColumn is entered.
 func (l *trinoListener) EnterRenameColumn(ctx *grammar.RenameColumnContext) {
 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))

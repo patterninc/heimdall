@@ -85,3 +85,7 @@ func (l *trinoListener) EnterAddColumn(ctx *grammar.AddColumnContext) {
 func (l *trinoListener) EnterDropColumn(ctx *grammar.DropColumnContext) {
 	l.addTableAccess(ctx.QualifiedName(0), parser.ALTER)
 }
+
+func (l *trinoListener) EnterRenameTable(ctx *grammar.RenameTableContext) {
+	l.addTableAccess(ctx.QualifiedName(0), parser.ALTER)
+}

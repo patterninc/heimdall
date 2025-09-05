@@ -35,6 +35,16 @@ func TestParseSQLAlter(t *testing.T) {
 				Access:  parser.ALTER,
 			}},
 		},
+		{
+			name:  "Alter table rename table",
+			query: "ALTER TABLE schema_name.old_table_name RENAME TO schema_name.new_table_name;",
+			expected: []*parser.TableAccess{{
+				Name:    "old_table_name",
+				Schema:  "schema_name",
+				Catalog: defaultCatalog,
+				Access:  parser.ALTER,
+			}},
+		},
 	}
 
 	for _, tt := range tests {
