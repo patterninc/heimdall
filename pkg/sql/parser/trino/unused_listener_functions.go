@@ -133,26 +133,6 @@ func (l *trinoListener) ExitSetSchemaAuthorization(ctx *grammar.SetSchemaAuthori
 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
 }
 
-// EnterCreateTableAsSelect is called when production createTableAsSelect is entered.
-func (l *trinoListener) EnterCreateTableAsSelect(ctx *grammar.CreateTableAsSelectContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// ExitCreateTableAsSelect is called when production createTableAsSelect is exited.
-func (l *trinoListener) ExitCreateTableAsSelect(ctx *grammar.CreateTableAsSelectContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// EnterCreateTable is called when production createTable is entered.
-func (l *trinoListener) EnterCreateTable(ctx *grammar.CreateTableContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
-// ExitCreateTable is called when production createTable is exited.
-func (l *trinoListener) ExitCreateTable(ctx *grammar.CreateTableContext) {
-	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
-}
-
 // EnterDropTable is called when production dropTable is entered.
 func (l *trinoListener) EnterDropTable(ctx *grammar.DropTableContext) {
 	log.Println("Unknown context in query: ", l.query, "contextType: ", reflect.TypeOf(ctx))
