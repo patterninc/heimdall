@@ -143,6 +143,14 @@ func TestRangerPolicyCheck(t *testing.T) {
 							IsExcludes: false,
 						},
 					},
+					PolicyItems: []ranger.PolicyItem{
+						{
+							Users: []string{"charlie"},
+							Accesses: []ranger.Access{
+								{Type: "all"},
+							},
+						},
+					},
 					DenyPolicyItems: []ranger.PolicyItem{
 						{
 							Users: []string{"charlie"},
@@ -317,6 +325,222 @@ func TestRangerPolicyCheck(t *testing.T) {
 							Groups: []string{"group5"},
 							Accesses: []ranger.Access{
 								{Type: "select"},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:           "User denied via regexp in table name",
+			query:          "SELECT * FROM default_catalog.public.table_abc",
+			username:       "heidi",
+			expectedResult: false,
+			users: map[string]*ranger.User{
+				"heidi": {ID: 8, Name: "heidi", GroupIdList: []int64{6}},
+			},
+			groups: map[string]*ranger.Group{
+				"group6": {ID: 6, Name: "group6"},
+			},
+			policies: []*ranger.Policy{
+				{
+					ID:             8,
+					GUID:           "policy-8",
+					IsEnabled:      true,
+					Name:           "Deny select for group6 on tables matching regex",
+					PolicyType:     0,
+					PolicyPriority: 1,
+					Resources: ranger.Resource{
+						Catalog: ranger.ResourceField{
+							Values:     []string{"default_catalog"},
+							IsExcludes: false,
+						},
+						Schema: ranger.ResourceField{
+							Values:     []string{"public"},
+							IsExcludes: false,
+						},
+						Table: ranger.ResourceField{
+							Values:     []string{"table_*"},
+							IsExcludes: false,
+						},
+					},
+					DenyPolicyItems: []ranger.PolicyItem{
+						{
+							Groups: []string{"group6"},
+							Accesses: []ranger.Access{
+								{Type: "select"},
+							},
+						},
+					},
+					PolicyItems: []ranger.PolicyItem{
+						{
+							Groups: []string{"group6"},
+							Accesses: []ranger.Access{
+								{Type: "*"},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:           "User is exclude from allow policy",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       "ivan",
+			expectedResult: false,
+			users: map[string]*ranger.User{
+				"ivan": {ID: 9, Name: "ivan", GroupIdList: []int64{7}},
+			},
+			groups: map[string]*ranger.Group{
+				"group7": {ID: 7, Name: "group7"},
+			},
+			policies: []*ranger.Policy{
+				{
+					ID:             9,
+					GUID:           "policy-9",
+					IsEnabled:      true,
+					Name:           "Allow select for group7 excluding user ivan",
+					PolicyType:     0,
+					PolicyPriority: 1,
+					Resources: ranger.Resource{
+						Catalog: ranger.ResourceField{
+							Values:     []string{"default_catalog"},
+							IsExcludes: false,
+						},
+						Schema: ranger.ResourceField{
+							Values:     []string{"public"},
+							IsExcludes: false,
+						},
+						Table: ranger.ResourceField{
+							Values:     []string{"table1"},
+							IsExcludes: false,
+						},
+					},
+					PolicyItems: []ranger.PolicyItem{
+						{
+							Groups: []string{"group7"},
+							Accesses: []ranger.Access{
+								{Type: "select"},
+							},
+						},
+					},
+					AllowExceptions: []ranger.PolicyItem{
+						{
+							Users: []string{"ivan"},
+							Accesses: []ranger.Access{
+								{Type: "all"},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:           "User is denied via group policy",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       "judy",
+			expectedResult: false,
+			users: map[string]*ranger.User{
+				"judy": {ID: 10, Name: "judy", GroupIdList: []int64{8}},
+			},
+			groups: map[string]*ranger.Group{
+				"group8": {ID: 8, Name: "group8"},
+			},
+			policies: []*ranger.Policy{
+				{
+					ID:             10,
+					GUID:           "policy-10",
+					IsEnabled:      true,
+					Name:           "Deny select for group8 excluding user judy",
+					PolicyType:     0,
+					PolicyPriority: 1,
+					Resources: ranger.Resource{
+						Catalog: ranger.ResourceField{
+							Values:     []string{"default_catalog"},
+							IsExcludes: false,
+						},
+						Schema: ranger.ResourceField{
+							Values:     []string{"public"},
+							IsExcludes: false,
+						},
+						Table: ranger.ResourceField{
+							Values:     []string{"table1"},
+							IsExcludes: false,
+						},
+					},
+					PolicyItems: []ranger.PolicyItem{
+						{
+							Users: []string{"judy"},
+							Accesses: []ranger.Access{
+								{Type: "all"},
+							},
+						},
+					},
+					DenyPolicyItems: []ranger.PolicyItem{
+						{
+							Groups: []string{"group8"},
+							Accesses: []ranger.Access{
+								{Type: "select"},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:           "User is exclude from deny policy",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       "judy",
+			expectedResult: true,
+			users: map[string]*ranger.User{
+				"judy": {ID: 10, Name: "judy", GroupIdList: []int64{8}},
+			},
+			groups: map[string]*ranger.Group{
+				"group8": {ID: 8, Name: "group8"},
+			},
+			policies: []*ranger.Policy{
+				{
+					ID:             10,
+					GUID:           "policy-10",
+					IsEnabled:      true,
+					Name:           "Deny select for group8 excluding user judy",
+					PolicyType:     0,
+					PolicyPriority: 1,
+					Resources: ranger.Resource{
+						Catalog: ranger.ResourceField{
+							Values:     []string{"default_catalog"},
+							IsExcludes: false,
+						},
+						Schema: ranger.ResourceField{
+							Values:     []string{"public"},
+							IsExcludes: false,
+						},
+						Table: ranger.ResourceField{
+							Values:     []string{"table1"},
+							IsExcludes: false,
+						},
+					},
+					PolicyItems: []ranger.PolicyItem{
+						{
+							Users: []string{"judy"},
+							Accesses: []ranger.Access{
+								{Type: "all"},
+							},
+						},
+					},
+					DenyPolicyItems: []ranger.PolicyItem{
+						{
+							Groups: []string{"group8"},
+							Accesses: []ranger.Access{
+								{Type: "select"},
+							},
+						},
+					},
+					DenyExceptions: []ranger.PolicyItem{
+						{
+							Users: []string{"judy"},
+							Accesses: []ranger.Access{
+								{Type: "all"},
 							},
 						},
 					},
