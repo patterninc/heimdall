@@ -110,7 +110,7 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 
 	}
 
-	if job.StoreResultSync {
+	if job.StoreResultSync || !job.IsSync {
 		h.storeResults(runtime, job)
 	} else {
 		go h.storeResults(runtime, job)
