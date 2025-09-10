@@ -547,6 +547,50 @@ func TestRangerPolicyCheck(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:           "User is allowed when resource has excludes",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       "kate",
+			expectedResult: true,
+			users: map[string]*ranger.User{
+				"kate": {ID: 11, Name: "kate", GroupIdList: []int64{9}},
+			},
+			groups: map[string]*ranger.Group{
+				"group9": {ID: 9, Name: "group9"},
+			},
+			policies: []*ranger.Policy{
+				{
+					ID:             11,
+					GUID:           "policy-11",
+					IsEnabled:      true,
+					Name:           "Allow select for group9 excluding schema 'internal'",
+					PolicyType:     0,
+					PolicyPriority: 1,
+					Resources: ranger.Resource{
+						Catalog: ranger.ResourceField{
+							Values:     []string{"default_catalog"},
+							IsExcludes: false,
+						},
+						Schema: ranger.ResourceField{
+							Values:     []string{"internal"},
+							IsExcludes: true,
+						},
+						Table: ranger.ResourceField{
+							Values:     []string{"table1"},
+							IsExcludes: false,
+						},
+					},
+					PolicyItems: []ranger.PolicyItem{
+						{
+							Groups: []string{"group9"},
+							Accesses: []ranger.Access{
+								{Type: "select"},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 
