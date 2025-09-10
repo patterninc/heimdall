@@ -59,6 +59,14 @@ type client struct {
 	client   *http.Client
 }
 
+func NewClient(url, username, password string) Client {
+	return &client{
+		URL:      url,
+		Username: username,
+		Password: password,
+		client:   &http.Client{},
+	}
+}
 func (c *client) GetUsers() (map[string]*User, error) {
 
 	responses, err := c.executeBatchRequest(http.MethodGet, getUsersEndpoint)
