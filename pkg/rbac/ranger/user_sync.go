@@ -7,6 +7,10 @@ import (
 )
 
 func (r *ApacheRanger) SyncState() error {
+	policies, err := r.Client.GetPolicies(r.ServiceName)
+	if err != nil {
+		return err
+	}
 	users, err := r.Client.GetUsers()
 	if err != nil {
 		return err
@@ -15,10 +19,7 @@ func (r *ApacheRanger) SyncState() error {
 	if err != nil {
 		return err
 	}
-	policies, err := r.Client.GetPolicies(r.ServiceName)
-	if err != nil {
-		return err
-	}
+
 	println("Users:", len(users), "Groups:", len(groups), "Policies:", len(policies))
 
 	groupByID := map[int64]*Group{}
@@ -34,13 +35,13 @@ func (r *ApacheRanger) SyncState() error {
 			}
 		}
 	}
-	
+
 	newPermitionsByUser := map[string]*UserPermitions{}
 	for _, policy := range policies {
 		if !policy.IsEnabled {
 			continue
 		}
-		if len(policy.Resources.Catalog.Values) == 0 || len(policy.Resources.Schema.Values) == 0 || len(policy.Resources.Table.Values) == 0 {
+		if policy.Resources == nil || policy.Resources.Catalog == nil || policy.Resources.Schema == nil || policy.Resources.Table == nil {
 			// Skip policies that do not have catalog, schema, and table defined
 			continue
 		}

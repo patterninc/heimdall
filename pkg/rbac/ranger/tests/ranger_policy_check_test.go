@@ -9,19 +9,32 @@ import (
 )
 
 const (
-	serviceName = "test_service"
+	serviceName   = "test_service"
+	testGroupName = "test_group"
+	testUserName  = "test_user"
 )
 
+var (
+	testDefaultUsers = map[string]*ranger.User{
+		testUserName: {ID: 11, Name: testUserName, GroupIdList: []int64{1}},
+	}
+	testDefaultGroups = map[string]*ranger.Group{
+		testGroupName: {ID: 1, Name: testGroupName},
+	}
+)
+
+type testCase struct {
+	name           string
+	query          string
+	username       string
+	expectedResult bool
+	users          map[string]*ranger.User
+	groups         map[string]*ranger.Group
+	policies       []*ranger.Policy
+}
+
 func TestRangerPolicyCheck(t *testing.T) {
-	tests := []struct {
-		name           string
-		query          string
-		username       string
-		expectedResult bool
-		users          map[string]*ranger.User
-		groups         map[string]*ranger.Group
-		policies       []*ranger.Policy
-	}{
+	tests := []testCase{
 		{
 			name:           "User with direct allow policy",
 			query:          "SELECT * FROM default_catalog.public.table1",
@@ -41,16 +54,16 @@ func TestRangerPolicyCheck(t *testing.T) {
 					Name:           "Allow select for alice",
 					PolicyType:     0,
 					PolicyPriority: 1,
-					Resources: ranger.Resource{
-						Catalog: ranger.ResourceField{
+					Resources: &ranger.Resource{
+						Catalog: &ranger.ResourceField{
 							Values:     []string{"default_catalog"},
 							IsExcludes: false,
 						},
-						Schema: ranger.ResourceField{
+						Schema: &ranger.ResourceField{
 							Values:     []string{"public"},
 							IsExcludes: false,
 						},
-						Table: ranger.ResourceField{
+						Table: &ranger.ResourceField{
 							Values:     []string{"table1"},
 							IsExcludes: false,
 						},
@@ -85,16 +98,16 @@ func TestRangerPolicyCheck(t *testing.T) {
 					Name:           "Allow select for group1",
 					PolicyType:     0,
 					PolicyPriority: 1,
-					Resources: ranger.Resource{
-						Catalog: ranger.ResourceField{
+					Resources: &ranger.Resource{
+						Catalog: &ranger.ResourceField{
 							Values:     []string{"default_catalog"},
 							IsExcludes: false,
 						},
-						Schema: ranger.ResourceField{
+						Schema: &ranger.ResourceField{
 							Values:     []string{"public"},
 							IsExcludes: false,
 						},
-						Table: ranger.ResourceField{
+						Table: &ranger.ResourceField{
 							Values:     []string{"table1"},
 							IsExcludes: false,
 						},
@@ -129,16 +142,16 @@ func TestRangerPolicyCheck(t *testing.T) {
 					Name:           "Deny select for charlie",
 					PolicyType:     0,
 					PolicyPriority: 1,
-					Resources: ranger.Resource{
-						Catalog: ranger.ResourceField{
+					Resources: &ranger.Resource{
+						Catalog: &ranger.ResourceField{
 							Values:     []string{"default_catalog"},
 							IsExcludes: false,
 						},
-						Schema: ranger.ResourceField{
+						Schema: &ranger.ResourceField{
 							Values:     []string{"public"},
 							IsExcludes: false,
 						},
-						Table: ranger.ResourceField{
+						Table: &ranger.ResourceField{
 							Values:     []string{"table1"},
 							IsExcludes: false,
 						},
@@ -192,16 +205,16 @@ func TestRangerPolicyCheck(t *testing.T) {
 					Name:           "Allow select for eve",
 					PolicyType:     0,
 					PolicyPriority: 1,
-					Resources: ranger.Resource{
-						Catalog: ranger.ResourceField{
+					Resources: &ranger.Resource{
+						Catalog: &ranger.ResourceField{
 							Values:     []string{"default_catalog"},
 							IsExcludes: false,
 						},
-						Schema: ranger.ResourceField{
+						Schema: &ranger.ResourceField{
 							Values:     []string{"public"},
 							IsExcludes: false,
 						},
-						Table: ranger.ResourceField{
+						Table: &ranger.ResourceField{
 							Values:     []string{"table1"},
 							IsExcludes: false,
 						},
@@ -222,16 +235,16 @@ func TestRangerPolicyCheck(t *testing.T) {
 					Name:           "Deny select for group3",
 					PolicyType:     0,
 					PolicyPriority: 1,
-					Resources: ranger.Resource{
-						Catalog: ranger.ResourceField{
+					Resources: &ranger.Resource{
+						Catalog: &ranger.ResourceField{
 							Values:     []string{"default_catalog"},
 							IsExcludes: false,
 						},
-						Schema: ranger.ResourceField{
+						Schema: &ranger.ResourceField{
 							Values:     []string{"public"},
 							IsExcludes: false,
 						},
-						Table: ranger.ResourceField{
+						Table: &ranger.ResourceField{
 							Values:     []string{"table1"},
 							IsExcludes: false,
 						},
@@ -266,12 +279,12 @@ func TestRangerPolicyCheck(t *testing.T) {
 					Name:           "Allow show for group4",
 					PolicyType:     0,
 					PolicyPriority: 1,
-					Resources: ranger.Resource{
-						Catalog: ranger.ResourceField{
+					Resources: &ranger.Resource{
+						Catalog: &ranger.ResourceField{
 							Values:     []string{"default_catalog"},
 							IsExcludes: false,
 						},
-						Schema: ranger.ResourceField{
+						Schema: &ranger.ResourceField{
 							Values:     []string{"public"},
 							IsExcludes: false,
 						},
@@ -306,16 +319,16 @@ func TestRangerPolicyCheck(t *testing.T) {
 					Name:           "Allow select for group5 on tables matching regex",
 					PolicyType:     0,
 					PolicyPriority: 1,
-					Resources: ranger.Resource{
-						Catalog: ranger.ResourceField{
+					Resources: &ranger.Resource{
+						Catalog: &ranger.ResourceField{
 							Values:     []string{"default_catalog"},
 							IsExcludes: false,
 						},
-						Schema: ranger.ResourceField{
+						Schema: &ranger.ResourceField{
 							Values:     []string{"public"},
 							IsExcludes: false,
 						},
-						Table: ranger.ResourceField{
+						Table: &ranger.ResourceField{
 							Values:     []string{"*"},
 							IsExcludes: false,
 						},
@@ -350,16 +363,16 @@ func TestRangerPolicyCheck(t *testing.T) {
 					Name:           "Deny select for group6 on tables matching regex",
 					PolicyType:     0,
 					PolicyPriority: 1,
-					Resources: ranger.Resource{
-						Catalog: ranger.ResourceField{
+					Resources: &ranger.Resource{
+						Catalog: &ranger.ResourceField{
 							Values:     []string{"default_catalog"},
 							IsExcludes: false,
 						},
-						Schema: ranger.ResourceField{
+						Schema: &ranger.ResourceField{
 							Values:     []string{"public"},
 							IsExcludes: false,
 						},
-						Table: ranger.ResourceField{
+						Table: &ranger.ResourceField{
 							Values:     []string{"table_*"},
 							IsExcludes: false,
 						},
@@ -402,16 +415,16 @@ func TestRangerPolicyCheck(t *testing.T) {
 					Name:           "Allow select for group7 excluding user ivan",
 					PolicyType:     0,
 					PolicyPriority: 1,
-					Resources: ranger.Resource{
-						Catalog: ranger.ResourceField{
+					Resources: &ranger.Resource{
+						Catalog: &ranger.ResourceField{
 							Values:     []string{"default_catalog"},
 							IsExcludes: false,
 						},
-						Schema: ranger.ResourceField{
+						Schema: &ranger.ResourceField{
 							Values:     []string{"public"},
 							IsExcludes: false,
 						},
-						Table: ranger.ResourceField{
+						Table: &ranger.ResourceField{
 							Values:     []string{"table1"},
 							IsExcludes: false,
 						},
@@ -454,16 +467,16 @@ func TestRangerPolicyCheck(t *testing.T) {
 					Name:           "Deny select for group8 excluding user judy",
 					PolicyType:     0,
 					PolicyPriority: 1,
-					Resources: ranger.Resource{
-						Catalog: ranger.ResourceField{
+					Resources: &ranger.Resource{
+						Catalog: &ranger.ResourceField{
 							Values:     []string{"default_catalog"},
 							IsExcludes: false,
 						},
-						Schema: ranger.ResourceField{
+						Schema: &ranger.ResourceField{
 							Values:     []string{"public"},
 							IsExcludes: false,
 						},
-						Table: ranger.ResourceField{
+						Table: &ranger.ResourceField{
 							Values:     []string{"table1"},
 							IsExcludes: false,
 						},
@@ -506,16 +519,16 @@ func TestRangerPolicyCheck(t *testing.T) {
 					Name:           "Deny select for group8 excluding user judy",
 					PolicyType:     0,
 					PolicyPriority: 1,
-					Resources: ranger.Resource{
-						Catalog: ranger.ResourceField{
+					Resources: &ranger.Resource{
+						Catalog: &ranger.ResourceField{
 							Values:     []string{"default_catalog"},
 							IsExcludes: false,
 						},
-						Schema: ranger.ResourceField{
+						Schema: &ranger.ResourceField{
 							Values:     []string{"public"},
 							IsExcludes: false,
 						},
-						Table: ranger.ResourceField{
+						Table: &ranger.ResourceField{
 							Values:     []string{"table1"},
 							IsExcludes: false,
 						},
@@ -566,16 +579,16 @@ func TestRangerPolicyCheck(t *testing.T) {
 					Name:           "Allow select for group9 excluding schema 'internal'",
 					PolicyType:     0,
 					PolicyPriority: 1,
-					Resources: ranger.Resource{
-						Catalog: ranger.ResourceField{
+					Resources: &ranger.Resource{
+						Catalog: &ranger.ResourceField{
 							Values:     []string{"default_catalog"},
 							IsExcludes: false,
 						},
-						Schema: ranger.ResourceField{
+						Schema: &ranger.ResourceField{
 							Values:     []string{"internal"},
 							IsExcludes: true,
 						},
-						Table: ranger.ResourceField{
+						Table: &ranger.ResourceField{
 							Values:     []string{"table1"},
 							IsExcludes: false,
 						},
@@ -592,8 +605,313 @@ func TestRangerPolicyCheck(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
 
+	runTests(t, tests)
+}
+
+// TestResourcesSelection tests the resource selection logic in Ranger policies.
+// In this tests users always have all permitions
+func TestResourcesSelection(t *testing.T) {
+	tests := []testCase{
+		{
+			name:           "Policy doesn't control the resource, different table name",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: false,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_catalog", "public", "table2"), nil)},
+		},
+		{
+			name:           "Policy doesn't control the resource, different schema name",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: false,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_catalog", "private", "table1"), nil)},
+		},
+		{
+			name:           "Policy doesn't control the resource, different catalog name",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: false,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("not_default_catalog", "public", "table1"), nil)},
+		},
+		{
+			name:           "Policy and subpolicy doesn't control the resource, different catalog/table name",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: false,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("not_default_catalog", "public", "table1"), createResource("default_catalog", "public", "table2"))},
+		},
+		{
+			name:           "Policy controls the resource, catalog is regexp",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_*", "public", "table1"), nil)},
+		},
+		{
+			name:           "Policy controls the resource, schema is regexp",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_catalog", "p*c", "table1"), nil)},
+		},
+		{
+			name:           "Policy controls the resource, table is regexp",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_catalog", "public", "t*l*"), nil)},
+		},
+		{
+			name:           "Policy controls the resource, table is regexp",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_catalog", "public", "t*l*"), nil)},
+		},
+		{
+			name:           "Policy controls the resource, exact match",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_catalog", "public", "table1"), nil)},
+		},
+		{
+			name:           "Policy controls the resource, catalog is exclude",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForCatalog("catalog", "public", "table1", true), nil)},
+		},
+		{
+			name:           "Policy controls the resource, catalog is exclude regexp",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForCatalog("catalo*", "public", "table1", true), nil)},
+		},
+		{
+			name:           "Policy doesn't control the resource, catalog is exclude regexp but match",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: false,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForCatalog("defa*", "public", "table1", true), nil)},
+		},
+		{
+			name:           "Policy and subpolicy control the resource, catalog is exclude but subpolicy match",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForCatalog("defa*", "public", "table1", true), createResource("default_catalog", "public", "table1"))},
+		},
+		{
+			name:           "Policy doesn't control the resource, schema is exclude and match",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: false,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForSchema("defa*", "public", "table1", true), nil)},
+		},
+		{
+			name:           "Policy controls the resource, schema is exclude but not match",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForSchema("defa*", "privat*", "table1", true), nil)},
+		},
+		{
+			name:           "Policy and subpolicy control the resource, schema is exclude but subpolicy match",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForSchema("defa*", "public", "table1", true), createResource("default_catalog", "public", "table1"))},
+		},
+		{
+			name:           "Policy doesn't control the resources table is excluded",
+			query:          "SELECT * from default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: false,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForTable("defau*", "public", "table1", true), nil)},
+		},
+		{
+			name:           "Policy does control the resources, table is excluded but doesn't match",
+			query:          "SELECT * from default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForTable("defau*", "public", "table2", true), nil)},
+		},
+	}
+	runTests(t, tests)
+
+}
+
+func TestAllowPermissionsForUser(t *testing.T) {
+	tests := []testCase{
+		{
+			name:           "Policy allows all actions for user",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getDefaultUserAllowPolicy([]string{"all"})},
+		},
+		{
+			name:           "Policy allows select action for user",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getDefaultUserAllowPolicy([]string{"select"})},
+		},
+		{
+			name:           "Policy allows insert action for user, but query is select",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: false,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getDefaultUserAllowPolicy([]string{"insert"})},
+		},
+		{
+			name:           "Policy allows multiple actions including select for user",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getDefaultUserAllowPolicy([]string{"insert", "select", "update"})},
+		},
+		{
+			name:           "Policy allows multiple actions excluding select for user",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: false,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getDefaultUserAllowPolicy([]string{"insert", "update", "delete"})},
+		},
+		{
+			name:           "No policy for user",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: false,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{},
+		},
+		{
+			name:           "Policy allows select but query requires also insert",
+			query:          "INSERT INTO default_catalog.public.table1 as SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: false,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getDefaultUserAllowPolicy([]string{"select"})},
+		},
+		{
+			name:           "Policy allows all actions",
+			query:          "INSERT INTO default_catalog.public.table1 as SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getDefaultUserAllowPolicy([]string{"all"})},
+		},
+		{
+			name:           "Policy many actions and many are required",
+			query:          "INSERT INTO default_catalog.public.table1 as SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getDefaultUserAllowPolicy([]string{"delete", "insert", "select", "update"})},
+		},
+		{
+			name:           "Policy exclude user from the select action",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: false,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getDefaultAllActionsUserPolicyWithExcludeForDefaultUser([]string{"select"})},
+		},
+		{
+			name:           "Policy exclude user from the insert action, but query is select and insert",
+			query:          "INSERT INTO default_catalog.public.table1 as SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: false,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getDefaultAllActionsUserPolicyWithExcludeForDefaultUser([]string{"insert"})},
+		},
+		{
+			name:           "Policy exclude user from the insert action, but query is select ",
+			query:          "SELECT * FROM default_catalog.public.table1",
+			username:       testUserName,
+			expectedResult: true,
+			users:          testDefaultUsers,
+			groups:         testDefaultGroups,
+			policies:       []*ranger.Policy{getDefaultAllActionsUserPolicyWithExcludeForDefaultUser([]string{"insert"})},
+		},
+	}
+
+	runTests(t, tests)
+
+}
+
+
+
+func TestAllowPermissionsForGroups(t *testing.T) {
+	tests := []testCase{}
+
+	runTests(t, tests)
+}
+
+func TestDenyPermissionsForGroups(t *testing.T) {
+	tests := []testCase{}
+
+	runTests(t, tests)
+}
+
+func runTests(t *testing.T, tests []testCase) {
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
 			rbac := &ranger.ApacheRanger{
@@ -612,7 +930,181 @@ func TestRangerPolicyCheck(t *testing.T) {
 			}
 		})
 	}
+}
 
+func createResourceWithExcludeOptionForTable(catalogs, schemas, table string, excludeTable bool) *ranger.Resource {
+	return &ranger.Resource{
+		Catalog: &ranger.ResourceField{
+			Values:     []string{catalogs},
+			IsExcludes: false,
+		},
+		Schema: &ranger.ResourceField{
+			Values:     []string{schemas},
+			IsExcludes: false,
+		},
+		Table: &ranger.ResourceField{
+			Values:     []string{table},
+			IsExcludes: excludeTable,
+		},
+	}
+}
+
+func createResourceWithExcludeOptionForSchema(catalog, schema, table string, excludeSchema bool) *ranger.Resource {
+	return &ranger.Resource{
+		Catalog: &ranger.ResourceField{
+			Values:     []string{catalog},
+			IsExcludes: false,
+		},
+		Schema: &ranger.ResourceField{
+			Values:     []string{schema},
+			IsExcludes: excludeSchema,
+		},
+		Table: &ranger.ResourceField{
+			Values:     []string{table},
+			IsExcludes: false,
+		},
+	}
+}
+
+func createResourceWithExcludeOptionForCatalog(catalogs, schemas, tables string, excludeCatalog bool) *ranger.Resource {
+	return &ranger.Resource{
+		Catalog: &ranger.ResourceField{
+			Values:     []string{catalogs},
+			IsExcludes: excludeCatalog,
+		},
+		Schema: &ranger.ResourceField{
+			Values:     []string{schemas},
+			IsExcludes: false,
+		},
+		Table: &ranger.ResourceField{
+			Values:     []string{tables},
+			IsExcludes: false,
+		},
+	}
+}
+
+func createResource(catalogs, schemas, tables string) *ranger.Resource {
+	return &ranger.Resource{
+		Catalog: &ranger.ResourceField{
+			Values:     []string{catalogs},
+			IsExcludes: false,
+		},
+		Schema: &ranger.ResourceField{
+			Values:     []string{schemas},
+			IsExcludes: false,
+		},
+		Table: &ranger.ResourceField{
+			Values:     []string{tables},
+			IsExcludes: false,
+		},
+	}
+}
+
+func getAllowAllPolicy(resource *ranger.Resource, additionalResource *ranger.Resource) *ranger.Policy {
+	var additionalResources []*ranger.Resource
+	if additionalResource != nil {
+		additionalResources = []*ranger.Resource{additionalResource}
+	}
+	return &ranger.Policy{
+		ID:                  1,
+		GUID:                "policy-1",
+		IsEnabled:           true,
+		Name:                "Allow select for alice",
+		PolicyType:          0,
+		PolicyPriority:      1,
+		Resources:           resource,
+		AdditionalResources: additionalResources,
+		PolicyItems: []ranger.PolicyItem{
+			{
+				Users: []string{testUserName},
+				Accesses: []ranger.Access{
+					{Type: "all"},
+				},
+			},
+		},
+	}
+}
+
+func getDefaultUserAllowPolicy(accessType []string) *ranger.Policy {
+	return &ranger.Policy{
+		ID:             1,
+		GUID:           "policy-1",
+		IsEnabled:      true,
+		Name:           "Allow select for alice",
+		PolicyType:     0,
+		PolicyPriority: 1,
+		Resources: &ranger.Resource{
+			Catalog: &ranger.ResourceField{
+				Values:     []string{"default_catalog"},
+				IsExcludes: false,
+			},
+			Schema: &ranger.ResourceField{
+				Values:     []string{"public"},
+				IsExcludes: false,
+			},
+			Table: &ranger.ResourceField{
+				Values:     []string{"table1"},
+				IsExcludes: false,
+			},
+		},
+		PolicyItems: []ranger.PolicyItem{
+			{
+				Users: []string{testUserName},
+				Accesses: func() []ranger.Access {
+					var accesses []ranger.Access
+					for _, at := range accessType {
+						accesses = append(accesses, ranger.Access{Type: at})
+					}
+					return accesses
+				}(),
+			},
+		},
+	}
+}
+
+func getDefaultAllActionsUserPolicyWithExcludeForDefaultUser(excludeAccess []string) *ranger.Policy {
+	return &ranger.Policy{
+		ID:             1,
+		GUID:           "policy-1",
+		IsEnabled:      true,
+		Name:           "Allow select for alice",
+		PolicyType:     0,
+		PolicyPriority: 1,
+		Resources: &ranger.Resource{
+			Catalog: &ranger.ResourceField{
+				Values:     []string{"default_catalog"},
+				IsExcludes: false,
+			},
+			Schema: &ranger.ResourceField{
+				Values:     []string{"public"},
+				IsExcludes: false,
+			},
+			Table: &ranger.ResourceField{
+				Values:     []string{"table1"},
+				IsExcludes: false,
+			},
+		},
+		PolicyItems: []ranger.PolicyItem{
+			{
+				Users: []string{testUserName},
+				Accesses: []ranger.Access{
+					{Type: "all"},
+				},
+			},
+		},
+		AllowExceptions: []ranger.PolicyItem{
+			{
+				Users: []string{testUserName},
+				Accesses: func() []ranger.Access {
+					var accesses []ranger.Access
+					for _, ex := range excludeAccess {
+						accesses = append(accesses, ranger.Access{Type: ex})
+					}
+					return accesses
+				}(),
+			},
+		},
+	}
 }
 
 func getMockRangerClient(users map[string]*ranger.User, groups map[string]*ranger.Group, policies []*ranger.Policy) *mocks.Client {
