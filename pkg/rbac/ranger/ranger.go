@@ -52,6 +52,7 @@ func (ar *ApacheRanger) HasAccess(user string, query string) (bool, error) {
 	}
 
 	permitions := ar.permitionsByUser[user]
+
 	for _, access := range accessList {
 		for _, permition := range permitions.DenyPolicys[access.Action()] {
 			if permition.controlAnAccess(access) {
@@ -59,14 +60,20 @@ func (ar *ApacheRanger) HasAccess(user string, query string) (bool, error) {
 				return false, nil
 			}
 		}
+		foundAllowPolicy := false
 		for _, permition := range permitions.AllowPolicys[access.Action()] {
 			if permition.controlAnAccess(access) {
 				log.Println("Access allowed by ranger policy", "user", user, "query", query, "policy", permition.Name, "action", access.Action(), "resource", access.QualifiedName())
-				return true, nil
+				foundAllowPolicy = true
+				break
 			}
 		}
+		if !foundAllowPolicy {
+			log.Println("Access denied by ranger policy", "user", user, "query", query, "action", access.Action(), "resource", access.QualifiedName())
+			return false, nil
+		}
 	}
-	return false, nil
+	return true, nil
 }
 
 func (ar *ApacheRanger) startSyncPolicies(ctx context.Context) {

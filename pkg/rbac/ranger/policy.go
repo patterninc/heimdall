@@ -60,27 +60,26 @@ type Policy struct {
 	PolicyPriority      int          `json:"policyPriority"`
 	Description         string       `json:"description"`
 	IsAuditEnabled      bool         `json:"isAuditEnabled"`
-	Resources           Resource     `json:"resources"`
-	AdditionalResources []Resource   `json:"additionalResources"`
+	Resources           *Resource    `json:"resources"`
+	AdditionalResources []*Resource  `json:"additionalResources"`
 	PolicyItems         []PolicyItem `json:"policyItems"`
 	DenyPolicyItems     []PolicyItem `json:"denyPolicyItems"`
 	AllowExceptions     []PolicyItem `json:"allowExceptions"`
 	DenyExceptions      []PolicyItem `json:"denyExceptions"`
 	ServiceType         string       `json:"serviceType"`
-
-	supportedTables *regexp.Regexp // todo init that regexp
 }
 
 type ResourceField struct {
 	Values     []string `json:"values"`
 	IsExcludes bool     `json:"isExcludes"`
+	regexp     *regexp.Regexp
 }
 
 type Resource struct {
-	Schema  ResourceField `json:"schema,omitempty"`
-	Catalog ResourceField `json:"catalog,omitempty"`
-	Table   ResourceField `json:"table,omitempty"`
-	Column  ResourceField `json:"column,omitempty"`
+	Schema  *ResourceField `json:"schema,omitempty"`
+	Catalog *ResourceField `json:"catalog,omitempty"`
+	Table   *ResourceField `json:"table,omitempty"`
+	Column  *ResourceField `json:"column,omitempty"`
 }
 
 type Access struct {
@@ -100,18 +99,59 @@ type ControlledActions struct {
 }
 
 func (p *Policy) init() error {
-	resourceRegexpParts := []string{}
-	for _, resource := range append([]Resource{p.Resources}, p.AdditionalResources...) {
-		resourceRegexpParts = append(resourceRegexpParts, resource.getMatchRegexp())
+	for _, v := range append([]*Resource{p.Resources}, p.AdditionalResources...) {
+		if len(v.Catalog.Values) != 0 {
+			v.Catalog.regexp = regexp.MustCompile("^(" + patternsToRegex(v.Catalog.Values) + ")$")
+		}
+		if len(v.Schema.Values) != 0 {
+			v.Schema.regexp = regexp.MustCompile("^(" + patternsToRegex(v.Schema.Values) + ")$")
+		}
+		if len(v.Table.Values) != 0 {
+			v.Table.regexp = regexp.MustCompile("^(" + patternsToRegex(v.Table.Values) + ")$")
+		}
 	}
-	p.supportedTables = regexp.MustCompile("^(" + strings.Join(resourceRegexpParts, "|") + ")$")
 	return nil
 }
 
 func (p *Policy) controlAnAccess(access parser.Access) bool {
 	switch a := access.(type) {
 	case *parser.TableAccess:
-		return p.supportedTables.Match([]byte(a.QualifiedName()))
+		return p.controlTableAccess(a)
+	}
+	return false
+}
+
+func (p *Policy) controlTableAccess(a *parser.TableAccess) bool {
+	for _, v := range append([]*Resource{p.Resources}, p.AdditionalResources...) {
+		if len(v.Catalog.Values) != 0 {
+			matchCatalog := v.Catalog.regexp.MatchString(a.Catalog)
+			if matchCatalog && v.Catalog.IsExcludes {
+				continue
+			}
+			if !matchCatalog && !v.Catalog.IsExcludes {
+				continue
+			}
+		}
+		if len(v.Schema.Values) != 0 {
+			matchSchema := v.Schema.regexp.MatchString(a.Schema)
+			if matchSchema && v.Schema.IsExcludes {
+				continue
+			}
+			if !matchSchema && !v.Schema.IsExcludes {
+				continue
+			}
+		}
+		if len(v.Table.Values) != 0 {
+			matchTable := v.Table.regexp.MatchString(a.Table)
+			if matchTable && v.Table.IsExcludes {
+				continue
+			}
+			if !matchTable && !v.Table.IsExcludes {
+				continue
+			}
+		}
+
+		return true
 	}
 	return false
 }
@@ -175,40 +215,6 @@ func (p *Policy) getAllDenyPoliciesByUser(usersByGroup map[string][]string) map[
 		result[user] = actions
 	}
 	return result
-}
-
-func (r *Resource) getMatchRegexp() string {
-	catalogPart := ".*"
-	if len(r.Catalog.Values) > 0 {
-		catalogRegexp := patternsToRegex(r.Catalog.Values)
-		if r.Catalog.IsExcludes {
-			catalogPart = "(?!" + catalogRegexp + ").*"
-		} else {
-			catalogPart = "(" + catalogRegexp + ")"
-		}
-	}
-
-	schemaPart := ".*"
-	if len(r.Schema.Values) > 0 {
-		schemaRegexp := patternsToRegex(r.Schema.Values)
-		if r.Schema.IsExcludes {
-			schemaPart = "(?!" + schemaRegexp + ").*"
-		} else {
-			schemaPart = "(" + schemaRegexp + ")"
-		}
-	}
-
-	tablePart := ".*"
-	if len(r.Table.Values) > 0 {
-		tableRegexp := patternsToRegex(r.Table.Values)
-		if r.Table.IsExcludes {
-			tablePart = "(?!" + tableRegexp + ").*"
-		} else {
-			tablePart = "(" + tableRegexp + ")"
-		}
-	}
-
-	return catalogPart + `\.` + schemaPart + `\.` + tablePart
 }
 
 func globToRegex(pattern string) string {
