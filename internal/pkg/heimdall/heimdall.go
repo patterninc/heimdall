@@ -132,7 +132,7 @@ func (h *Heimdall) Init() error {
 			return err
 		}
 
-		// // let's record command in the database
+		// let's record command in the database
 		if err := h.clusterUpsert(c); err != nil {
 			return err
 		}
