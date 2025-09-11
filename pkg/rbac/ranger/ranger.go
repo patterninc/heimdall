@@ -10,12 +10,18 @@ import (
 )
 
 type ApacheRanger struct {
-	Name                  string `yaml:"name,omitempty" json:"name,omitempty"`
-	ServiceName           string `yaml:"service_name,omitempty" json:"service_name,omitempty"`
-	Client                Client
-	SyncIntervalInMinutes int `yaml:"sync_interval_in_minutes,omitempty" json:"sync_interval_in_minutes,omitempty"`
+	Name                  string        `yaml:"name,omitempty" json:"name,omitempty"`
+	ServiceName           string        `yaml:"service_name,omitempty" json:"service_name,omitempty"`
+	Client                ClientWrapper `yaml:"client,omitempty" json:"client,omitempty"`
+	SyncIntervalInMinutes int           `yaml:"sync_interval_in_minutes,omitempty" json:"sync_interval_in_minutes,omitempty"`
 	AccessReceiver        parser.AccessReceiver
 	permitionsByUser      map[string]*UserPermitions
+	Parser                ParserConfig `yaml:"parser,omitempty" json:"parser,omitempty"`
+}
+
+type ParserConfig struct {
+	Type           string `yaml:"type,omitempty" json:"type,omitempty"`
+	DefaultCatalog string `yaml:"default_catalog,omitempty" json:"default_catalog,omitempty"`
 }
 
 type PermitionStatus int
@@ -97,4 +103,8 @@ func (ar *ApacheRanger) startSyncPolicies(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+func (r *ApacheRanger) GetName() string {
+	return r.Name
 }
