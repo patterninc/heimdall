@@ -150,7 +150,6 @@ func (p *Policy) controlTableAccess(a *parser.TableAccess) bool {
 				continue
 			}
 		}
-
 		return true
 	}
 	return false

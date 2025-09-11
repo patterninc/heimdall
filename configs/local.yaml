@@ -1,4 +1,3 @@
-
 # database settings
 database:
   connection_string: "postgres://heimdall:heimdall@postgres:5432/heimdall?sslmode=disable"
@@ -8,14 +7,14 @@ pool:
   size: 5
   sleep: 500
 
-# plugins location
-plugin_directory: ./plugins
+# # plugins location
+# plugin_directory: ./plugins
 
-# auth plugin
-auth:
-  plugin: ./plugins/auth_header.so
-  context:
-    header: X-Heimdall-User
+# # auth plugin
+# auth:
+#   plugin: ./plugins/auth_header.so
+#   context:
+#     header: X-Heimdall-User
 
 # supported commands
 commands:
@@ -36,6 +35,34 @@ clusters:
     status: active
     version: 0.0.1
     description: Just a localhost
+    rbacs:
+      - trino
+      - trino2
     tags:
       - type:localhost
       - data:local
+
+rbacs:
+  - name: trino
+    type: apache_ranger
+    service_name: TrinoRanger
+    sync_interval_in_minutes: 1
+    client:
+      url: http://localhost:6080
+      username: admin
+      password: admin
+    parser:
+      type: trino
+      default_catalog: hive
+
+  - name: trino2
+    type: apache_ranger
+    service_name: TrinoRanger
+    sync_interval_in_minutes: 1
+    client:
+      url: http://localhost:6080
+      username: admin
+      password: 
+    parser:
+      type: trino
+      default_catalog: hive
