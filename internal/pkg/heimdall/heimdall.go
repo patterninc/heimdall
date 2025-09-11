@@ -133,9 +133,9 @@ func (h *Heimdall) Init() error {
 		}
 
 		// // let's record command in the database
-		// if err := h.clusterUpsert(c); err != nil {
-		// 	return err
-		// }
+		if err := h.clusterUpsert(c); err != nil {
+			return err
+		}
 		if len(c.RBACNames) > 0 {
 			for _, rbacName := range c.RBACNames {
 				r, found := rbacsByName[rbacName]

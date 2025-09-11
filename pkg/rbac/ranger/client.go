@@ -201,7 +201,7 @@ func (c *client) executeRequest(method string, endpoint string, v interface{}, r
 // executeBatchRequest performs paginated API requests and returns all aggregated results
 func (c *client) executeBatchRequest(method string, endpoint string) ([]getResponse, error) {
 	results := make([]getResponse, 500)
-	pageSize := 200
+	pageSize := 500
 	startIndex := 0
 
 	for {
