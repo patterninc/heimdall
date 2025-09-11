@@ -7,9 +7,15 @@ import (
 	"github.com/patterninc/heimdall/pkg/sql/parser/trino"
 )
 
+type ParserType string
+
+const (
+	ParserTypeTrino ParserType = "trino"
+)
+
 func CreateParserByType(typ string, defaultCatalog string) (parser.AccessReceiver, error) {
 	switch typ {
-	case "trino":
+	case string(ParserTypeTrino):
 		return trino.NewTrinoAccessReceiver(defaultCatalog), nil
 	default:
 		return nil, fmt.Errorf("unknown parser type: %s", typ)
