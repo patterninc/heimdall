@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -45,6 +47,32 @@ type getResponse struct {
 }
 
 //go:generate go run github.com/vektra/mockery/v2@v2.53.4 --name=Client --output=./mocks --outpkg=mocks
+
+type ClientWrapper struct {
+	Client Client
+}
+
+func (aw *ClientWrapper) UnmarshalYAML(value *yaml.Node) error {
+	var cl client
+	if err := value.Decode(&cl); err != nil {
+		return err
+	}
+	aw.Client = &cl
+	cl.client = &http.Client{}
+	return nil
+}
+
+func (cw *ClientWrapper) GetUsers() (map[string]*User, error) {
+	return cw.Client.GetUsers()
+}
+
+func (cw *ClientWrapper) GetGroups() (map[string]*Group, error) {
+	return cw.Client.GetGroups()
+}
+
+func (cw *ClientWrapper) GetPolicies(serviceName string) ([]*Policy, error) {
+	return cw.Client.GetPolicies(serviceName)
+}
 
 type Client interface {
 	GetUsers() (map[string]*User, error)
