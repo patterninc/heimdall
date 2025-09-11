@@ -1,6 +1,7 @@
 package ranger
 
 import (
+	"log"
 	"regexp"
 	"strings"
 
@@ -50,18 +51,19 @@ var (
 )
 
 type Policy struct {
-	ID                  int          `json:"id"`
-	GUID                string       `json:"guid"`
-	IsEnabled           bool         `json:"isEnabled"`
-	Version             int          `json:"version"`
-	Service             string       `json:"service"`
-	Name                string       `json:"name"`
-	PolicyType          int          `json:"policyType"`
-	PolicyPriority      int          `json:"policyPriority"`
-	Description         string       `json:"description"`
-	IsAuditEnabled      bool         `json:"isAuditEnabled"`
-	Resources           *Resource    `json:"resources"`
-	AdditionalResources []*Resource  `json:"additionalResources"`
+	ID                  int         `json:"id"`
+	GUID                string      `json:"guid"`
+	IsEnabled           bool        `json:"isEnabled"`
+	Version             int         `json:"version"`
+	Service             string      `json:"service"`
+	Name                string      `json:"name"`
+	PolicyType          int         `json:"policyType"`
+	PolicyPriority      int         `json:"policyPriority"`
+	Description         string      `json:"description"`
+	IsAuditEnabled      bool        `json:"isAuditEnabled"`
+	Resources           *Resource   `json:"resources"`
+	AdditionalResources []*Resource `json:"additionalResources"`
+	AllResources        []*Resource
 	PolicyItems         []PolicyItem `json:"policyItems"`
 	DenyPolicyItems     []PolicyItem `json:"denyPolicyItems"`
 	AllowExceptions     []PolicyItem `json:"allowExceptions"`
@@ -69,17 +71,17 @@ type Policy struct {
 	ServiceType         string       `json:"serviceType"`
 }
 
-type ResourceField struct {
-	Values     []string `json:"values"`
-	IsExcludes bool     `json:"isExcludes"`
-	regexp     *regexp.Regexp
-}
-
 type Resource struct {
 	Schema  *ResourceField `json:"schema,omitempty"`
 	Catalog *ResourceField `json:"catalog,omitempty"`
 	Table   *ResourceField `json:"table,omitempty"`
 	Column  *ResourceField `json:"column,omitempty"`
+}
+
+type ResourceField struct {
+	Values     []string `json:"values"`
+	IsExcludes bool     `json:"isExcludes"`
+	regexp     *regexp.Regexp
 }
 
 type Access struct {
@@ -99,7 +101,8 @@ type ControlledActions struct {
 }
 
 func (p *Policy) init() error {
-	for _, v := range append([]*Resource{p.Resources}, p.AdditionalResources...) {
+	p.AllResources = append([]*Resource{p.Resources}, p.AdditionalResources...)
+	for _, v := range p.AllResources {
 		if len(v.Catalog.Values) != 0 {
 			v.Catalog.regexp = regexp.MustCompile("^(" + patternsToRegex(v.Catalog.Values) + ")$")
 		}
@@ -113,43 +116,31 @@ func (p *Policy) init() error {
 	return nil
 }
 
-func (p *Policy) controlAnAccess(access parser.Access) bool {
+func (p *Policy) doesControlAnAccess(access parser.Access) bool {
 	switch a := access.(type) {
 	case *parser.TableAccess:
-		return p.controlTableAccess(a)
+		return p.doesControlTableAccess(a)
 	}
 	return false
 }
 
-func (p *Policy) controlTableAccess(a *parser.TableAccess) bool {
-	for _, v := range append([]*Resource{p.Resources}, p.AdditionalResources...) {
-		if len(v.Catalog.Values) != 0 {
-			matchCatalog := v.Catalog.regexp.MatchString(a.Catalog)
-			if matchCatalog && v.Catalog.IsExcludes {
-				continue
-			}
-			if !matchCatalog && !v.Catalog.IsExcludes {
-				continue
-			}
+func (p *Policy) doesControlTableAccess(a *parser.TableAccess) bool {
+	for _, v := range p.AllResources {
+		match := v.Catalog.regexp.MatchString(a.Catalog)
+		if match == v.Catalog.IsExcludes {
+			continue
 		}
-		if len(v.Schema.Values) != 0 {
-			matchSchema := v.Schema.regexp.MatchString(a.Schema)
-			if matchSchema && v.Schema.IsExcludes {
-				continue
-			}
-			if !matchSchema && !v.Schema.IsExcludes {
-				continue
-			}
+
+		match = v.Schema.regexp.MatchString(a.Schema)
+		if match == v.Schema.IsExcludes {
+			continue
 		}
-		if len(v.Table.Values) != 0 {
-			matchTable := v.Table.regexp.MatchString(a.Table)
-			if matchTable && v.Table.IsExcludes {
-				continue
-			}
-			if !matchTable && !v.Table.IsExcludes {
-				continue
-			}
+
+		match = v.Table.regexp.MatchString(a.Table)
+		if match == v.Table.IsExcludes {
+			continue
 		}
+
 		return true
 	}
 	return false
@@ -157,56 +148,33 @@ func (p *Policy) controlTableAccess(a *parser.TableAccess) bool {
 
 func (p *Policy) getControlledActions(usersByGroup map[string][]string) ControlledActions {
 	return ControlledActions{
-		allowedActionsByUser: p.getAllAllowPolicyByUser(usersByGroup),
-		deniedActionsByUser:  p.getAllDenyPoliciesByUser(usersByGroup),
+		allowedActionsByUser: p.getAllPolicyByUser(p.PolicyItems, p.AllowExceptions, usersByGroup),
+		deniedActionsByUser:  p.getAllPolicyByUser(p.DenyPolicyItems, p.DenyExceptions, usersByGroup),
 	}
 }
 
-func (p *Policy) getAllAllowPolicyByUser(usersByGroup map[string][]string) map[string][]parser.Action {
-	allowPoliciesItem := policyItemsToActionsByUser(p.PolicyItems, usersByGroup)
-	excludeAllowPolicyItems := policyItemsToActionsByUser(p.AllowExceptions, usersByGroup)
+func (p *Policy) getAllPolicyByUser(
+	items []PolicyItem,
+	exceptions []PolicyItem,
+	usersByGroup map[string][]string,
+) map[string][]parser.Action {
+	policiesItem := policyItemsToActionsByUser(items, usersByGroup)
+	exceptionsItem := policyItemsToActionsByUser(exceptions, usersByGroup)
 
-	for user, actions := range excludeAllowPolicyItems {
-		if _, ok := allowPoliciesItem[user]; !ok {
+	for user, actions := range exceptionsItem {
+		if _, ok := policiesItem[user]; !ok {
 			continue
 		}
 		for action := range actions {
-			delete(allowPoliciesItem[user], action)
+			delete(policiesItem[user], action)
 		}
-		if len(allowPoliciesItem[user]) == 0 {
-			delete(allowPoliciesItem, user)
+		if len(policiesItem[user]) == 0 {
+			delete(policiesItem, user)
 		}
 	}
 
 	result := map[string][]parser.Action{}
-	for user, actionsMap := range allowPoliciesItem {
-		actions := make([]parser.Action, 0, len(actionsMap))
-		for action := range actionsMap {
-			actions = append(actions, action)
-		}
-		result[user] = actions
-	}
-	return result
-}
-
-func (p *Policy) getAllDenyPoliciesByUser(usersByGroup map[string][]string) map[string][]parser.Action {
-	denyPoliciesItem := policyItemsToActionsByUser(p.DenyPolicyItems, usersByGroup)
-	excludeDenyPolicyItems := policyItemsToActionsByUser(p.DenyExceptions, usersByGroup)
-
-	for user, actions := range excludeDenyPolicyItems {
-		if _, ok := denyPoliciesItem[user]; !ok {
-			continue
-		}
-		for action := range actions {
-			delete(denyPoliciesItem[user], action)
-		}
-		if len(denyPoliciesItem[user]) == 0 {
-			delete(denyPoliciesItem, user)
-		}
-	}
-
-	result := map[string][]parser.Action{}
-	for user, actionsMap := range denyPoliciesItem {
+	for user, actionsMap := range policiesItem {
 		actions := make([]parser.Action, 0, len(actionsMap))
 		for action := range actionsMap {
 			actions = append(actions, action)
@@ -230,6 +198,7 @@ func patternsToRegex(patterns []string) string {
 	}
 	return strings.Join(regexes, "|")
 }
+
 func (p *PolicyItem) getPermissions() []parser.Action {
 	if p.Actions != nil {
 		return p.Actions
@@ -244,6 +213,8 @@ func (p *PolicyItem) getPermissions() []parser.Action {
 		if action, ok := actionByName[accessType]; ok {
 			p.Actions = append(p.Actions, action)
 			continue
+		} else {
+			log.Println("Unknown action type in ranger policy:", accessType)
 		}
 	}
 	return p.Actions
@@ -254,30 +225,26 @@ func policyItemsToActionsByUser(items []PolicyItem, usersByGroup map[string][]st
 	permissions := make(map[string]map[parser.Action]struct{})
 
 	for _, item := range items {
+		actions := item.getPermissions()
 		for _, user := range item.Users {
-			user = strings.ToLower(user)
-			if _, ok := permissions[user]; !ok {
-				permissions[user] = make(map[parser.Action]struct{})
-			}
-			for _, action := range item.getPermissions() {
-				permissions[user][action] = struct{}{}
-			}
+			addActionsToPermissions(permissions, user, actions)
 		}
 		for _, group := range item.Groups {
-			users, ok := usersByGroup[group]
-			if !ok {
-				continue
-			}
-			for _, user := range users {
-				if _, ok := permissions[user]; !ok {
-					permissions[user] = make(map[parser.Action]struct{})
-				}
-				for _, action := range item.getPermissions() {
-					permissions[user][action] = struct{}{}
-				}
+			for _, user := range usersByGroup[group] {
+				addActionsToPermissions(permissions, user, actions)
 			}
 		}
 	}
 
 	return permissions
+}
+
+func addActionsToPermissions(permissions map[string]map[parser.Action]struct{}, user string, actions []parser.Action) {
+	user = strings.ToLower(user)
+	if _, ok := permissions[user]; !ok {
+		permissions[user] = make(map[parser.Action]struct{})
+	}
+	for _, action := range actions {
+		permissions[user][action] = struct{}{}
+	}
 }

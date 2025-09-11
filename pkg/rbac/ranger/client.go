@@ -19,34 +19,12 @@ const (
 	getGroupsEndpoint          = `/service/xusers/groups`
 )
 
-type User struct {
-	ID           int64    `json:"id,omitempty"`
-	Name         string   `json:"name,omitempty"`
-	FirstName    string   `json:"firstName,omitempty"`
-	LastName     string   `json:"lastName,omitempty"`
-	EmailAddress string   `json:"emailAddress,omitempty"`
-	UserRoleList []string `json:"userRoleList,omitempty"`
-	Password     string   `json:"password,omitempty"`
-	SyncSource   string   `json:"syncSource,omitempty"`
-	GroupIdList  []int64  `json:"groupIdList,omitempty"`
-}
-
-type Group struct {
-	ID          int64  `json:"id,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
-	SyncSource  string `json:"syncSource,omitempty"`
-}
-
-type getResponse struct {
-	PageSize   int      `json:"pageSize"`
-	StartIndex int      `json:"startIndex"`
-	ResultSize int      `json:"resultSize"`
-	VXUsers    []*User  `json:"vXUsers,omitempty"`
-	VXGroups   []*Group `json:"vXGroups,omitempty"`
-}
-
 //go:generate go run github.com/vektra/mockery/v2@v2.53.4 --name=Client --output=./mocks --outpkg=mocks
+type Client interface {
+	GetUsers() (map[string]*User, error)
+	GetGroups() (map[string]*Group, error)
+	GetPolicies(serviceName string) ([]*Policy, error)
+}
 
 type ClientWrapper struct {
 	Client Client
@@ -74,16 +52,37 @@ func (cw *ClientWrapper) GetPolicies(serviceName string) ([]*Policy, error) {
 	return cw.Client.GetPolicies(serviceName)
 }
 
-type Client interface {
-	GetUsers() (map[string]*User, error)
-	GetGroups() (map[string]*Group, error)
-	GetPolicies(serviceName string) ([]*Policy, error)
+type User struct {
+	ID           int64    `json:"id,omitempty"`
+	Name         string   `json:"name,omitempty"`
+	FirstName    string   `json:"firstName,omitempty"`
+	LastName     string   `json:"lastName,omitempty"`
+	EmailAddress string   `json:"emailAddress,omitempty"`
+	UserRoleList []string `json:"userRoleList,omitempty"`
+	Password     string   `json:"password,omitempty"`
+	SyncSource   string   `json:"syncSource,omitempty"`
+	GroupIdList  []int64  `json:"groupIdList,omitempty"`
+}
+
+type Group struct {
+	ID          int64  `json:"id,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	SyncSource  string `json:"syncSource,omitempty"`
+}
+
+type getResponse struct {
+	PageSize   int      `json:"pageSize"`
+	StartIndex int      `json:"startIndex"`
+	ResultSize int      `json:"resultSize"`
+	VXUsers    []*User  `json:"vXUsers,omitempty"`
+	VXGroups   []*Group `json:"vXGroups,omitempty"`
 }
 
 type client struct {
-	URL      string `yaml:"url" json:"url" omitempty"`
-	Username string `yaml:"username" json:"username" omitempty"`
-	Password string `yaml:"password" json:"password" omitempty"`
+	URL      string `yaml:"url,omitempty" json:"url,omitempty"`
+	Username string `yaml:"username,omitempty" json:"username,omitempty"`
+	Password string `yaml:"password,omitempty" json:"password,omitempty"`
 	client   *http.Client
 }
 
@@ -95,6 +94,7 @@ func NewClient(url, username, password string) Client {
 		client:   &http.Client{},
 	}
 }
+
 func (c *client) GetUsers() (map[string]*User, error) {
 
 	responses, err := c.executeBatchRequest(http.MethodGet, getUsersEndpoint)
@@ -119,7 +119,6 @@ func (c *client) GetUsers() (map[string]*User, error) {
 }
 
 func (c *client) GetGroups() (map[string]*Group, error) {
-
 	responses, err := c.executeBatchRequest(http.MethodGet, getGroupsEndpoint)
 	if err != nil {
 		return nil, err
@@ -131,12 +130,10 @@ func (c *client) GetGroups() (map[string]*Group, error) {
 		for _, group := range resp.VXGroups {
 			groupsMap[group.Name] = group
 		}
-
 	}
 
 	log.Printf("Number of Ranger Groups pulled: %d\n", len(groupsMap))
 	return groupsMap, nil
-
 }
 
 func (c *client) GetPolicies(serviceName string) ([]*Policy, error) {
@@ -146,12 +143,6 @@ func (c *client) GetPolicies(serviceName string) ([]*Policy, error) {
 }
 
 func (c *client) createRequest(method, endpoint string, reqBody interface{}) (*http.Request, error) {
-
-	// Ensure client exists
-	if c.client == nil {
-		c.client = &http.Client{}
-	}
-
 	var jsonBody []byte
 	var err error
 
@@ -177,14 +168,13 @@ func (c *client) createRequest(method, endpoint string, reqBody interface{}) (*h
 
 }
 
-func (r *client) executeRequest(method string, endpoint string, v interface{}, reqBody interface{}) error {
-
-	req, err := r.createRequest(method, endpoint, reqBody)
+func (c *client) executeRequest(method string, endpoint string, v interface{}, reqBody interface{}) error {
+	req, err := c.createRequest(method, endpoint, reqBody)
 	if err != nil {
 		return err
 	}
 
-	resp, err := r.client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -206,12 +196,10 @@ func (r *client) executeRequest(method string, endpoint string, v interface{}, r
 	}
 
 	return nil
-
 }
 
 // executeBatchRequest performs paginated API requests and returns all aggregated results
-func (r *client) executeBatchRequest(method string, endpoint string) ([]getResponse, error) {
-
+func (c *client) executeBatchRequest(method string, endpoint string) ([]getResponse, error) {
 	results := make([]getResponse, 500)
 	pageSize := 200
 	startIndex := 0
@@ -222,7 +210,7 @@ func (r *client) executeBatchRequest(method string, endpoint string) ([]getRespo
 
 		// Marshall into generic get
 		getResponse := &getResponse{}
-		if err := r.executeRequest(method, batchEndpoint, getResponse, nil); err != nil {
+		if err := c.executeRequest(method, batchEndpoint, getResponse, nil); err != nil {
 			return nil, err
 		}
 
@@ -236,9 +224,7 @@ func (r *client) executeBatchRequest(method string, endpoint string) ([]getRespo
 		}
 
 		startIndex += pageSize
-
 	}
 
 	return results, nil
-
 }
