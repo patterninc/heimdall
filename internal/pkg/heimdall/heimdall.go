@@ -1,6 +1,7 @@
 package heimdall
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -20,6 +21,7 @@ import (
 	"github.com/patterninc/heimdall/pkg/object/command"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
+	"github.com/patterninc/heimdall/pkg/rbac"
 )
 
 const (
@@ -42,6 +44,7 @@ type Heimdall struct {
 	Server           *server.Server       `yaml:"server,omitempty" json:"server,omitempty"`
 	Commands         command.Commands     `yaml:"commands,omitempty" json:"commands,omitempty"`
 	Clusters         cluster.Clusters     `yaml:"clusters,omitempty" json:"clusters,omitempty"`
+	RBACs            rbac.RBACs           `yaml:"rbacs,omitempty" json:"rbacs,omitempty"`
 	JobsDirectory    string               `yaml:"jobs_directory,omitempty" json:"jobs_directory,omitempty"`
 	ArchiveDirectory string               `yaml:"archive_directory,omitempty" json:"archive_directory,omitempty"`
 	ResultDirectory  string               `yaml:"result_directory,omitempty" json:"result_directory,omitempty"`
@@ -114,6 +117,13 @@ func (h *Heimdall) Init() error {
 
 	}
 
+	rbacsByName := map[string]rbac.RBAC{}
+	for rbacName, r := range h.RBACs {
+		if err := r.Init(context.Background()); err != nil {
+			return fmt.Errorf("failed to init rbac %s: %w", rbacName, err)
+		}
+		rbacsByName[rbacName] = r
+	}
 	// process commands / add default values if missing, write commands to db
 	for _, c := range h.Clusters {
 
@@ -126,7 +136,15 @@ func (h *Heimdall) Init() error {
 		if err := h.clusterUpsert(c); err != nil {
 			return err
 		}
-
+		if len(c.RBACNames) > 0 {
+			for _, rbacName := range c.RBACNames {
+				r, found := rbacsByName[rbacName]
+				if !found {
+					return fmt.Errorf("failed to find rbac %s for cluster %s", rbacName, c.Name)
+				}
+				c.RBACs = append(c.RBACs, r)
+			}
+		}
 	}
 
 	// start janitor
