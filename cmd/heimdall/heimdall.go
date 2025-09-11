@@ -29,7 +29,7 @@ var (
 
 func init() {
 
-	flag.StringVar(&configFile, `conf`, `/Users/ivanhladush/git/heimdall/configs/local.yaml`, `config file`)
+	flag.StringVar(&configFile, `conf`, `/etc/heimdall/heimdall.yaml`, `config file`)
 	flag.Parse()
 
 }
