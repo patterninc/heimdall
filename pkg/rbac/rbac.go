@@ -22,9 +22,13 @@ type RBAC interface {
 
 type RBACs map[string]RBAC
 
+type RBACConfigs struct {
+	RBAC []RBAC
+}
+
 func (c *RBACs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
-	var temp RBACConfig
+	var temp RBACConfigs
 
 	if err := unmarshal(&temp); err != nil {
 		return err
@@ -46,12 +50,8 @@ func (c *RBACs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 }
 
-type RBACConfig struct {
-	RBAC []RBAC
-}
-
 // Implements custom unmarshaling based on `type` field in YAML
-func (c *RBACConfig) UnmarshalYAML(value *yaml.Node) error {
+func (c *RBACConfigs) UnmarshalYAML(value *yaml.Node) error {
 	for _, value := range value.Content {
 		var probe struct {
 			Type string `yaml:"type"`

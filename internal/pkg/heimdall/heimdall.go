@@ -82,40 +82,40 @@ func (h *Heimdall) Init() error {
 	}
 	h.agentName = fmt.Sprintf("%s-%d", strings.ToLower(hostname), time.Now().UnixMicro())
 
-	// // let's load all the plugins
-	// plugins, err := h.loadPlugins()
-	// if err != nil {
-	// 	return err
-	// }
+	// let's load all the plugins
+	plugins, err := h.loadPlugins()
+	if err != nil {
+		return err
+	}
 
-	// h.commandHandlers = make(map[string]plugin.Handler)
+	h.commandHandlers = make(map[string]plugin.Handler)
 
 	// process commands / add default values if missing, write commands to db
-	// for _, c := range h.Commands {
+	for _, c := range h.Commands {
 
-	// 	// set defaults for missing properties
-	// 	if err := c.Init(); err != nil {
-	// 		return err
-	// 	}
+		// set defaults for missing properties
+		if err := c.Init(); err != nil {
+			return err
+		}
 
-	// 	// // set command handlers
-	// 	// pluginNew, found := plugins[c.Plugin]
-	// 	// if !found {
-	// 	// 	return fmt.Errorf(formatErrUnknownPlugin, c.Plugin)
-	// 	// }
+		// set command handlers
+		pluginNew, found := plugins[c.Plugin]
+		if !found {
+			return fmt.Errorf(formatErrUnknownPlugin, c.Plugin)
+		}
 
-	// 	// handler, err := pluginNew(c.Context)
-	// 	// if err != nil {
-	// 	// 	return err
-	// 	// }
-	// 	// h.commandHandlers[c.ID] = handler
+		handler, err := pluginNew(c.Context)
+		if err != nil {
+			return err
+		}
+		h.commandHandlers[c.ID] = handler
 
-	// 	// let's record command in the database
-	// 	if err := h.commandUpsert(c); err != nil {
-	// 		return err
-	// 	}
+		// let's record command in the database
+		if err := h.commandUpsert(c); err != nil {
+			return err
+		}
 
-	// }
+	}
 
 	rbacsByName := map[string]rbac.RBAC{}
 	for rbacName, r := range h.RBACs {
