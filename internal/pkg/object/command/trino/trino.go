@@ -88,14 +88,13 @@ func (t *commandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Clust
 }
 
 func canQueryBeExecuted(query, user string, c *cluster.Cluster) bool {
-	fmt.Printf("checking if user %s can run the query: %s\n", user, query)
+	log.Printf("checking if user %s can run the query: %s\n", user, query)
 	// todo add metrics for time spent here
 	if query == `` {
 		return false
 	}
 
 	for _, rbac := range c.RBACs {
-		println("checking rbac", rbac.GetName())
 		allowed, err := rbac.HasAccess(user, query)
 		if err != nil {
 			log.Printf("failed to check rbac: %v", err)

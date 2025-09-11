@@ -1,11 +1,10 @@
 # RBAC Module
 
-The RBAC (Role-Based Access Control) module provides authentication and authorization capabilities for Heimdall, specifically designed to integrate with Apache Ranger for fine-grained access control over SQL resources.
+The RBAC (Role-Based Access Control) module provides authorization capabilities for Heimdall, specifically designed to integrate with Apache Ranger for fine-grained access control over SQL resources.
 
 ## Overview
 
 This module enables Heimdall to:
-- Authenticate users against Apache Ranger
 - Authorize SQL queries based on Ranger policies
 - Support table-level, schema-level, and catalog-level access control
 - Handle user groups and permissions
@@ -47,6 +46,15 @@ rbac:
       type: trino
       default_catalog: hive
 ```
+### Configuration Parameters
+
+- **`type`**: RBAC provider type (`apache_ranger`)
+- **`name`**: Unique identifier for this RBAC instance
+- **`service_name`**: Ranger service name to fetch policies from
+- **`sync_interval_in_minutes`**: How often to sync policies from Ranger
+- **`client`**: Ranger connection configuration
+- **`parser`**: SQL parser configuration for query analysis
+
 ### YAML Cluster Configuration
 
 To enable RBAC in your cluster configuration, add the `rbacs` section and specify the RBAC provider names you want to use. This allows you to define a chain of permission providers.
@@ -63,14 +71,6 @@ cluster:
 
 The `rbacs` list enables multiple RBAC providers to be evaluated in order, allowing flexible and layered access control.
 
-### Configuration Parameters
-
-- **`type`**: RBAC provider type (`apache_ranger`)
-- **`name`**: Unique identifier for this RBAC instance
-- **`service_name`**: Ranger service name to fetch policies from
-- **`sync_interval_in_minutes`**: How often to sync policies from Ranger
-- **`client`**: Ranger connection configuration
-- **`parser`**: SQL parser configuration for query analysis
 
 ## Usage
 
