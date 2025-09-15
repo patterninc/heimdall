@@ -3,6 +3,9 @@ package heimdall
 import (
 	"context"
 	"net/http"
+	"time"
+
+	"github.com/hladush/go-telemetry/pkg/telemetry"
 )
 
 type userNameType string
@@ -11,8 +14,16 @@ const (
 	userNameKey userNameType = `username`
 )
 
+var (
+	authMetrics = telemetry.NewMethod("auth", "Auth middleware")
+)
+
 func (h *Heimdall) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// start latency timer
+		defer authMetrics.RecordLatency(time.Now())
+		// auth request count
+		authMetrics.CountRequest()
 
 		// let's get username from the header
 		username := ``
