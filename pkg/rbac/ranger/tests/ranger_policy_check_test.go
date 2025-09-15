@@ -610,7 +610,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 }
 
 // TestResourcesSelection tests the resource selection logic in Ranger policies.
-// In this tests users always have all permitions
+// In this tests users always have all permissions
 func TestResourcesSelection(t *testing.T) {
 	tests := []testCase{
 		{
