@@ -1,13 +1,11 @@
 package rbac
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/patterninc/heimdall/pkg/rbac/ranger"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -18,7 +16,7 @@ var (
 )
 
 type RBAC interface {
-	Init(ctx context.Context) error //todo consider if we have init in another interface
+	Init() error
 	HasAccess(user string, query string) (bool, error)
 	GetName() string
 }
@@ -28,10 +26,6 @@ type RBACs map[string]RBAC
 type configs struct {
 	RBAC []RBAC
 }
-
-// type accessReceiverHolder struct {
-//     AccessReceiver
-// }
 
 func (c *RBACs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 

@@ -1,7 +1,6 @@
 package heimdall
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -119,7 +118,7 @@ func (h *Heimdall) Init() error {
 
 	rbacsByName := map[string]rbac.RBAC{}
 	for rbacName, r := range h.RBACs {
-		if err := r.Init(context.Background()); err != nil {
+		if err := r.Init(); err != nil {
 			return fmt.Errorf("failed to init rbac %s: %w", rbacName, err)
 		}
 		rbacsByName[rbacName] = r
