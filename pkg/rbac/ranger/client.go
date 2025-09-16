@@ -16,13 +16,11 @@ import (
 const (
 	getUsersEndpoint           = `/service/xusers/users`
 	getServicePoliciesEndpoint = `/service/public/v2/api/service/%s/policy`
-	getGroupsEndpoint          = `/service/xusers/groups`
 )
 
 //go:generate go run github.com/vektra/mockery/v2@v2.53.4 --name=Client --output=./mocks --outpkg=mocks
 type Client interface {
 	GetUsers() (map[string]*User, error)
-	GetGroups() (map[string]*Group, error)
 	GetPolicies(serviceName string) ([]*Policy, error)
 }
 
@@ -44,24 +42,21 @@ func (cw *ClientWrapper) GetUsers() (map[string]*User, error) {
 	return cw.Client.GetUsers()
 }
 
-func (cw *ClientWrapper) GetGroups() (map[string]*Group, error) {
-	return cw.Client.GetGroups()
-}
 
 func (cw *ClientWrapper) GetPolicies(serviceName string) ([]*Policy, error) {
 	return cw.Client.GetPolicies(serviceName)
 }
 
 type User struct {
-	ID           int64    `json:"id,omitempty"`
-	Name         string   `json:"name,omitempty"`
-	FirstName    string   `json:"firstName,omitempty"`
-	LastName     string   `json:"lastName,omitempty"`
-	EmailAddress string   `json:"emailAddress,omitempty"`
-	UserRoleList []string `json:"userRoleList,omitempty"`
-	Password     string   `json:"password,omitempty"`
-	SyncSource   string   `json:"syncSource,omitempty"`
-	GroupIdList  []int64  `json:"groupIdList,omitempty"`
+	ID            int64    `json:"id,omitempty"`
+	Name          string   `json:"name,omitempty"`
+	FirstName     string   `json:"firstName,omitempty"`
+	LastName      string   `json:"lastName,omitempty"`
+	EmailAddress  string   `json:"emailAddress,omitempty"`
+	UserRoleList  []string `json:"userRoleList,omitempty"`
+	Password      string   `json:"password,omitempty"`
+	SyncSource    string   `json:"syncSource,omitempty"`
+	GroupNameList []string `json:"groupNameList,omitempty"`
 }
 
 type Group struct {
@@ -72,11 +67,18 @@ type Group struct {
 }
 
 type getResponse struct {
-	PageSize   int      `json:"pageSize"`
-	StartIndex int      `json:"startIndex"`
-	ResultSize int      `json:"resultSize"`
-	VXUsers    []*User  `json:"vXUsers,omitempty"`
-	VXGroups   []*Group `json:"vXGroups,omitempty"`
+	PageSize     int             `json:"pageSize"`
+	StartIndex   int             `json:"startIndex"`
+	ResultSize   int             `json:"resultSize"`
+	VXUsers      []*User         `json:"vXUsers,omitempty"`
+	VXGroups     []*Group        `json:"vXGroups,omitempty"`
+	VXGroupUsers []*vXGroupUsers `json:"vXGroupUsers,omitempty"`
+}
+
+type vXGroupUsers struct {
+	ID        int64  `json:"id,omitempty"`
+	Name      string `json:"name,omitempty"`
+	FirstName string `json:"firstName,omitempty"`
 }
 
 type client struct {
@@ -116,24 +118,6 @@ func (c *client) GetUsers() (map[string]*User, error) {
 	log.Printf("Number of Ranger Users pulled: %d\n", len(usersMap))
 	return usersMap, nil
 
-}
-
-func (c *client) GetGroups() (map[string]*Group, error) {
-	responses, err := c.executeBatchRequest(http.MethodGet, getGroupsEndpoint)
-	if err != nil {
-		return nil, err
-	}
-
-	groupsMap := make(map[string]*Group)
-
-	for _, resp := range responses {
-		for _, group := range resp.VXGroups {
-			groupsMap[group.Name] = group
-		}
-	}
-
-	log.Printf("Number of Ranger Groups pulled: %d\n", len(groupsMap))
-	return groupsMap, nil
 }
 
 func (c *client) GetPolicies(serviceName string) ([]*Policy, error) {
@@ -191,6 +175,9 @@ func (c *client) executeRequest(method string, endpoint string, v interface{}, r
 		return fmt.Errorf("request to %s failed with status %s\n%s", req.URL.String(), resp.Status, bodyString)
 	}
 
+	vals, _ := io.ReadAll(resp.Body)
+	fmt.Println(string(vals))
+	resp.Body = io.NopCloser(bytes.NewReader(vals))
 	if v != nil {
 		return json.NewDecoder(resp.Body).Decode(v)
 	}

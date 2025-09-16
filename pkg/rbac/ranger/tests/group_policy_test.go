@@ -14,7 +14,6 @@ func TestAllowPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getDefaultGroupAllowPolicy([]string{"all"})},
 		},
 		{
@@ -23,7 +22,6 @@ func TestAllowPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getDefaultGroupAllowPolicy([]string{"select"})},
 		},
 		{
@@ -32,7 +30,6 @@ func TestAllowPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getDefaultGroupAllowPolicy([]string{"insert"})},
 		},
 		{
@@ -41,7 +38,6 @@ func TestAllowPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getDefaultGroupAllowPolicy([]string{"insert", "select", "update"})},
 		},
 		{
@@ -50,7 +46,6 @@ func TestAllowPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getDefaultGroupAllowPolicy([]string{"insert", "update", "delete"})},
 		},
 		{
@@ -59,7 +54,6 @@ func TestAllowPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{},
 		},
 		{
@@ -68,7 +62,6 @@ func TestAllowPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getDefaultGroupAllowPolicy([]string{"select"})},
 		},
 		{
@@ -77,7 +70,6 @@ func TestAllowPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getDefaultGroupAllowPolicy([]string{"all"})},
 		},
 		{
@@ -86,7 +78,6 @@ func TestAllowPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getDefaultGroupAllowPolicy([]string{"delete", "insert", "select", "update"})},
 		},
 		{
@@ -95,7 +86,6 @@ func TestAllowPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getDefaultAllActionsGroupPolicyWithExcludeForDefaultGroup([]string{"select"})},
 		},
 		{
@@ -104,7 +94,6 @@ func TestAllowPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getDefaultAllActionsGroupPolicyWithExcludeForDefaultGroup([]string{"insert"})},
 		},
 		{
@@ -113,7 +102,6 @@ func TestAllowPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getDefaultAllActionsGroupPolicyWithExcludeForDefaultGroup([]string{"insert"})},
 		},
 	}
@@ -129,7 +117,6 @@ func TestDenyPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       getAllowAllPolicyWithDenyForGroup([]string{"select"}),
 		},
 		{
@@ -138,7 +125,6 @@ func TestDenyPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       getAllowAllPolicyWithDenyForGroup([]string{"insert"}),
 		},
 		{
@@ -147,7 +133,6 @@ func TestDenyPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       getAllowAllPolicyWithDenyForGroup([]string{"update"}),
 		},
 		{
@@ -156,7 +141,6 @@ func TestDenyPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       getAllowAllPolicyWithDenyForGroup([]string{"insert", "select", "update"}),
 		},
 		{
@@ -165,7 +149,6 @@ func TestDenyPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       getAllowAllPolicyWithDenyForGroup([]string{"insert", "update", "delete"}),
 		},
 		{
@@ -174,7 +157,6 @@ func TestDenyPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       getAllowAllPolicyWithDenyAndExceptionForGroup([]string{"select", "insert"}, []string{"all"}),
 		},
 		{
@@ -183,7 +165,6 @@ func TestDenyPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       getAllowAllPolicyWithDenyAndExceptionForGroup([]string{"all"}, []string{"select"}),
 		},
 		{
@@ -192,7 +173,6 @@ func TestDenyPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       getAllowAllPolicyWithDenyAndExceptionForGroup([]string{"all"}, []string{"insert"}),
 		},
 		{
@@ -201,7 +181,6 @@ func TestDenyPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       getAllowAllPolicyWithDenyAndExceptionForGroup([]string{"all"}, []string{"select", "insert"}),
 		},
 		{
@@ -210,7 +189,6 @@ func TestDenyPermissionsForGroups(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       getAllowAllPolicyWithDenyAndExceptionForGroup([]string{"all"}, []string{"insert", "select"}),
 		},
 	}

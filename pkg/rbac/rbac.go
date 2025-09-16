@@ -5,30 +5,37 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/patterninc/heimdall/pkg/rbac/ranger"
-	parserFactory "github.com/patterninc/heimdall/pkg/sql/parser/factory"
 	"gopkg.in/yaml.v3"
+
+	"github.com/patterninc/heimdall/pkg/rbac/ranger"
 )
 
 var (
 	ErrRBACIDsAreNotUnique = errors.New("rbac IDs are not unique")
+	supportedRBACs         = map[string]func() RBAC{
+		`apache_ranger`: NewRanger,
+	}
 )
 
 type RBAC interface {
-	Init(ctx context.Context) error
+	Init(ctx context.Context) error //todo consider if we have init in another interface
 	HasAccess(user string, query string) (bool, error)
 	GetName() string
 }
 
 type RBACs map[string]RBAC
 
-type RBACConfigs struct {
+type configs struct {
 	RBAC []RBAC
 }
 
+// type accessReceiverHolder struct {
+//     AccessReceiver
+// }
+
 func (c *RBACs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
-	var temp RBACConfigs
+	var temp configs
 
 	if err := unmarshal(&temp); err != nil {
 		return err
@@ -51,7 +58,7 @@ func (c *RBACs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // Implements custom unmarshaling based on `type` field in YAML
-func (c *RBACConfigs) UnmarshalYAML(value *yaml.Node) error {
+func (c *configs) UnmarshalYAML(value *yaml.Node) error {
 	for _, value := range value.Content {
 		var probe struct {
 			Type string `yaml:"type"`
@@ -60,21 +67,19 @@ func (c *RBACConfigs) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 
-		switch probe.Type {
-		case "apache_ranger":
-			var r ranger.ApacheRanger
-			if err := value.Decode(&r); err != nil {
-				return err
-			}
-			c.RBAC = append(c.RBAC, &r)
-			parser, err := parserFactory.CreateParserByType(r.Parser.Type, r.Parser.DefaultCatalog)
-			if err != nil {
-				return err
-			}
-			r.AccessReceiver = parser
-		default:
-			return fmt.Errorf("unknown RBAC type: %s", probe.Type)
+		supportedRBAC, ok := supportedRBACs[probe.Type]
+		if !ok {
+			return fmt.Errorf("unsupported RBAC type: %s", probe.Type)
 		}
+		r := supportedRBAC()
+		if err := value.Decode(r); err != nil {
+			return err
+		}
+		c.RBAC = append(c.RBAC, r)
 	}
 	return nil
+}
+
+func NewRanger() RBAC {
+	return &ranger.Ranger{}
 }

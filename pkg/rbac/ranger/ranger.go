@@ -9,14 +9,15 @@ import (
 	"github.com/patterninc/heimdall/pkg/sql/parser"
 )
 
-type ApacheRanger struct {
-	Name                  string        `yaml:"name,omitempty" json:"name,omitempty"`
-	ServiceName           string        `yaml:"service_name,omitempty" json:"service_name,omitempty"`
-	Client                ClientWrapper `yaml:"client,omitempty" json:"client,omitempty"`
-	SyncIntervalInMinutes int           `yaml:"sync_interval_in_minutes,omitempty" json:"sync_interval_in_minutes,omitempty"`
-	AccessReceiver        parser.AccessReceiver
-	permissionsByUser      map[string]*UserPermissions
-	Parser                ParserConfig `yaml:"parser,omitempty" json:"parser,omitempty"`
+// only private
+// add links
+type Ranger struct {
+	Name                  string                `yaml:"name,omitempty" json:"name,omitempty"`
+	ServiceName           string                `yaml:"service_name,omitempty" json:"service_name,omitempty"`
+	Client                *ClientWrapper        `yaml:"client,omitempty" json:"client,omitempty"`
+	SyncIntervalInMinutes int                   `yaml:"sync_interval_in_minutes,omitempty" json:"sync_interval_in_minutes,omitempty"`
+	AccessReceiver        parser.AccessReceiver `yaml:"parser,omitempty" json:"parser,omitempty"`
+	permissionsByUser     map[string]*UserPermissions
 }
 
 type ParserConfig struct {
@@ -24,50 +25,61 @@ type ParserConfig struct {
 	DefaultCatalog string `yaml:"default_catalog,omitempty" json:"default_catalog,omitempty"`
 }
 
-type PermissionStatus int
-
-const (
-	PermissionStatusAllow PermissionStatus = iota
-	PermissionStatusDeny
-	PermissionStatusUnknown
-)
-
 type UserPermissions struct {
-	AllowPolicys map[parser.Action][]*Policy
-	DenyPolicys  map[parser.Action][]*Policy
+	AllowPolicies map[parser.Action][]*Policy // todo AllowPolicies
+	DenyPolicies  map[parser.Action][]*Policy
 }
 
-func (ar *ApacheRanger) Init(ctx context.Context) error {
+func (r *Ranger) Init(ctx context.Context) error {
 	// first time lets sync state explicitly
-	if err := ar.SyncState(); err != nil {
+	if err := r.SyncState(); err != nil {
 		return err
 	}
-	ar.startSyncPolicies(ctx)
+	go func() {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		ticker := time.NewTicker(time.Duration(r.SyncIntervalInMinutes) * time.Minute)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				log.Println("Stopping Apache Ranger sync goroutine")
+				return
+			case <-ticker.C:
+				log.Println("Syncing policies from Apache Ranger for service:", r.ServiceName)
+				if err := r.SyncState(); err != nil {
+					log.Println("Error syncing users and groups from Apache Ranger", "error", err)
+				}
+			}
+		}
+	}()
 	return nil
 }
 
-func (ar *ApacheRanger) HasAccess(user string, query string) (bool, error) {
+func (r *Ranger) HasAccess(user string, query string) (bool, error) {
 	user = strings.ToLower(user)
-	if _, ok := ar.permissionsByUser[user]; !ok {
+	if _, ok := r.permissionsByUser[user]; !ok {
 		log.Println("User not found in ranger policies. User: ", user)
 		return false, nil
 	}
-	accessList, err := ar.AccessReceiver.ParseAccess(query)
+	accessList, err := r.AccessReceiver.ParseAccess(query)
 	if err != nil {
 		return false, err
 	}
 
-	permissions := ar.permissionsByUser[user]
+	permissions := r.permissionsByUser[user]
 
 	for _, access := range accessList {
-		for _, permition := range permissions.DenyPolicys[access.Action()] {
+		for _, permition := range permissions.DenyPolicies[access.Action()] {
 			if permition.doesControlAnAccess(access) {
 				log.Println("Access denied by ranger policy", "user", user, "query", query, "policy", permition.Name, "action", access.Action(), "resource", access.QualifiedName())
 				return false, nil
 			}
 		}
 		foundAllowPolicy := false
-		for _, permition := range permissions.AllowPolicys[access.Action()] {
+		for _, permition := range permissions.AllowPolicies[access.Action()] {
 			if permition.doesControlAnAccess(access) {
 				log.Println("Access allowed by ranger policy", "user", user, "query", query, "policy", permition.Name, "action", access.Action(), "resource", access.QualifiedName())
 				foundAllowPolicy = true
@@ -82,11 +94,11 @@ func (ar *ApacheRanger) HasAccess(user string, query string) (bool, error) {
 	return true, nil
 }
 
-func (r *ApacheRanger) GetName() string {
+func (r *Ranger) GetName() string {
 	return r.Name
 }
 
-func (r *ApacheRanger) SyncState() error {
+func (r *Ranger) SyncState() error {
 	policies, err := r.Client.GetPolicies(r.ServiceName)
 	if err != nil {
 		return err
@@ -95,24 +107,11 @@ func (r *ApacheRanger) SyncState() error {
 	if err != nil {
 		return err
 	}
-	groups, err := r.Client.GetGroups()
-	if err != nil {
-		return err
-	}
 
-	log.Println("Users:", len(users), "Groups:", len(groups), "Policies:", len(policies))
-
-	groupByID := map[int64]*Group{}
 	usersByGroup := map[string][]string{}
-	for _, group := range groups {
-		groupByID[group.ID] = group
-	}
-
 	for _, user := range users {
-		for _, gid := range user.GroupIdList {
-			if group, ok := groupByID[gid]; ok {
-				usersByGroup[group.Name] = append(usersByGroup[group.Name], user.Name)
-			}
+		for _, gName := range user.GroupNameList {
+			usersByGroup[gName] = append(usersByGroup[gName], user.Name)
 		}
 	}
 
@@ -130,28 +129,28 @@ func (r *ApacheRanger) SyncState() error {
 			log.Println("Error initializing policy:", err)
 			return err
 		}
-		
+
 		controlledActions := policy.getControlledActions(usersByGroup)
 		for userName, actions := range controlledActions.allowedActionsByUser {
 			if _, ok := newPermissionsByUser[userName]; !ok {
 				newPermissionsByUser[userName] = &UserPermissions{
-					AllowPolicys: map[parser.Action][]*Policy{},
-					DenyPolicys:  map[parser.Action][]*Policy{},
+					AllowPolicies: map[parser.Action][]*Policy{},
+					DenyPolicies:  map[parser.Action][]*Policy{},
 				}
 			}
 			for _, action := range actions {
-				newPermissionsByUser[userName].AllowPolicys[action] = append(newPermissionsByUser[userName].AllowPolicys[action], policy)
+				newPermissionsByUser[userName].AllowPolicies[action] = append(newPermissionsByUser[userName].AllowPolicies[action], policy)
 			}
 		}
 		for userName, actions := range controlledActions.deniedActionsByUser {
 			if _, ok := newPermissionsByUser[userName]; !ok {
 				newPermissionsByUser[userName] = &UserPermissions{
-					AllowPolicys: map[parser.Action][]*Policy{},
-					DenyPolicys:  map[parser.Action][]*Policy{},
+					AllowPolicies: map[parser.Action][]*Policy{},
+					DenyPolicies:  map[parser.Action][]*Policy{},
 				}
 			}
 			for _, action := range actions {
-				newPermissionsByUser[userName].DenyPolicys[action] = append(newPermissionsByUser[userName].DenyPolicys[action], policy)
+				newPermissionsByUser[userName].DenyPolicies[action] = append(newPermissionsByUser[userName].DenyPolicies[action], policy)
 			}
 		}
 	}
@@ -159,27 +158,4 @@ func (r *ApacheRanger) SyncState() error {
 	r.permissionsByUser = newPermissionsByUser
 	log.Println("Syncing users and groups from Apache Ranger for service:", r.ServiceName)
 	return nil
-}
-
-func (ar *ApacheRanger) startSyncPolicies(ctx context.Context) {
-	go func() {
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		ticker := time.NewTicker(time.Duration(ar.SyncIntervalInMinutes) * time.Minute)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				log.Println("Stopping Apache Ranger sync goroutine")
-				return
-			case <-ticker.C:
-				log.Println("Syncing policies from Apache Ranger for service:", ar.ServiceName)
-				if err := ar.SyncState(); err != nil {
-					log.Println("Error syncing users and groups from Apache Ranger", "error", err)
-				}
-			}
-		}
-	}()
 }
