@@ -839,9 +839,9 @@ func getAllowAllPolicy(resource *ranger.Resource, additionalResource *ranger.Res
 	}
 }
 
-func getMockRangerClient(users map[string]*ranger.User, policies []*ranger.Policy) *ranger.ClientWrapper {
+func getMockRangerClient(users map[string]*ranger.User, policies []*ranger.Policy) ranger.Client {
 	m := new(mocks.Client)
 	m.On("GetUsers").Return(users, nil)
 	m.On("GetPolicies", serviceName).Return(policies, nil)
-	return &ranger.ClientWrapper{Client: m}
+	return m
 }
