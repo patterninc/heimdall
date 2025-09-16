@@ -16,10 +16,7 @@ const (
 
 var (
 	testDefaultUsers = map[string]*ranger.User{
-		testUserName: {ID: 11, Name: testUserName, GroupIdList: []int64{1}},
-	}
-	testDefaultGroups = map[string]*ranger.Group{
-		testGroupName: {ID: 1, Name: testGroupName},
+		testUserName: {ID: 11, Name: testUserName, GroupNameList: []string{testGroupName}},
 	}
 )
 
@@ -29,7 +26,6 @@ type testCase struct {
 	username       string
 	expectedResult bool
 	users          map[string]*ranger.User
-	groups         map[string]*ranger.Group
 	policies       []*ranger.Policy
 }
 
@@ -41,10 +37,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 			username:       "alice",
 			expectedResult: true,
 			users: map[string]*ranger.User{
-				"alice": {ID: 1, Name: "alice", GroupIdList: []int64{1}},
-			},
-			groups: map[string]*ranger.Group{
-				"group1": {ID: 1, Name: "group1"},
+				"alice": {ID: 1, Name: "alice", GroupNameList: []string{testGroupName}},
 			},
 			policies: []*ranger.Policy{
 				{
@@ -85,17 +78,14 @@ func TestRangerPolicyCheck(t *testing.T) {
 			username:       "bob",
 			expectedResult: true,
 			users: map[string]*ranger.User{
-				"bob": {ID: 2, Name: "bob", GroupIdList: []int64{1}},
-			},
-			groups: map[string]*ranger.Group{
-				"group1": {ID: 1, Name: "group1"},
+				"bob": {ID: 2, Name: "bob", GroupNameList: []string{testGroupName}},
 			},
 			policies: []*ranger.Policy{
 				{
 					ID:             2,
 					GUID:           "policy-2",
 					IsEnabled:      true,
-					Name:           "Allow select for group1",
+					Name:           "Allow select for testGroupName",
 					PolicyType:     0,
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
@@ -114,7 +104,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 					},
 					PolicyItems: []ranger.PolicyItem{
 						{
-							Groups: []string{"group1"},
+							Groups: []string{testGroupName},
 							Accesses: []ranger.Access{
 								{Type: "select"},
 							},
@@ -129,10 +119,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 			username:       "charlie",
 			expectedResult: false,
 			users: map[string]*ranger.User{
-				"charlie": {ID: 3, Name: "charlie", GroupIdList: []int64{2}},
-			},
-			groups: map[string]*ranger.Group{
-				"group2": {ID: 2, Name: "group2"},
+				"charlie": {ID: 3, Name: "charlie", GroupNameList: []string{testGroupName}},
 			},
 			policies: []*ranger.Policy{
 				{
@@ -181,9 +168,8 @@ func TestRangerPolicyCheck(t *testing.T) {
 			username:       "dave",
 			expectedResult: false,
 			users: map[string]*ranger.User{
-				"dave": {ID: 4, Name: "dave", GroupIdList: []int64{}},
+				"dave": {ID: 4, Name: "dave", GroupNameList: []string{}},
 			},
-			groups:   map[string]*ranger.Group{},
 			policies: []*ranger.Policy{},
 		},
 		{
@@ -192,10 +178,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 			username:       "eve",
 			expectedResult: false,
 			users: map[string]*ranger.User{
-				"eve": {ID: 5, Name: "eve", GroupIdList: []int64{3}},
-			},
-			groups: map[string]*ranger.Group{
-				"group3": {ID: 3, Name: "group3"},
+				"eve": {ID: 5, Name: "eve", GroupNameList: []string{testGroupName}},
 			},
 			policies: []*ranger.Policy{
 				{
@@ -251,7 +234,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 					},
 					DenyPolicyItems: []ranger.PolicyItem{
 						{
-							Groups: []string{"group3"},
+							Groups: []string{testGroupName},
 							Accesses: []ranger.Access{
 								{Type: "select"},
 							},
@@ -266,10 +249,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 			username:       "frank",
 			expectedResult: false,
 			users: map[string]*ranger.User{
-				"frank": {ID: 6, Name: "frank", GroupIdList: []int64{4}},
-			},
-			groups: map[string]*ranger.Group{
-				"group4": {ID: 4, Name: "group4"},
+				"frank": {ID: 6, Name: "frank", GroupNameList: []string{testGroupName}},
 			},
 			policies: []*ranger.Policy{
 				{
@@ -291,7 +271,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 					},
 					PolicyItems: []ranger.PolicyItem{
 						{
-							Groups: []string{"group4"},
+							Groups: []string{testGroupName},
 							Accesses: []ranger.Access{
 								{Type: "select"},
 							},
@@ -306,17 +286,14 @@ func TestRangerPolicyCheck(t *testing.T) {
 			username:       "grace",
 			expectedResult: true,
 			users: map[string]*ranger.User{
-				"grace": {ID: 7, Name: "grace", GroupIdList: []int64{5}},
-			},
-			groups: map[string]*ranger.Group{
-				"group5": {ID: 5, Name: "group5"},
+				"grace": {ID: 7, Name: "grace", GroupNameList: []string{testGroupName}},
 			},
 			policies: []*ranger.Policy{
 				{
 					ID:             7,
 					GUID:           "policy-7",
 					IsEnabled:      true,
-					Name:           "Allow select for group5 on tables matching regex",
+					Name:           "Allow select for testGroupName on tables matching regex",
 					PolicyType:     0,
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
@@ -335,7 +312,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 					},
 					PolicyItems: []ranger.PolicyItem{
 						{
-							Groups: []string{"group5"},
+							Groups: []string{testGroupName},
 							Accesses: []ranger.Access{
 								{Type: "select"},
 							},
@@ -350,17 +327,14 @@ func TestRangerPolicyCheck(t *testing.T) {
 			username:       "heidi",
 			expectedResult: false,
 			users: map[string]*ranger.User{
-				"heidi": {ID: 8, Name: "heidi", GroupIdList: []int64{6}},
-			},
-			groups: map[string]*ranger.Group{
-				"group6": {ID: 6, Name: "group6"},
+				"heidi": {ID: 8, Name: "heidi", GroupNameList: []string{testGroupName}},
 			},
 			policies: []*ranger.Policy{
 				{
 					ID:             8,
 					GUID:           "policy-8",
 					IsEnabled:      true,
-					Name:           "Deny select for group6 on tables matching regex",
+					Name:           "Deny select for testGroupName on tables matching regex",
 					PolicyType:     0,
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
@@ -379,7 +353,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 					},
 					DenyPolicyItems: []ranger.PolicyItem{
 						{
-							Groups: []string{"group6"},
+							Groups: []string{testGroupName},
 							Accesses: []ranger.Access{
 								{Type: "select"},
 							},
@@ -387,7 +361,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 					},
 					PolicyItems: []ranger.PolicyItem{
 						{
-							Groups: []string{"group6"},
+							Groups: []string{testGroupName},
 							Accesses: []ranger.Access{
 								{Type: "*"},
 							},
@@ -402,17 +376,14 @@ func TestRangerPolicyCheck(t *testing.T) {
 			username:       "ivan",
 			expectedResult: false,
 			users: map[string]*ranger.User{
-				"ivan": {ID: 9, Name: "ivan", GroupIdList: []int64{7}},
-			},
-			groups: map[string]*ranger.Group{
-				"group7": {ID: 7, Name: "group7"},
+				"ivan": {ID: 9, Name: "ivan", GroupNameList: []string{testGroupName}},
 			},
 			policies: []*ranger.Policy{
 				{
 					ID:             9,
 					GUID:           "policy-9",
 					IsEnabled:      true,
-					Name:           "Allow select for group7 excluding user ivan",
+					Name:           "Allow select for testGroupName excluding user ivan",
 					PolicyType:     0,
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
@@ -431,7 +402,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 					},
 					PolicyItems: []ranger.PolicyItem{
 						{
-							Groups: []string{"group7"},
+							Groups: []string{testGroupName},
 							Accesses: []ranger.Access{
 								{Type: "select"},
 							},
@@ -454,17 +425,14 @@ func TestRangerPolicyCheck(t *testing.T) {
 			username:       "judy",
 			expectedResult: false,
 			users: map[string]*ranger.User{
-				"judy": {ID: 10, Name: "judy", GroupIdList: []int64{8}},
-			},
-			groups: map[string]*ranger.Group{
-				"group8": {ID: 8, Name: "group8"},
+				"judy": {ID: 10, Name: "judy", GroupNameList: []string{testGroupName}},
 			},
 			policies: []*ranger.Policy{
 				{
 					ID:             10,
 					GUID:           "policy-10",
 					IsEnabled:      true,
-					Name:           "Deny select for group8 excluding user judy",
+					Name:           "Deny select for testGroupName excluding user judy",
 					PolicyType:     0,
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
@@ -491,7 +459,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 					},
 					DenyPolicyItems: []ranger.PolicyItem{
 						{
-							Groups: []string{"group8"},
+							Groups: []string{testGroupName},
 							Accesses: []ranger.Access{
 								{Type: "select"},
 							},
@@ -506,17 +474,14 @@ func TestRangerPolicyCheck(t *testing.T) {
 			username:       "judy",
 			expectedResult: true,
 			users: map[string]*ranger.User{
-				"judy": {ID: 10, Name: "judy", GroupIdList: []int64{8}},
-			},
-			groups: map[string]*ranger.Group{
-				"group8": {ID: 8, Name: "group8"},
+				"judy": {ID: 10, Name: "judy", GroupNameList: []string{testGroupName}},
 			},
 			policies: []*ranger.Policy{
 				{
 					ID:             10,
 					GUID:           "policy-10",
 					IsEnabled:      true,
-					Name:           "Deny select for group8 excluding user judy",
+					Name:           "Deny select for testGroupName excluding user judy",
 					PolicyType:     0,
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
@@ -566,17 +531,14 @@ func TestRangerPolicyCheck(t *testing.T) {
 			username:       "kate",
 			expectedResult: true,
 			users: map[string]*ranger.User{
-				"kate": {ID: 11, Name: "kate", GroupIdList: []int64{9}},
-			},
-			groups: map[string]*ranger.Group{
-				"group9": {ID: 9, Name: "group9"},
+				"kate": {ID: 11, Name: "kate", GroupNameList: []string{testGroupName}},
 			},
 			policies: []*ranger.Policy{
 				{
 					ID:             11,
 					GUID:           "policy-11",
 					IsEnabled:      true,
-					Name:           "Allow select for group9 excluding schema 'internal'",
+					Name:           "Allow select for testGroupName excluding schema 'internal'",
 					PolicyType:     0,
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
@@ -595,7 +557,7 @@ func TestRangerPolicyCheck(t *testing.T) {
 					},
 					PolicyItems: []ranger.PolicyItem{
 						{
-							Groups: []string{"group9"},
+							Groups: []string{testGroupName},
 							Accesses: []ranger.Access{
 								{Type: "select"},
 							},
@@ -619,7 +581,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_catalog", "public", "table2"), nil)},
 		},
 		{
@@ -628,7 +589,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_catalog", "private", "table1"), nil)},
 		},
 		{
@@ -637,7 +597,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("not_default_catalog", "public", "table1"), nil)},
 		},
 		{
@@ -646,7 +605,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("not_default_catalog", "public", "table1"), createResource("default_catalog", "public", "table2"))},
 		},
 		{
@@ -655,7 +613,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_*", "public", "table1"), nil)},
 		},
 		{
@@ -664,7 +621,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_catalog", "p*c", "table1"), nil)},
 		},
 		{
@@ -673,7 +629,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_catalog", "public", "t*l*"), nil)},
 		},
 		{
@@ -682,7 +637,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_catalog", "public", "t*l*"), nil)},
 		},
 		{
@@ -691,7 +645,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResource("default_catalog", "public", "table1"), nil)},
 		},
 		{
@@ -700,7 +653,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForCatalog("catalog", "public", "table1", true), nil)},
 		},
 		{
@@ -709,7 +661,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForCatalog("catalo*", "public", "table1", true), nil)},
 		},
 		{
@@ -718,7 +669,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForCatalog("defa*", "public", "table1", true), nil)},
 		},
 		{
@@ -727,7 +677,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForCatalog("defa*", "public", "table1", true), createResource("default_catalog", "public", "table1"))},
 		},
 		{
@@ -736,7 +685,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForSchema("defa*", "public", "table1", true), nil)},
 		},
 		{
@@ -745,7 +693,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForSchema("defa*", "privat*", "table1", true), nil)},
 		},
 		{
@@ -754,7 +701,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForSchema("defa*", "public", "table1", true), createResource("default_catalog", "public", "table1"))},
 		},
 		{
@@ -763,7 +709,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: false,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForTable("defau*", "public", "table1", true), nil)},
 		},
 		{
@@ -772,7 +717,6 @@ func TestResourcesSelection(t *testing.T) {
 			username:       testUserName,
 			expectedResult: true,
 			users:          testDefaultUsers,
-			groups:         testDefaultGroups,
 			policies:       []*ranger.Policy{getAllowAllPolicy(createResourceWithExcludeOptionForTable("defau*", "public", "table2", true), nil)},
 		},
 	}
@@ -784,9 +728,9 @@ func runTests(t *testing.T, tests []testCase) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			rbac := &ranger.ApacheRanger{
+			rbac := &ranger.Ranger{
 				AccessReceiver: trino.NewTrinoAccessReceiver("default_catalog"),
-				Client:         getMockRangerClient(tt.users, tt.groups, tt.policies),
+				Client:         getMockRangerClient(tt.users, tt.policies),
 				ServiceName:    serviceName,
 			}
 			rbac.SyncState()
@@ -895,11 +839,9 @@ func getAllowAllPolicy(resource *ranger.Resource, additionalResource *ranger.Res
 	}
 }
 
-
-func getMockRangerClient(users map[string]*ranger.User, groups map[string]*ranger.Group, policies []*ranger.Policy) ranger.ClientWrapper {
+func getMockRangerClient(users map[string]*ranger.User, policies []*ranger.Policy) *ranger.ClientWrapper {
 	m := new(mocks.Client)
 	m.On("GetUsers").Return(users, nil)
-	m.On("GetGroups").Return(groups, nil)
 	m.On("GetPolicies", serviceName).Return(policies, nil)
-	return ranger.ClientWrapper{Client: m}
+	return &ranger.ClientWrapper{Client: m}
 }
