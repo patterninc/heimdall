@@ -12,36 +12,6 @@ type Client struct {
 	mock.Mock
 }
 
-// GetGroups provides a mock function with no fields
-func (_m *Client) GetGroups() (map[string]*ranger.Group, error) {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetGroups")
-	}
-
-	var r0 map[string]*ranger.Group
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (map[string]*ranger.Group, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() map[string]*ranger.Group); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]*ranger.Group)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetPolicies provides a mock function with given fields: serviceName
 func (_m *Client) GetPolicies(serviceName string) ([]*ranger.Policy, error) {
 	ret := _m.Called(serviceName)
