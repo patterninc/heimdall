@@ -65,6 +65,7 @@ const (
 	sparkExecutorCoresKey                 = "spark.executor.cores"
 	sparkExecutorMemoryKey                = "spark.executor.memory"
 	sparkAppLabelSelectorFormat           = "sparkoperator.k8s.io/app-name"
+	sparkSqlExtensions                    = "spark.sql.extensions"
 
 	unknownErrorMsg             = "Unknown error"
 	sparkJobSubmissionFailedMsg = "spark job submission failed"
@@ -108,11 +109,12 @@ type sparkEksJobContext struct {
 }
 
 type sparkEksClusterContext struct {
-	RoleARN              *string           `yaml:"role_arn,omitempty" json:"role_arn,omitempty"`
-	Properties           map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
-	Image                *string           `yaml:"image,omitempty" json:"image,omitempty"`
-	Region               *string           `yaml:"region,omitempty" json:"region,omitempty"`
-	SparkApplicationFile string            `yaml:"spark_application_file,omitempty" json:"spark_application_file,omitempty"`
+	RoleARN                    *string           `yaml:"role_arn,omitempty" json:"role_arn,omitempty"`
+	Properties                 map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
+	Image                      *string           `yaml:"image,omitempty" json:"image,omitempty"`
+	Region                     *string           `yaml:"region,omitempty" json:"region,omitempty"`
+	SparkApplicationFile       string            `yaml:"spark_application_file,omitempty" json:"spark_application_file,omitempty"`
+	RequiredSparkSQLExtensions string            `yaml:"required_spark_sql_extensions,omitempty" json:"required_spark_sql_extensions,omitempty"`
 }
 
 // executionContext holds the final resolved configuration and clients for a job execution.
@@ -248,6 +250,11 @@ func buildExecutionContextAndURI(r *plugin.Runtime, j *job.Job, c *cluster.Clust
 	// Upload query to S3
 	if err := uploadFileToS3(execCtx.awsConfig, execCtx.queryURI, execCtx.jobContext.Query); err != nil {
 		return nil, fmt.Errorf("failed to upload query to S3: %w", err)
+	}
+
+	// create empty log s3 directory to avoid spark event log dir errors
+	if err := uploadFileToS3(execCtx.awsConfig, fmt.Sprintf("%s/.keepdir", execCtx.logURI), ""); err != nil {
+		return nil, fmt.Errorf("failed to create log directory in S3: %w", err)
 	}
 
 	return execCtx, nil
@@ -412,30 +419,21 @@ func isPodInValidPhase(pod corev1.Pod) bool {
 		pod.Status.Phase == corev1.PodFailed
 }
 
-// writeLastLinesToStderr writes the last 100 lines of log content to stderr if it's from a driver pod
-func writeLastLinesToStderr(execCtx *executionContext, pod corev1.Pod, logContent string) {
+// writeDriverLogsToStderr writes the complete driver log content to stderr if it's from a driver pod
+func writeDriverLogsToStderr(execCtx *executionContext, pod corev1.Pod, logContent string) {
 	// Check if this is a driver pod by looking for "driver" in the pod name
 	if !strings.Contains(pod.Name, "driver") {
 		return
 	}
 
-	lines := strings.Split(strings.TrimSpace(logContent), "\n")
-	if len(lines) == 0 {
+	logContent = strings.TrimSpace(logContent)
+	if logContent == "" {
 		return
 	}
 
-	// Get last 100 lines or all lines if fewer than 100
-	startIndex := 0
-	if len(lines) > 100 {
-		startIndex = len(lines) - 100
-	}
-
-	lastLines := lines[startIndex:]
-	if len(lastLines) > 0 {
-		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("\n=== Last %d lines from driver pod %s ===\n", len(lastLines), pod.Name))
-		execCtx.runtime.Stderr.WriteString(strings.Join(lastLines, "\n"))
-		execCtx.runtime.Stderr.WriteString("\n=== End of driver logs ===\n\n")
-	}
+	execCtx.runtime.Stderr.WriteString(fmt.Sprintf("\n=== Driver stdout logs from pod %s ===\n", pod.Name))
+	execCtx.runtime.Stderr.WriteString(logContent)
+	execCtx.runtime.Stderr.WriteString("\n=== End of driver logs ===\n\n")
 }
 
 // getAndUploadPodContainerLogs fetches logs from a specific container in a pod and uploads them to S3.
@@ -455,7 +453,7 @@ func getAndUploadPodContainerLogs(execCtx *executionContext, pod corev1.Pod, con
 	if string(logContent) != "" {
 		// Write to stderr if requested and this is stdout logs (not previous/stderr logs)
 		if writeToStderr && !previous && logType == stdoutLogSuffix {
-			writeLastLinesToStderr(execCtx, pod, string(logContent))
+			writeDriverLogsToStderr(execCtx, pod, string(logContent))
 		}
 
 		logURI := fmt.Sprintf("%s/%s-%s", execCtx.logURI, pod.Name, logType)
@@ -483,18 +481,20 @@ func getSparkApplicationPodLogs(execCtx *executionContext, pods []corev1.Pod, wr
 
 // createSparkClients creates Kubernetes and Spark clients for the EKS cluster.
 func createSparkClients(execCtx *executionContext) error {
-	if err := updateKubeConfig(execCtx); err != nil {
+	kubeconfigPath, err := updateKubeConfig(execCtx)
+	if err != nil {
 		return fmt.Errorf("failed to update kubeconfig: %w", err)
 	}
+	defer os.Remove(kubeconfigPath) // Clean up the temporary kubeconfig file
 
-	// Load from updated kubeconfig
-	config, err := clientcmd.BuildConfigFromFlags("", clientcmd.RecommendedHomeFile)
+	// Build configuration from the newly created kubeconfig file.
+	clientConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 	if err != nil {
-		return fmt.Errorf("failed to load kubeconfig after update: %w", err)
+		return fmt.Errorf("failed to build config from kubeconfig file: %w", err)
 	}
 
 	// Create Spark Operator client
-	sparkClient, err := sparkClientSet.NewForConfig(config)
+	sparkClient, err := sparkClientSet.NewForConfig(clientConfig)
 	if err != nil {
 		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Failed to create Spark Operator client: %v\n", err))
 		return ErrKubeConfig
@@ -502,7 +502,7 @@ func createSparkClients(execCtx *executionContext) error {
 	execCtx.sparkClient = sparkClient
 
 	// Create Kubernetes client
-	kubeClient, err := kubernetes.NewForConfig(config)
+	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Failed to create Kubernetes client: %v\n", err))
 		return ErrKubeConfig
@@ -513,7 +513,7 @@ func createSparkClients(execCtx *executionContext) error {
 	return nil
 }
 
-func updateKubeConfig(execCtx *executionContext) error {
+func updateKubeConfig(execCtx *executionContext) (string, error) {
 	region := os.Getenv(awsRegionEnvVar)
 	if execCtx.clusterContext.Region != nil {
 		region = *execCtx.clusterContext.Region
@@ -522,10 +522,20 @@ func updateKubeConfig(execCtx *executionContext) error {
 	if execCtx.clusterContext.RoleARN != nil {
 		roleArn = *execCtx.clusterContext.RoleARN
 	}
+
+	// Create a temporary file for the kubeconfig
+	tmpfile, err := os.CreateTemp(execCtx.runtime.WorkingDirectory, "kubeconfig-")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file for kubeconfig: %w", err)
+	}
+	kubeconfigPath := tmpfile.Name()
+	tmpfile.Close() // Close the file so `aws` can write to it
+
 	args := []string{
 		"eks", "update-kubeconfig",
 		"--region", region,
 		"--name", execCtx.cluster.Name,
+		"--kubeconfig", kubeconfigPath,
 	}
 	if roleArn != "" {
 		// Include role-arn so the kubeconfig will exec get-token with that role later
@@ -538,7 +548,8 @@ func updateKubeConfig(execCtx *executionContext) error {
 	if roleArn != "" {
 		awsCfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
 		if err != nil {
-			return fmt.Errorf("load AWS config for STS assume-role: %w", err)
+			os.Remove(kubeconfigPath)
+			return "", fmt.Errorf("load AWS config for STS assume-role: %w", err)
 		}
 		stsClient := sts.NewFromConfig(awsCfg)
 		in := &sts.AssumeRoleInput{
@@ -547,7 +558,8 @@ func updateKubeConfig(execCtx *executionContext) error {
 		}
 		out, err := stsClient.AssumeRole(ctx, in)
 		if err != nil {
-			return fmt.Errorf("sts:AssumeRole for %s failed: %w", roleArn, err)
+			os.Remove(kubeconfigPath)
+			return "", fmt.Errorf("sts:AssumeRole for %s failed: %w", roleArn, err)
 		}
 
 		env := os.Environ()
@@ -563,9 +575,10 @@ func updateKubeConfig(execCtx *executionContext) error {
 	cmd.Stderr = &combined
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to update kubeconfig (aws eks update-kubeconfig): %w; output: %s", err, combined.String())
+		os.Remove(kubeconfigPath)
+		return "", fmt.Errorf("failed to update kubeconfig (aws eks update-kubeconfig): %w; output: %s", err, combined.String())
 	}
-	return nil
+	return kubeconfigPath, nil
 }
 
 // applySparkOperatorConfig consolidates all Spark Operator configuration updates and overrides.
@@ -618,6 +631,41 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 			sparkApp.Spec.Driver.EnvVars = make(map[string]string)
 		}
 		sparkApp.Spec.Driver.EnvVars[awsRegionEnvVar] = *clusterContext.Region
+	}
+
+	// Handle required Spark SQL extensions
+	if clusterContext.RequiredSparkSQLExtensions != "" {
+		existingExtensions := sparkApp.Spec.SparkConf[sparkSqlExtensions]
+		if existingExtensions == "" {
+			// No existing extensions, just set the required ones
+			sparkApp.Spec.SparkConf[sparkSqlExtensions] = clusterContext.RequiredSparkSQLExtensions
+		} else {
+			// Merge required extensions with existing ones, avoiding duplicates
+			extensionSet := make(map[string]bool)
+
+			// Add existing extensions to the set
+			for _, ext := range strings.Split(existingExtensions, ",") {
+				ext = strings.TrimSpace(ext)
+				if ext != "" {
+					extensionSet[ext] = true
+				}
+			}
+
+			// Add required extensions to the set
+			for _, ext := range strings.Split(clusterContext.RequiredSparkSQLExtensions, ",") {
+				ext = strings.TrimSpace(ext)
+				if ext != "" {
+					extensionSet[ext] = true
+				}
+			}
+
+			// Build the final extension list
+			var extensions []string
+			for ext := range extensionSet {
+				extensions = append(extensions, ext)
+			}
+			sparkApp.Spec.SparkConf[sparkSqlExtensions] = strings.Join(extensions, ",")
+		}
 	}
 
 	// Driver and Executor resources are handled by deleting from job properties after use
