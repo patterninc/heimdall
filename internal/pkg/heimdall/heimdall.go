@@ -140,7 +140,6 @@ func (h *Heimdall) Init() error {
 }
 
 func (h *Heimdall) Start() error {
-
 	// set routes
 	router := mux.NewRouter()
 
@@ -169,6 +168,9 @@ func (h *Heimdall) Start() error {
 	apiRouter.Methods(methodPUT).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.submitCluster))
 	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.getCluster))
 	apiRouter.Methods(methodGET).PathPrefix(`/clusters`).HandlerFunc(payloadHandler(h.getClusters))
+
+	// metrics endpoint - proxy to metrics service
+	router.Path(`/metrics`).HandlerFunc(metricsRouteHandler)
 
 	// catch all for APIs
 	apiRouter.PathPrefix(`/`).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
