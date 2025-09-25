@@ -40,7 +40,7 @@ echo 'Starting main application...'
 # Execute the original command
 if [ -n "$ORIGINAL_COMMAND" ]; then
   echo "Executing: $ORIGINAL_COMMAND"
-  exec $ORIGINAL_COMMAND
+  exec "$ORIGINAL_COMMAND"
 else
   echo "No original command found, executing: $@"
   exec "$@"

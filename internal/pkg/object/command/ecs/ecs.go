@@ -108,7 +108,6 @@ func (execCtx *executionContext) modifyContainerWithStartupScript(container *typ
 			Name:  aws.String("ORIGINAL_COMMAND"),
 			Value: aws.String(originalCmdStr),
 		})
-	fmt.Println()
 	return nil
 }
 
