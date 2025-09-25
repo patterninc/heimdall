@@ -2,6 +2,7 @@ package ecs
 
 import (
 	ct "context"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -22,9 +23,8 @@ import (
 	"github.com/patterninc/heimdall/pkg/result/column"
 )
 
-var (
-	templatePath = "internal/pkg/object/command/ecs/startup_script_template.sh"
-)
+//go:embed startup_script_template.sh
+var startupScriptTemplate embed.FS
 
 // FileDownload represents a file to be downloaded before container execution
 type FileDownload struct {
@@ -260,10 +260,10 @@ func generateStartupScript(fileDownloads []FileDownload, config *StartupScriptCo
 		templateData.Downloads = append(templateData.Downloads, scriptDownload)
 	}
 
-	// Load template
-	templateContent, err := os.ReadFile(templatePath)
+	// Load template from embedded filesystem
+	templateContent, err := startupScriptTemplate.ReadFile("startup_script_template.sh")
 	if err != nil {
-		return "", fmt.Errorf("failed to read template file: %w", err)
+		return "", fmt.Errorf("failed to read embedded template file: %w", err)
 	}
 
 	// Parse template
