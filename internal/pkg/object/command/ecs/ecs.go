@@ -22,6 +22,10 @@ import (
 	"github.com/patterninc/heimdall/pkg/result/column"
 )
 
+var (
+	templatePath = "internal/pkg/object/command/ecs/startup_script_template.sh"
+)
+
 // FileDownload represents a file to be downloaded before container execution
 type FileDownload struct {
 	Source      string `yaml:"source,omitempty" json:"source,omitempty"`           // S3 URI or HTTP URL
@@ -257,7 +261,6 @@ func generateStartupScript(fileDownloads []FileDownload, config *StartupScriptCo
 	}
 
 	// Load template
-	templatePath := "internal/pkg/object/command/ecs/startup_script_template.sh"
 	templateContent, err := os.ReadFile(templatePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read template file: %w", err)
@@ -614,15 +617,13 @@ func buildContainerOverrides(execCtx *executionContext) error {
 		containerName := aws.ToString(container.Name)
 
 		// Use existing override if it exists, otherwise create a blank one
-		var override types.ContainerOverride
-		if existingOverride, exists := containerOverridesMap[containerName]; exists {
-			override = existingOverride
+		if override, exists := containerOverridesMap[containerName]; exists {
+			containerOverrides = append(containerOverrides, override)
 		} else {
-			override = types.ContainerOverride{
+			containerOverrides = append(containerOverrides, types.ContainerOverride{
 				Name: aws.String(containerName),
-			}
+			})
 		}
-		containerOverrides = append(containerOverrides, override)
 	}
 
 	execCtx.ContainerOverrides = containerOverrides
