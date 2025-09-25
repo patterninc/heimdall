@@ -31,7 +31,7 @@ type hasID interface {
 
 func writeAPIError(w http.ResponseWriter, err error, obj any) {
 	// API request error count
-	apiCallMetrics.CountError()
+	apiCallMetrics.LogAndCountError(err)
 
 	response := map[string]string{
 		errorKey: err.Error(),
@@ -49,10 +49,10 @@ func writeAPIError(w http.ResponseWriter, err error, obj any) {
 }
 
 func payloadHandler[T any](fn func(*T) (any, error)) http.HandlerFunc {
+	// start latency timer
+	defer apiCallMetrics.RecordLatency(time.Now())
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		// start latency timer
-		defer apiCallMetrics.RecordLatency(time.Now())
 		// let's read the request payload
 		defer r.Body.Close()
 

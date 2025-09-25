@@ -19,9 +19,10 @@ var (
 )
 
 func (h *Heimdall) auth(next http.Handler) http.Handler {
+	// start latency timer
+	defer authMetrics.RecordLatency(time.Now())
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// start latency timer
-		defer authMetrics.RecordLatency(time.Now())
 		// auth request count
 		authMetrics.CountRequest()
 
