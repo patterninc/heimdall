@@ -21,8 +21,8 @@ const (
 )
 
 var (
-	ErrNoCaller    = fmt.Errorf(`cannot identify caller -- access denied`)
-	apiCallMetrics = telemetry.NewMethod("payload_handler", "API calls")
+	ErrNoCaller            = fmt.Errorf(`cannot identify caller -- access denied`)
+	apiCallTelemetryMethod = telemetry.NewMethod("payload_handler", "API calls")
 )
 
 type hasID interface {
@@ -31,7 +31,7 @@ type hasID interface {
 
 func writeAPIError(w http.ResponseWriter, err error, obj any) {
 	// API request error count
-	apiCallMetrics.LogAndCountError(err)
+	apiCallTelemetryMethod.LogAndCountError(err)
 
 	response := map[string]string{
 		errorKey: err.Error(),
@@ -50,14 +50,14 @@ func writeAPIError(w http.ResponseWriter, err error, obj any) {
 
 func payloadHandler[T any](fn func(*T) (any, error)) http.HandlerFunc {
 	// start latency timer
-	defer apiCallMetrics.RecordLatency(time.Now())
+	defer apiCallTelemetryMethod.RecordLatency(time.Now())
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// let's read the request payload
 		defer r.Body.Close()
 
 		// API request count
-		apiCallMetrics.CountRequest()
+		apiCallTelemetryMethod.CountRequest()
 
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -100,7 +100,7 @@ func payloadHandler[T any](fn func(*T) (any, error)) http.HandlerFunc {
 		w.Write(resultJson)
 
 		// API request success count
-		apiCallMetrics.CountSuccess()
+		apiCallTelemetryMethod.CountSuccess()
 	}
 
 }

@@ -15,16 +15,16 @@ const (
 )
 
 var (
-	authMetrics = telemetry.NewMethod("auth", "Auth middleware")
+	authTelemetryMethod = telemetry.NewMethod("auth", "Auth middleware")
 )
 
 func (h *Heimdall) auth(next http.Handler) http.Handler {
 	// start latency timer
-	defer authMetrics.RecordLatency(time.Now())
+	defer authTelemetryMethod.RecordLatency(time.Now())
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// auth request count
-		authMetrics.CountRequest()
+		authTelemetryMethod.CountRequest()
 
 		// let's get username from the header
 		username := ``
