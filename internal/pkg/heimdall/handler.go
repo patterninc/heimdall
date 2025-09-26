@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/hladush/go-telemetry/pkg/telemetry"
 )
 
 const (
@@ -19,7 +21,8 @@ const (
 )
 
 var (
-	ErrNoCaller = fmt.Errorf(`cannot identify caller -- access denied`)
+	ErrNoCaller          = fmt.Errorf(`cannot identify caller -- access denied`)
+	payloadHandlerMethod = telemetry.NewMethod("payload_handler", "heimdall")
 )
 
 type hasID interface {
@@ -27,6 +30,8 @@ type hasID interface {
 }
 
 func writeAPIError(w http.ResponseWriter, err error, obj any) {
+	// API request error count
+	payloadHandlerMethod.LogAndCountError(err)
 
 	response := map[string]string{
 		errorKey: err.Error(),
@@ -41,15 +46,18 @@ func writeAPIError(w http.ResponseWriter, err error, obj any) {
 	w.Header().Add(contentTypeKey, contentTypeJSON)
 	w.WriteHeader(http.StatusInternalServerError)
 	w.Write(responseJSON)
-
 }
 
 func payloadHandler[T any](fn func(*T) (any, error)) http.HandlerFunc {
+	// start latency timer
+	defer payloadHandlerMethod.RecordLatency(time.Now())
 
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		// let's read the request payload
 		defer r.Body.Close()
+
+		// API request count
+		payloadHandlerMethod.CountRequest()
 
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -91,6 +99,8 @@ func payloadHandler[T any](fn func(*T) (any, error)) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		w.Write(resultJson)
 
+		// API request success count
+		payloadHandlerMethod.CountSuccess()
 	}
 
 }

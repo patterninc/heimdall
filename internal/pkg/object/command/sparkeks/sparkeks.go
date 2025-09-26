@@ -73,9 +73,9 @@ const (
 )
 
 var (
-	ctx               = context.Background()
-	rxS3              = regexp.MustCompile(`^s3://([^/]+)/(.*)$`)
-	runtimeStates     = []v1beta2.ApplicationStateType{
+	ctx           = context.Background()
+	rxS3          = regexp.MustCompile(`^s3://([^/]+)/(.*)$`)
+	runtimeStates = []v1beta2.ApplicationStateType{
 		v1beta2.ApplicationStateCompleted,
 		v1beta2.ApplicationStateFailed,
 		v1beta2.ApplicationStateFailedSubmission,
