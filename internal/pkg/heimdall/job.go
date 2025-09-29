@@ -80,8 +80,11 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 	// start latency timer
 	start := time.Now()
 	// record latency for all dimension subsets (none, command, cluster, command+cluster)
-	defer repeatOverDimensions(func(t time.Time, dims ...string) { runJobMethod.RecordLatency(t, dims...) }, start, command.Name, cluster.Name)
-	// count requests for all dimension subsets
+	defer runJobMethod.RecordLatency(start)
+	defer runJobMethod.RecordLatency(start, command.Name)
+	defer runJobMethod.RecordLatency(start, cluster.Name)
+	defer runJobMethod.RecordLatency(start, command.Name, cluster.Name)
+
 	repeatOverDimensions(func(_ struct{}, dims ...string) { runJobMethod.CountRequest(dims...) }, struct{}{}, command.Name, cluster.Name)
 
 	// let's set environment
