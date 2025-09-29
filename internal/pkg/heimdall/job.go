@@ -77,7 +77,7 @@ func (h *Heimdall) submitJob(j *job.Job) (any, error) {
 }
 
 func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *cluster.Cluster) error {
-	// record latency
+
 	defer runJobMethod.RecordLatency(time.Now(), command.Name, cluster.Name)
 
 	runJobMethod.CountRequest(command.Name, cluster.Name)
@@ -113,7 +113,6 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 		job.Status = jobStatus.Failed
 		job.Error = err.Error()
 
-		// log and count error
 		runJobMethod.LogAndCountError(err, command.Name, cluster.Name)
 
 		return err
@@ -128,7 +127,6 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 
 	job.Status = jobStatus.Succeeded
 
-	// count successes
 	runJobMethod.CountSuccess(command.Name, cluster.Name)
 	return nil
 
