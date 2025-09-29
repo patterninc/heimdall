@@ -36,7 +36,7 @@ const (
 
 var (
 	ErrCommandClusterPairNotFound = fmt.Errorf(`command-cluster pair is not found`)
-	runJobMethod                  = telemetry.NewMethod("run_job", "heimdall")
+	runJobMethod                  = telemetry.NewMethod("runJob", "heimdall")
 )
 
 type commandOnCluster struct {
