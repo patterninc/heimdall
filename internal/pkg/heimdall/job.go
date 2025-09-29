@@ -85,7 +85,7 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 	defer runJobMethod.RecordLatency(start, cluster.Name)
 	defer runJobMethod.RecordLatency(start, command.Name, cluster.Name)
 
-	repeatOverDimensions(func(_ struct{}, dims ...string) { runJobMethod.CountRequest(dims...) }, struct{}{}, command.Name, cluster.Name)
+	repeatOverDimensions(runJobMethod.CountRequest, command.Name, cluster.Name)
 
 	// let's set environment
 	runtime := &plugin.Runtime{
@@ -119,7 +119,7 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 		job.Error = err.Error()
 
 		// log and count error over all dimension subsets
-		repeatOverDimensions(func(e error, dims ...string) { runJobMethod.LogAndCountError(e, dims...) }, err, command.Name, cluster.Name)
+		repeatOverDimensionsWithParam(func(e error, dims ...string) { runJobMethod.LogAndCountError(e, dims...) }, err, command.Name, cluster.Name)
 
 		return err
 
@@ -134,7 +134,7 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 	job.Status = jobStatus.Succeeded
 
 	// count successes over all dimension subsets
-	repeatOverDimensions(func(_ struct{}, dims ...string) { runJobMethod.CountSuccess(dims...) }, struct{}{}, command.Name, cluster.Name)
+	repeatOverDimensions(runJobMethod.CountSuccess, command.Name, cluster.Name)
 	return nil
 
 }
