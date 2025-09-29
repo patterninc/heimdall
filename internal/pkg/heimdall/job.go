@@ -79,7 +79,6 @@ func (h *Heimdall) submitJob(j *job.Job) (any, error) {
 func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *cluster.Cluster) error {
 
 	defer runJobMethod.RecordLatency(time.Now(), command.Name, cluster.Name)
-
 	runJobMethod.CountRequest(command.Name, cluster.Name)
 
 	// let's set environment
