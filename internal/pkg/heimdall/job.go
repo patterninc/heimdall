@@ -78,18 +78,11 @@ func (h *Heimdall) submitJob(j *job.Job) (any, error) {
 
 func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *cluster.Cluster) error {
 	// start latency timer
-	defer runJobMethod.RecordLatency(time.Now())
-	defer runJobMethod.RecordLatency(time.Now(), command.Name)
-	defer runJobMethod.RecordLatency(time.Now(), cluster.Name)
-	defer runJobMethod.RecordLatency(time.Now(), command.Name, cluster.Name)
-	// run job request count
-	runJobMethod.CountRequest()
-	// run job request count per command
-	runJobMethod.CountRequest(command.Name)
-	// run job request count per cluster
-	runJobMethod.CountRequest(cluster.Name)
-	// run job request count per command-cluster pair
-	runJobMethod.CountRequest(command.Name, cluster.Name)
+	start := time.Now()
+	// record latency for all dimension subsets (none, command, cluster, command+cluster)
+	defer repeatOverDimensions(func(t time.Time, dims ...string) { runJobMethod.RecordLatency(t, dims...) }, start, command.Name, cluster.Name)
+	// count requests for all dimension subsets
+	repeatOverDimensions(func(_ struct{}, dims ...string) { runJobMethod.CountRequest(dims...) }, struct{}{}, command.Name, cluster.Name)
 
 	// let's set environment
 	runtime := &plugin.Runtime{
@@ -122,10 +115,8 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 		job.Status = jobStatus.Failed
 		job.Error = err.Error()
 
-		runJobMethod.LogAndCountError(err)
-		runJobMethod.LogAndCountError(err, command.Name)
-		runJobMethod.LogAndCountError(err, cluster.Name)
-		runJobMethod.LogAndCountError(err, command.Name, cluster.Name)
+		// log and count error over all dimension subsets
+		repeatOverDimensions(func(e error, dims ...string) { runJobMethod.LogAndCountError(e, dims...) }, err, command.Name, cluster.Name)
 
 		return err
 
@@ -139,10 +130,8 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 
 	job.Status = jobStatus.Succeeded
 
-	runJobMethod.CountSuccess()
-	runJobMethod.CountSuccess(command.Name)
-	runJobMethod.CountSuccess(cluster.Name)
-	runJobMethod.CountSuccess(command.Name, cluster.Name)
+	// count successes over all dimension subsets
+	repeatOverDimensions(func(_ struct{}, dims ...string) { runJobMethod.CountSuccess(dims...) }, struct{}{}, command.Name, cluster.Name)
 	return nil
 
 }
