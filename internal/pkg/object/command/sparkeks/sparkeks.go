@@ -106,6 +106,7 @@ type sparkEksJobContext struct {
 	Query        string                 `yaml:"query,omitempty" json:"query,omitempty"`
 	Parameters   *sparkEksJobParameters `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	ReturnResult bool                   `yaml:"return_result,omitempty" json:"return_result,omitempty"`
+	Arguments    []string               `yaml:"arguments,omitempty" json:"arguments,omitempty"`
 }
 
 type sparkEksClusterContext struct {
@@ -599,6 +600,10 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 		mainAppFile := s3aWrapperURI
 		if jobContext.ReturnResult {
 			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User, s3aResultURI}
+		} else if len(jobContext.Arguments) > 0 {
+			args := []string{execCtx.appName, execCtx.job.User}
+			args = append(args, jobContext.Arguments...)
+			sparkApp.Spec.Arguments = args
 		} else {
 			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User}
 		}
