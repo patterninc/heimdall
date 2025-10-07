@@ -598,11 +598,16 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 		s3aQueryURI := updateS3ToS3aURI(execCtx.queryURI)
 		s3aResultURI := updateS3ToS3aURI(execCtx.resultURI)
 		mainAppFile := s3aWrapperURI
-		if jobContext.ReturnResult {
+		if jobContext.ReturnResult && len(jobContext.Arguments) == 0 {
 			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User, s3aResultURI}
+		} else if jobContext.ReturnResult && len(jobContext.Arguments) > 0 {
+			args := []string{execCtx.appName, execCtx.job.User}
+			args = append(args, jobContext.Arguments...) // jobContext.Arguments can have variable length of arguements
+			args = append(args, s3aResultURI)            // make sure wrapper script should always consider last element of an arguements as s3aResultURI
+			sparkApp.Spec.Arguments = args
 		} else if len(jobContext.Arguments) > 0 {
 			args := []string{execCtx.appName, execCtx.job.User}
-			args = append(args, jobContext.Arguments...)
+			args = append(args, jobContext.Arguments...) // jobContext.Arguments can have variable length of arguements
 			sparkApp.Spec.Arguments = args
 		} else {
 			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User}
