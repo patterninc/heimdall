@@ -24,15 +24,13 @@ var chTypeHandlers = map[string]chScanHandler{
 	"DateTime":    handleTime,
 	"DateTime64":  handleTime,
 }
-
 // Type handler signature
 type chScanHandler func(nullable bool) (scanTarget any, reader func() any)
 
-// Individual handlers
-
-func handleUInt8(nullable bool) (any, func() any) {
+// unified nullable helper
+func makeScanTarget[T any](nullable bool) (any, func() any) {
 	if nullable {
-		var p *uint8
+		var p *T
 		return &p, func() any {
 			if p == nil {
 				return nil
@@ -40,177 +38,27 @@ func handleUInt8(nullable bool) (any, func() any) {
 			return *p
 		}
 	}
-	var v uint8
+	var v T
 	return &v, func() any { return v }
 }
 
-func handleUInt16(nullable bool) (any, func() any) {
-	if nullable {
-		var p *uint16
-		return &p, func() any {
-			if p == nil {
-				return nil
-			}
-			return *p
-		}
-	}
-	var v uint16
-	return &v, func() any { return v }
-}
-
-func handleUInt32(nullable bool) (any, func() any) {
-	if nullable {
-		var p *uint32
-		return &p, func() any {
-			if p == nil {
-				return nil
-			}
-			return *p
-		}
-	}
-	var v uint32
-	return &v, func() any { return v }
-}
-
-func handleUInt64(nullable bool) (any, func() any) {
-	if nullable {
-		var p *uint64
-		return &p, func() any {
-			if p == nil {
-				return nil
-			}
-			return *p
-		}
-	}
-	var v uint64
-	return &v, func() any { return v }
-}
-
-func handleInt8(nullable bool) (any, func() any) {
-	if nullable {
-		var p *int8
-		return &p, func() any {
-			if p == nil {
-				return nil
-			}
-			return *p
-		}
-	}
-	var v int8
-	return &v, func() any { return v }
-}
-
-func handleInt16(nullable bool) (any, func() any) {
-	if nullable {
-		var p *int16
-		return &p, func() any {
-			if p == nil {
-				return nil
-			}
-			return *p
-		}
-	}
-	var v int16
-	return &v, func() any { return v }
-}
-
-func handleInt32(nullable bool) (any, func() any) {
-	if nullable {
-		var p *int32
-		return &p, func() any {
-			if p == nil {
-				return nil
-			}
-			return *p
-		}
-	}
-	var v int32
-	return &v, func() any { return v }
-}
-
-func handleInt64(nullable bool) (any, func() any) {
-	if nullable {
-		var p *int64
-		return &p, func() any {
-			if p == nil {
-				return nil
-			}
-			return *p
-		}
-	}
-	var v int64
-	return &v, func() any { return v }
-}
-
-func handleFloat32(nullable bool) (any, func() any) {
-	if nullable {
-		var p *float32
-		return &p, func() any {
-			if p == nil {
-				return nil
-			}
-			return *p
-		}
-	}
-	var v float32
-	return &v, func() any { return v }
-}
-
-func handleFloat64(nullable bool) (any, func() any) {
-	if nullable {
-		var p *float64
-		return &p, func() any {
-			if p == nil {
-				return nil
-			}
-			return *p
-		}
-	}
-	var v float64
-	return &v, func() any { return v }
-}
-
-func handleString(nullable bool) (any, func() any) {
-	if nullable {
-		var p *string
-		return &p, func() any {
-			if p == nil {
-				return nil
-			}
-			return *p
-		}
-	}
-	var v string
-	return &v, func() any { return v }
-}
-
-func handleTime(nullable bool) (any, func() any) {
-	if nullable {
-		var p *time.Time
-		return &p, func() any {
-			if p == nil {
-				return nil
-			}
-			return *p
-		}
-	}
-	var v time.Time
-	return &v, func() any { return v }
-}
+// Individual handlers (all via generic helper)
+func handleUInt8(nullable bool) (any, func() any)   { return makeScanTarget[uint8](nullable) }
+func handleUInt16(nullable bool) (any, func() any)  { return makeScanTarget[uint16](nullable) }
+func handleUInt32(nullable bool) (any, func() any)  { return makeScanTarget[uint32](nullable) }
+func handleUInt64(nullable bool) (any, func() any)  { return makeScanTarget[uint64](nullable) }
+func handleInt8(nullable bool) (any, func() any)    { return makeScanTarget[int8](nullable) }
+func handleInt16(nullable bool) (any, func() any)   { return makeScanTarget[int16](nullable) }
+func handleInt32(nullable bool) (any, func() any)   { return makeScanTarget[int32](nullable) }
+func handleInt64(nullable bool) (any, func() any)   { return makeScanTarget[int64](nullable) }
+func handleFloat32(nullable bool) (any, func() any) { return makeScanTarget[float32](nullable) }
+func handleFloat64(nullable bool) (any, func() any) { return makeScanTarget[float64](nullable) }
+func handleString(nullable bool) (any, func() any)  { return makeScanTarget[string](nullable) }
+func handleTime(nullable bool) (any, func() any)    { return makeScanTarget[time.Time](nullable) }
 
 func handleDefault(base string, nullable bool) (any, func() any) {
 	// Treat Decimal, UUID, IPv4, IPv6 as string; fallback also string
-	if nullable {
-		var p *string
-		return &p, func() any {
-			if p == nil {
-				return nil
-			}
-			return *p
-		}
-	}
-	var v string
-	return &v, func() any { return v }
+	return makeScanTarget[string](nullable)
 }
 
 func unwrapCHType(t string) (base string, nullable bool) {
