@@ -10,10 +10,10 @@ import (
 	hdctx "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
+	"github.com/patterninc/heimdall/pkg/object/job/status"
 	"github.com/patterninc/heimdall/pkg/plugin"
 	"github.com/patterninc/heimdall/pkg/result"
 	"github.com/patterninc/heimdall/pkg/result/column"
-	"github.com/patterninc/heimdall/pkg/object/job/status"
 )
 
 type commandContext struct {
@@ -27,14 +27,14 @@ type clusterContext struct {
 }
 
 type jobContext struct {
-	Query        string         `yaml:"query" json:"query"`
-	Params       map[string]any `yaml:"params,omitempty" json:"params,omitempty"`
-	ReturnResult bool           `yaml:"return_result,omitempty" json:"return_result,omitempty"`
+	Query        string            `yaml:"query" json:"query"`
+	Params       map[string]string `yaml:"params,omitempty" json:"params,omitempty"`
+	ReturnResult bool              `yaml:"return_result,omitempty" json:"return_result,omitempty"`
 }
 
 type executionContext struct {
 	query        string
-	params       map[string]any
+	params       map[string]string
 	returnResult bool
 	conn         driver.Conn
 }
@@ -77,7 +77,7 @@ func (cmd *commandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Clu
 		handleMethod.LogAndCountError(err, "exec")
 		return err
 	}
-	res, err := collectResults(rows)
+	res, err := CollectResults(rows)
 	if err != nil {
 		handleMethod.LogAndCountError(err, "collect_results")
 		return err
@@ -129,14 +129,18 @@ func (cmd *commandContext) createExecutionContext(j *job.Job, c *cluster.Cluster
 }
 
 func (exc *executionContext) exec(ctx context.Context) (driver.Rows, error) {
-	if exc.returnResult {
-		return exc.conn.Query(ctx, exc.query, exc.params)
+	var args []any
+	for k, v := range exc.params {
+		args = append(args, clickhouse.Named(k, v))
 	}
-	return dummyRowsInstance, exc.conn.Exec(ctx, exc.query, exc.params)
+	if exc.returnResult {
+		return exc.conn.Query(ctx, exc.query, args...)
+	}
+	return dummyRowsInstance, exc.conn.Exec(ctx, exc.query, args...)
 
 }
 
-func collectResults(rows driver.Rows) (*result.Result, error) {
+func CollectResults(rows driver.Rows) (*result.Result, error) {
 	defer rows.Close()
 
 	cols := rows.Columns()
@@ -147,7 +151,15 @@ func collectResults(rows driver.Rows) (*result.Result, error) {
 		Data:    make([][]any, 0, 128),
 	}
 	for i, c := range cols {
-		out.Columns[i] = &column.Column{Name: c}
+		base, _ := unwrapCHType(colTypes[i].DatabaseTypeName())
+		columnTypeName := colTypes[i].DatabaseTypeName()
+		if val, ok := chTypeToResultTypeName[base]; ok {
+			columnTypeName = val
+		}
+		out.Columns[i] = &column.Column{
+			Name: c,
+			Type: column.Type(columnTypeName),
+		}
 	}
 
 	// For each column we keep: scan target and a reader that returns a normalized interface{}
@@ -163,7 +175,7 @@ func collectResults(rows driver.Rows) (*result.Result, error) {
 				scanTargets[i], readers[i] = handler(nullable)
 			} else {
 				// Fallback (covers unknown + legacy decimal detection)
-				scanTargets[i], readers[i] = handleDefault(base, nullable)
+				scanTargets[i], readers[i] = handleDefault(nullable)
 			}
 		}
 

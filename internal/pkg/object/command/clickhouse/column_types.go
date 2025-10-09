@@ -3,7 +3,28 @@ package clickhouse
 import (
 	"strings"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
+
+var chTypeToResultTypeName = map[string]string{
+	"UInt8":       "int",
+	"UInt16":      "int",
+	"UInt32":      "int",
+	"UInt64":      "long",
+	"Int8":        "int",
+	"Int16":       "int",
+	"Int32":       "int",
+	"Int64":       "long",
+	"Float32":     "float",
+	"Float64":     "double",
+	"String":      "string",
+	"FixedString": "string",
+	"Date":        "int32",
+	"Date32":      "int32",
+	"DateTime":    "long",
+	"DateTime64":  "long",
+}
 
 // Map of base type -> handler
 var chTypeHandlers = map[string]chScanHandler{
@@ -23,6 +44,7 @@ var chTypeHandlers = map[string]chScanHandler{
 	"Date32":      handleTime,
 	"DateTime":    handleTime,
 	"DateTime64":  handleTime,
+	"Decimal":     handleDecimal,
 }
 // Type handler signature
 type chScanHandler func(nullable bool) (scanTarget any, reader func() any)
@@ -55,8 +77,25 @@ func handleFloat32(nullable bool) (any, func() any) { return makeScanTarget[floa
 func handleFloat64(nullable bool) (any, func() any) { return makeScanTarget[float64](nullable) }
 func handleString(nullable bool) (any, func() any)  { return makeScanTarget[string](nullable) }
 func handleTime(nullable bool) (any, func() any)    { return makeScanTarget[time.Time](nullable) }
+func handleDecimal(nullable bool) (any, func() any) {
+	if nullable {
+		var p decimal.NullDecimal
+		return &p, func() any {
+			if p.Valid {
+				val, _ := p.Decimal.Float64()
+				return val
+			}
+			return nil
+		}
+	}
+	var v decimal.Decimal
+	return &v, func() any {
+		val, _ := v.Float64()
+		return val
+	}
+}
 
-func handleDefault(base string, nullable bool) (any, func() any) {
+func handleDefault(nullable bool) (any, func() any) {
 	// Treat Decimal, UUID, IPv4, IPv6 as string; fallback also string
 	return makeScanTarget[string](nullable)
 }

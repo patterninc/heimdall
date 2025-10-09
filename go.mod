@@ -22,6 +22,7 @@ require (
 	github.com/kubeflow/spark-operator/v2 v2.3.0
 	github.com/lib/pq v1.10.9
 	github.com/linkedin/goavro v2.1.0+incompatible
+	github.com/shopspring/decimal v1.4.0
 	github.com/snowflakedb/gosnowflake v1.15.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.33.4
@@ -99,7 +100,6 @@ require (
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
-	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
