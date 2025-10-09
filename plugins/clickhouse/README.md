@@ -1,13 +1,12 @@
 # 🗃️ ClickHouse Plugin
 
-The **ClickHouse Plugin** enables Heimdall to execute SQL queries on configured ClickHouse clusters. It connects directly to ClickHouse instances and executes queries synchronously, with support for parameterized queries and optional result collection.
+The **ClickHouse Plugin** enables Heimdall to execute SQL queries on configured ClickHouse clusters. It connects directly to ClickHouse instances and executes queries, with support for parameterized queries and optional result collection.
 
 ---
 
 ## 🧩 Plugin Overview
 
 * **Plugin Name:** `clickhouse`
-* **Execution Mode:** Synchronous query execution
 * **Use Case:** Running SQL queries against ClickHouse databases with optional result retrieval
 
 ---
@@ -99,12 +98,12 @@ The plugin supports comprehensive ClickHouse type mapping:
 
 | ClickHouse Type | Go Type | Nullable Support |
 |----------------|---------|------------------|
-| `UInt8`, `UInt16`, `UInt32`, `UInt64` | `uint8`, `uint16`, `uint32`, `uint64` | ✅ |
-| `Int8`, `Int16`, `Int32`, `Int64` | `int8`, `int16`, `int32`, `int64` | ✅ |
-| `Float32`, `Float64` | `float32`, `float64` | ✅ |
-| `String`, `FixedString` | `string` | ✅ |
-| `Date`, `Date32`, `DateTime`, `DateTime64` | `time.Time` | ✅ |
-| `Decimal(P,S)`, `UUID`, `IPv4`, `IPv6` | `string` | ✅ |
+| `UInt8`, `UInt16`, `UInt32`, `Int8`, `Int16`, `Int32`,   | `int`, | ✅ |
+|  `UInt64`   `Int64`                        | `int64` | ✅ |
+| `Float32`, `Float64`                       | `float32`, `float64` | ✅ |
+| `String`, `FixedString`                    | `string` | ✅ |
+| `Date`, `Date32`, `DateTime`, | `time.Time` | ✅ |
+| `Decimal(P,S)`,     | `string` | ✅ |
 
 🔸 The plugin automatically handles:
 - **Nullable types**: `Nullable(String)` → `*string`
