@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/babourine/x/pkg/set"
 	"github.com/gorilla/mux"
+	"github.com/hladush/go-telemetry/pkg/telemetry"
 
 	"github.com/patterninc/heimdall/internal/pkg/aws"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
@@ -34,6 +36,7 @@ const (
 
 var (
 	ErrCommandClusterPairNotFound = fmt.Errorf(`command-cluster pair is not found`)
+	runJobMethod                  = telemetry.NewMethod("runJob", "heimdall")
 )
 
 type commandOnCluster struct {
@@ -75,6 +78,9 @@ func (h *Heimdall) submitJob(j *job.Job) (any, error) {
 
 func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *cluster.Cluster) error {
 
+	defer runJobMethod.RecordLatency(time.Now(), command.Name, cluster.Name)
+	runJobMethod.CountRequest(command.Name, cluster.Name)
+
 	// let's set environment
 	runtime := &plugin.Runtime{
 		WorkingDirectory: h.JobsDirectory + separator + job.ID,
@@ -106,6 +112,8 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 		job.Status = jobStatus.Failed
 		job.Error = err.Error()
 
+		runJobMethod.LogAndCountError(err, command.Name, cluster.Name)
+
 		return err
 
 	}
@@ -117,6 +125,8 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 	}
 
 	job.Status = jobStatus.Succeeded
+
+	runJobMethod.CountSuccess(command.Name, cluster.Name)
 	return nil
 
 }

@@ -29,6 +29,8 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
       - AWS_REGION=${AWS_REGION}
+      - METRICS_EMITTER=prometheus
+      - PROMETHEUS_ADDRESS=:9091
     depends_on:
       postgres:
         condition: service_healthy
