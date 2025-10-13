@@ -53,6 +53,102 @@ An ECS command requires a task definition template and configuration for running
 
 ---
 
+## 📤 File Uploads to S3
+
+The ECS plugin supports file uploads to containers (via S3):
+
+### Direct String Upload
+
+Upload file content passed as strings before tasks execution starts:
+
+```yaml
+file_uploads:
+  - data: "File content here as a string"
+    s3_destination: "s3://my-bucket/results/output.txt"
+  - data: '{"result": "success", "count": 42}'
+    s3_destination: "s3://my-bucket/results/data.json"
+```
+
+**Features:**
+- File content passed as string in configuration
+- Uploaded before ECS tasks starts
+- Uses Heimdall's IAM role credentials
+- 30-second timeout per upload
+- Destination must be full S3 path with filename
+
+**Use Case:** Small metadata files, status reports, configuration files
+
+
+```yaml
+- name: ecs-job-with-string-uploads
+  status: active
+  plugin: ecs
+  version: 0.0.1
+  description: Run ECS tasks and upload results to S3
+  context:
+    task_definition_template: task.json
+    task_count: 2
+    
+    file_uploads:
+      - data: "Processing completed at 2025-10-13"
+        s3_destination: "s3://results-bucket/status.txt"
+      - data: '{"tasks": 2, "status": "completed"}'
+        s3_destination: "s3://results-bucket/metadata.json"
+```
+
+### API usage
+
+```json
+{
+  "name": "run-batch-with-upload",
+  "version": "0.0.1",
+  "command_criteria": ["type:ecs"],
+  "cluster_criteria": ["type:fargate"],
+  "context": {
+    "task_count": 1,
+    "file_uploads": [
+      {
+        "data": "Task execution results: SUCCESS",
+        "destination": "s3://my-bucket/jobs/job-123/results.txt"
+      },
+      {
+        "data": "{\"job_id\": \"123\", \"timestamp\": \"2025-10-13T10:00:00Z\", \"status\": \"completed\"}",
+        "destination": "s3://my-bucket/jobs/job-123/metadata.json"
+      }
+    ]
+  }
+}
+```
+
+### S3 URI Format
+
+File destinations must follow the S3 URI format:
+- **Format**: `s3://bucket-name/path/to/filename.ext`
+- **Example**: `s3://my-results/2025/10/output.json`
+- The path must include the complete object key with filename
+
+### IAM Permissions
+
+Ensure your ECS task role has S3 upload permissions:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::your-bucket/*"
+    }
+  ]
+}
+```
+
+---
+
 ## 🖥️ Cluster Configuration
 
 ECS clusters must specify Fargate configuration, IAM roles, and network settings:

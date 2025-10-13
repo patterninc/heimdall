@@ -2,18 +2,17 @@ package ecs
 
 import (
 	ct "context"
-	"embed"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/duration"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
@@ -23,117 +22,10 @@ import (
 	"github.com/patterninc/heimdall/pkg/result/column"
 )
 
-//go:embed startup_script_template.sh
-var startupScriptTemplate embed.FS
-
-// FileDownload represents a file to be downloaded before container execution
-type FileDownload struct {
-	Source      string `yaml:"source,omitempty" json:"source,omitempty"`           // S3 URI or HTTP URL
-	Destination string `yaml:"destination,omitempty" json:"destination,omitempty"` // Local path in container
-}
-
-// StartupScriptConfig represents configuration for the startup script
-type StartupScriptConfig struct {
-	ScriptPath  string `yaml:"script_path,omitempty" json:"script_path,omitempty"`   // Path to the startup script
-	DownloadDir string `yaml:"download_dir,omitempty" json:"download_dir,omitempty"` // Directory to download files to
-	Timeout     int    `yaml:"timeout,omitempty" json:"timeout,omitempty"`           // Timeout in seconds
-	CreateDirs  bool   `yaml:"create_dirs,omitempty" json:"create_dirs,omitempty"`   // Create destination directories
-}
-
-// ScriptTemplateData represents data for populating the startup script template
-type ScriptTemplateData struct {
-	DownloadDir string
-	Timeout     int
-	CreateDirs  bool
-	Downloads   []ScriptDownload
-}
-
-// ScriptDownload represents a download item for the script template
-type ScriptDownload struct {
-	Source      string
-	Destination string
-	IsS3        bool
-}
-
-// ContainerModificationOption represents a generic option for modifying container definitions
-type ContainerModificationOption func(*types.ContainerDefinition) error
-
-// ContainerOption represents a generic option for container modifications
-type ContainerOption struct {
-	ModifyContainer ContainerModificationOption
-	Description     string
-}
-
-// WithStartupScriptWrapper creates a container option that injects startup script for file downloads
-func (execCtx *executionContext) WithStartupScriptWrapper() ContainerOption {
-	return ContainerOption{
-		ModifyContainer: func(container *types.ContainerDefinition) error {
-			return execCtx.modifyContainerWithStartupScript(container)
-		},
-		Description: "Inject startup script for file downloads",
-	}
-}
-
-// modifyContainerWithStartupScript modifies a container definition to include startup script for downloads
-func (execCtx *executionContext) modifyContainerWithStartupScript(container *types.ContainerDefinition) error {
-	if len(execCtx.FileDownloads) == 0 {
-		return nil // No downloads configured, no modification needed
-	}
-
-	// Generate startup script
-	startupScript, err := generateStartupScript(execCtx.FileDownloads, execCtx.StartupScriptConfig)
-	if err != nil {
-		return fmt.Errorf("failed to generate startup script: %w", err)
-	}
-
-	// Store original command
-	originalCommand := container.Command
-	if originalCommand == nil {
-		originalCommand = []string{}
-	}
-
-	// Create startup script command
-	scriptCmd := []string{"sh", "-c", startupScript}
-	container.Command = scriptCmd
-
-	// Add environment variables for the startup script
-	if container.Environment == nil {
-		container.Environment = []types.KeyValuePair{}
-	}
-
-	// Add original command as environment variable for the startup script
-	originalCmdStr := strings.Join(originalCommand, " ")
-	container.Environment = append(container.Environment,
-		types.KeyValuePair{
-			Name:  aws.String("ORIGINAL_COMMAND"),
-			Value: aws.String(originalCmdStr),
-		})
-	fmt.Println()
-	return nil
-}
-
-// getDefaultContainerOptions returns the default container options
-func (execCtx *executionContext) getDefaultContainerOptions() []ContainerOption {
-	options := []ContainerOption{}
-
-	// Add startup script wrapper option if file downloads are configured
-	if len(execCtx.FileDownloads) > 0 {
-		options = append(options, execCtx.WithStartupScriptWrapper())
-	}
-
-	return options
-}
-
-// applyContainerOptions applies container options to container definitions
-func (execCtx *executionContext) applyContainerOptions(containerDefinitions []types.ContainerDefinition, options []ContainerOption) error {
-	for _, option := range options {
-		for i := range containerDefinitions {
-			if err := option.ModifyContainer(&containerDefinitions[i]); err != nil {
-				return fmt.Errorf("failed to apply container option '%s': %w", option.Description, err)
-			}
-		}
-	}
-	return nil
+// FileUpload represents configuration for uploading files from container to S3
+type FileUpload struct {
+	Data          string `yaml:"data,omitempty" json:"data,omitempty"`                     // File content as string
+	S3Destination string `yaml:"s3_destination,omitempty" json:"s3_destination,omitempty"` // S3 path (e.g., s3://bucket/path/filename)
 }
 
 // ECS command context structure
@@ -145,9 +37,8 @@ type ecsCommandContext struct {
 	Timeout                duration.Duration         `yaml:"timeout,omitempty" json:"timeout,omitempty"`
 	MaxFailCount           int                       `yaml:"max_fail_count,omitempty" json:"max_fail_count,omitempty"` // max failures before giving up
 
-	// File download configuration
-	FileDownloads       []FileDownload       `yaml:"file_downloads,omitempty" json:"file_downloads,omitempty"`
-	StartupScriptConfig *StartupScriptConfig `yaml:"startup_script_config,omitempty" json:"startup_script_config,omitempty"`
+	// File upload configuration
+	FileUploads []FileUpload `yaml:"file_uploads,omitempty" json:"file_uploads,omitempty"`
 }
 
 // ECS cluster context structure
@@ -196,11 +87,11 @@ type executionContext struct {
 	Timeout         duration.Duration `json:"timeout"`
 	MaxFailCount    int               `json:"max_fail_count"`
 
-	// File download configuration
-	FileDownloads       []FileDownload       `json:"file_downloads"`
-	StartupScriptConfig *StartupScriptConfig `json:"startup_script_config"`
+	// File upload configuration
+	FileUploads []FileUpload `json:"file_uploads"`
 
 	ecsClient  *ecs.Client
+	s3Client   *s3.Client
 	taskDefARN *string
 	tasks      map[string]*taskTracker
 }
@@ -210,8 +101,8 @@ const (
 	defaultTaskTimeout     = duration.Duration(1 * time.Hour)
 	defaultMaxFailCount    = 1
 	defaultTaskCount       = 1
-	defaultDownloadDir     = "/tmp/downloads"
-	defaultTimeout         = 300
+	defaultUploadTimeout   = 30
+	defaultLocalDir        = "/tmp/downloads"
 	startedByPrefix        = "heimdall-job-"
 	errMaxFailCount        = "task %s failed %d times (max: %d), giving up"
 	errPollingTimeout      = "polling timed out for arns %v after %v"
@@ -222,65 +113,6 @@ var (
 	errMissingTemplate = fmt.Errorf("task definition template is required")
 )
 
-// generateStartupScript creates a startup script for downloading files using a template
-func generateStartupScript(fileDownloads []FileDownload, config *StartupScriptConfig) (string, error) {
-	if len(fileDownloads) == 0 {
-		return "#!/bin/bash\necho 'No files to download'\nexec \"$@\"", nil
-	}
-
-	downloadDir := defaultDownloadDir
-	timeout := defaultTimeout
-	createDirs := true
-
-	if config != nil {
-		if config.DownloadDir != "" {
-			downloadDir = config.DownloadDir
-		}
-		if config.Timeout > 0 {
-			timeout = config.Timeout
-		}
-		createDirs = config.CreateDirs
-	}
-
-	// Prepare template data
-	templateData := ScriptTemplateData{
-		DownloadDir: downloadDir,
-		Timeout:     timeout,
-		CreateDirs:  createDirs,
-		Downloads:   make([]ScriptDownload, 0, len(fileDownloads)),
-	}
-
-	// Convert file downloads to script downloads
-	for _, download := range fileDownloads {
-		scriptDownload := ScriptDownload{
-			Source:      download.Source,
-			Destination: download.Destination,
-			IsS3:        strings.HasPrefix(download.Source, "s3://"),
-		}
-		templateData.Downloads = append(templateData.Downloads, scriptDownload)
-	}
-
-	// Load template from embedded filesystem
-	templateContent, err := startupScriptTemplate.ReadFile("startup_script_template.sh")
-	if err != nil {
-		return "", fmt.Errorf("failed to read embedded template file: %w", err)
-	}
-
-	// Parse template
-	tmpl, err := template.New("startup_script").Parse(string(templateContent))
-	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
-	}
-
-	// Execute template
-	var script strings.Builder
-	if err := tmpl.Execute(&script, templateData); err != nil {
-		return "", fmt.Errorf("failed to execute template: %w", err)
-	}
-
-	return script.String(), nil
-}
-
 func New(commandContext *context.Context) (plugin.Handler, error) {
 
 	e := &ecsCommandContext{
@@ -288,11 +120,6 @@ func New(commandContext *context.Context) (plugin.Handler, error) {
 		Timeout:         defaultTaskTimeout,
 		MaxFailCount:    defaultMaxFailCount,
 		TaskCount:       defaultTaskCount,
-		StartupScriptConfig: &StartupScriptConfig{
-			DownloadDir: defaultDownloadDir,
-			Timeout:     defaultTimeout,
-			CreateDirs:  true,
-		},
 	}
 
 	if commandContext != nil {
@@ -319,6 +146,11 @@ func (e *ecsCommandContext) handler(r *plugin.Runtime, job *job.Job, cluster *cl
 		return err
 	}
 
+	// Upload files to S3 if configured
+	if err := execCtx.uploadFilesToS3(); err != nil {
+		return fmt.Errorf("failed to upload files to S3: %w", err)
+	}
+
 	// Start tasks
 	if err := execCtx.startTasks(job.ID); err != nil {
 		return err
@@ -340,14 +172,8 @@ func (e *ecsCommandContext) handler(r *plugin.Runtime, job *job.Job, cluster *cl
 
 // prepare and register task definition with ECS
 func (execCtx *executionContext) registerTaskDefinition() error {
-	// Start with the original container definitions
+	// Use the original container definitions from the template
 	containerDefinitions := execCtx.TaskDefinitionWrapper.TaskDefinition.ContainerDefinitions
-
-	// Apply container options using the options pattern
-	containerOptions := execCtx.getDefaultContainerOptions()
-	if err := execCtx.applyContainerOptions(containerDefinitions, containerOptions); err != nil {
-		return fmt.Errorf("failed to apply container options: %w", err)
-	}
 
 	registerInput := &ecs.RegisterTaskDefinitionInput{
 		Family:                  aws.String(aws.ToString(execCtx.TaskDefinitionWrapper.TaskDefinition.Family)),
@@ -548,6 +374,19 @@ func buildExecutionContext(commandCtx *ecsCommandContext, j *job.Job, c *cluster
 		return nil, err
 	}
 
+	// Apply container options to ContainerOverrides
+	var options []ContainerOption
+
+	// Add file upload script option if configured
+	if len(execCtx.FileUploads) > 0 {
+		options = append(options, WithFileUploadScript(execCtx.FileUploads, defaultLocalDir))
+	}
+
+	// Apply all options to container overrides
+	if err := ApplyContainerOptions(execCtx, options...); err != nil {
+		return nil, fmt.Errorf("failed to apply container options: %w", err)
+	}
+
 	// Validate the resolved configuration
 	if err := validateExecutionContext(execCtx); err != nil {
 		return nil, err
@@ -559,6 +398,7 @@ func buildExecutionContext(commandCtx *ecsCommandContext, j *job.Job, c *cluster
 		return nil, err
 	}
 	execCtx.ecsClient = ecs.NewFromConfig(cfg)
+	execCtx.s3Client = s3.NewFromConfig(cfg)
 
 	return execCtx, nil
 
@@ -571,20 +411,17 @@ func validateExecutionContext(ctx *executionContext) error {
 		return fmt.Errorf("task count (%d) needs to be greater than 0 and less than cluster max task count (%d)", ctx.TaskCount, ctx.ClusterConfig.MaxTaskCount)
 	}
 
-	// Validate file downloads configuration
-	for i, download := range ctx.FileDownloads {
-		if download.Source == "" {
-			return fmt.Errorf("file download %d: source is required", i)
+	// Validate file uploads configuration
+	for i, upload := range ctx.FileUploads {
+		if upload.Data == "" {
+			return fmt.Errorf("file upload %d: data is required", i)
 		}
-		if download.Destination == "" {
-			return fmt.Errorf("file download %d: destination is required", i)
+		if upload.S3Destination == "" {
+			return fmt.Errorf("file upload %d: s3_destination is required", i)
 		}
-	}
-
-	// Validate startup script configuration
-	if ctx.StartupScriptConfig != nil {
-		if ctx.StartupScriptConfig.Timeout < 0 {
-			return fmt.Errorf("timeout cannot be negative")
+		// Validate that destination is an S3 URI
+		if !strings.HasPrefix(upload.S3Destination, "s3://") {
+			return fmt.Errorf("file upload %d: s3_destination must be an S3 URI (s3://bucket/path/filename)", i)
 		}
 	}
 
@@ -750,6 +587,67 @@ func isTaskSuccessful(task types.Task, execCtx *executionContext) bool {
 
 	return true
 
+}
+
+// uploadFilesToS3 uploads file data to S3 after task completion
+func (execCtx *executionContext) uploadFilesToS3() error {
+	// Skip if no files to upload
+	if len(execCtx.FileUploads) == 0 {
+		return nil
+	}
+
+	for i, upload := range execCtx.FileUploads {
+		// Parse S3 URI (s3://bucket/key/filename)
+		bucket, key, err := parseS3URI(upload.S3Destination)
+		if err != nil {
+			return fmt.Errorf("failed to parse S3 URI for upload %d: %w", i, err)
+		}
+
+		// Upload file content to S3
+
+		input := &s3.PutObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+			Body:   strings.NewReader(upload.Data),
+		}
+
+		// Set timeout context with default timeout
+		uploadCtx, cancel := ct.WithTimeout(ctx, time.Duration(defaultUploadTimeout)*time.Second)
+		defer cancel()
+
+		_, err = execCtx.s3Client.PutObject(uploadCtx, input)
+		if err != nil {
+			return fmt.Errorf("failed to upload file %d to S3 (%s): %w", i, upload.S3Destination, err)
+		}
+
+	}
+
+	return nil
+}
+
+// parseS3URI parses an S3 URI into bucket and key components
+func parseS3URI(s3URI string) (bucket, key string, err error) {
+	if !strings.HasPrefix(s3URI, "s3://") {
+		return "", "", fmt.Errorf("invalid S3 URI: must start with s3://")
+	}
+
+	// Remove s3:// prefix
+	path := strings.TrimPrefix(s3URI, "s3://")
+
+	// Split into bucket and key
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) < 2 {
+		return "", "", fmt.Errorf("invalid S3 URI: must include bucket and key (s3://bucket/key)")
+	}
+
+	bucket = parts[0]
+	key = parts[1]
+
+	if bucket == "" || key == "" {
+		return "", "", fmt.Errorf("invalid S3 URI: bucket and key cannot be empty")
+	}
+
+	return bucket, key, nil
 }
 
 // storeResults builds and stores the final result for the job.
