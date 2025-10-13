@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/duration"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
@@ -21,6 +22,12 @@ import (
 	"github.com/patterninc/heimdall/pkg/result/column"
 )
 
+// FileUpload represents configuration for uploading files from container to S3
+type FileUpload struct {
+	Data          string `yaml:"data,omitempty" json:"data,omitempty"`                     // File content as string
+	S3Destination string `yaml:"s3_destination,omitempty" json:"s3_destination,omitempty"` // S3 path (e.g., s3://bucket/path/filename)
+}
+
 // ECS command context structure
 type ecsCommandContext struct {
 	TaskDefinitionTemplate string                    `yaml:"task_definition_template,omitempty" json:"task_definition_template,omitempty"`
@@ -29,6 +36,9 @@ type ecsCommandContext struct {
 	PollingInterval        duration.Duration         `yaml:"polling_interval,omitempty" json:"polling_interval,omitempty"`
 	Timeout                duration.Duration         `yaml:"timeout,omitempty" json:"timeout,omitempty"`
 	MaxFailCount           int                       `yaml:"max_fail_count,omitempty" json:"max_fail_count,omitempty"` // max failures before giving up
+
+	// File upload configuration
+	FileUploads []FileUpload `yaml:"file_uploads,omitempty" json:"file_uploads,omitempty"`
 }
 
 // ECS cluster context structure
@@ -77,7 +87,11 @@ type executionContext struct {
 	Timeout         duration.Duration `json:"timeout"`
 	MaxFailCount    int               `json:"max_fail_count"`
 
+	// File upload configuration
+	FileUploads []FileUpload `json:"file_uploads"`
+
 	ecsClient  *ecs.Client
+	s3Client   *s3.Client
 	taskDefARN *string
 	tasks      map[string]*taskTracker
 }
@@ -87,6 +101,8 @@ const (
 	defaultTaskTimeout     = duration.Duration(1 * time.Hour)
 	defaultMaxFailCount    = 1
 	defaultTaskCount       = 1
+	defaultUploadTimeout   = 30
+	defaultLocalDir        = "/tmp/downloads"
 	startedByPrefix        = "heimdall-job-"
 	errMaxFailCount        = "task %s failed %d times (max: %d), giving up"
 	errPollingTimeout      = "polling timed out for arns %v after %v"
@@ -130,6 +146,11 @@ func (e *ecsCommandContext) handler(r *plugin.Runtime, job *job.Job, cluster *cl
 		return err
 	}
 
+	// Upload files to S3 if configured
+	if err := execCtx.uploadFilesToS3(); err != nil {
+		return fmt.Errorf("failed to upload files to S3: %w", err)
+	}
+
 	// Start tasks
 	if err := execCtx.startTasks(job.ID); err != nil {
 		return err
@@ -151,6 +172,9 @@ func (e *ecsCommandContext) handler(r *plugin.Runtime, job *job.Job, cluster *cl
 
 // prepare and register task definition with ECS
 func (execCtx *executionContext) registerTaskDefinition() error {
+	// Use the original container definitions from the template
+	containerDefinitions := execCtx.TaskDefinitionWrapper.TaskDefinition.ContainerDefinitions
+
 	registerInput := &ecs.RegisterTaskDefinitionInput{
 		Family:                  aws.String(aws.ToString(execCtx.TaskDefinitionWrapper.TaskDefinition.Family)),
 		RequiresCompatibilities: []types.Compatibility{types.CompatibilityFargate},
@@ -159,7 +183,7 @@ func (execCtx *executionContext) registerTaskDefinition() error {
 		Memory:                  aws.String(fmt.Sprintf("%d", execCtx.ClusterConfig.Memory)),
 		ExecutionRoleArn:        aws.String(execCtx.ClusterConfig.ExecutionRoleARN),
 		TaskRoleArn:             aws.String(execCtx.ClusterConfig.TaskRoleARN),
-		ContainerDefinitions:    execCtx.TaskDefinitionWrapper.TaskDefinition.ContainerDefinitions,
+		ContainerDefinitions:    containerDefinitions,
 	}
 
 	registerOutput, err := execCtx.ecsClient.RegisterTaskDefinition(ctx, registerInput)
@@ -350,6 +374,19 @@ func buildExecutionContext(commandCtx *ecsCommandContext, j *job.Job, c *cluster
 		return nil, err
 	}
 
+	// Apply container options to ContainerOverrides
+	var options []ContainerOption
+
+	// Add file upload script option if configured
+	if len(execCtx.FileUploads) > 0 {
+		options = append(options, WithFileUploadScript(execCtx.FileUploads, defaultLocalDir))
+	}
+
+	// Apply all options to container overrides
+	if err := ApplyContainerOptions(execCtx, options...); err != nil {
+		return nil, fmt.Errorf("failed to apply container options: %w", err)
+	}
+
 	// Validate the resolved configuration
 	if err := validateExecutionContext(execCtx); err != nil {
 		return nil, err
@@ -361,6 +398,7 @@ func buildExecutionContext(commandCtx *ecsCommandContext, j *job.Job, c *cluster
 		return nil, err
 	}
 	execCtx.ecsClient = ecs.NewFromConfig(cfg)
+	execCtx.s3Client = s3.NewFromConfig(cfg)
 
 	return execCtx, nil
 
@@ -371,6 +409,20 @@ func validateExecutionContext(ctx *executionContext) error {
 
 	if ctx.TaskCount <= 0 || ctx.TaskCount > ctx.ClusterConfig.MaxTaskCount {
 		return fmt.Errorf("task count (%d) needs to be greater than 0 and less than cluster max task count (%d)", ctx.TaskCount, ctx.ClusterConfig.MaxTaskCount)
+	}
+
+	// Validate file uploads configuration
+	for i, upload := range ctx.FileUploads {
+		if upload.Data == "" {
+			return fmt.Errorf("file upload %d: data is required", i)
+		}
+		if upload.S3Destination == "" {
+			return fmt.Errorf("file upload %d: s3_destination is required", i)
+		}
+		// Validate that destination is an S3 URI
+		if !strings.HasPrefix(upload.S3Destination, "s3://") {
+			return fmt.Errorf("file upload %d: s3_destination must be an S3 URI (s3://bucket/path/filename)", i)
+		}
 	}
 
 	return nil
@@ -535,6 +587,67 @@ func isTaskSuccessful(task types.Task, execCtx *executionContext) bool {
 
 	return true
 
+}
+
+// uploadFilesToS3 uploads file data to S3 after task completion
+func (execCtx *executionContext) uploadFilesToS3() error {
+	// Skip if no files to upload
+	if len(execCtx.FileUploads) == 0 {
+		return nil
+	}
+
+	for i, upload := range execCtx.FileUploads {
+		// Parse S3 URI (s3://bucket/key/filename)
+		bucket, key, err := parseS3URI(upload.S3Destination)
+		if err != nil {
+			return fmt.Errorf("failed to parse S3 URI for upload %d: %w", i, err)
+		}
+
+		// Upload file content to S3
+
+		input := &s3.PutObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+			Body:   strings.NewReader(upload.Data),
+		}
+
+		// Set timeout context with default timeout
+		uploadCtx, cancel := ct.WithTimeout(ctx, time.Duration(defaultUploadTimeout)*time.Second)
+		defer cancel()
+
+		_, err = execCtx.s3Client.PutObject(uploadCtx, input)
+		if err != nil {
+			return fmt.Errorf("failed to upload file %d to S3 (%s): %w", i, upload.S3Destination, err)
+		}
+
+	}
+
+	return nil
+}
+
+// parseS3URI parses an S3 URI into bucket and key components
+func parseS3URI(s3URI string) (bucket, key string, err error) {
+	if !strings.HasPrefix(s3URI, "s3://") {
+		return "", "", fmt.Errorf("invalid S3 URI: must start with s3://")
+	}
+
+	// Remove s3:// prefix
+	path := strings.TrimPrefix(s3URI, "s3://")
+
+	// Split into bucket and key
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) < 2 {
+		return "", "", fmt.Errorf("invalid S3 URI: must include bucket and key (s3://bucket/key)")
+	}
+
+	bucket = parts[0]
+	key = parts[1]
+
+	if bucket == "" || key == "" {
+		return "", "", fmt.Errorf("invalid S3 URI: bucket and key cannot be empty")
+	}
+
+	return bucket, key, nil
 }
 
 // storeResults builds and stores the final result for the job.
