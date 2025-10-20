@@ -30,3 +30,4 @@ func (t *TrinoAccessReceiver) ParseAccess(sql string) ([]parser.Access, error) {
 
 	return col.collected, nil
 }
+

@@ -2,6 +2,7 @@ package trino
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/patterninc/heimdall/pkg/context"
@@ -47,8 +48,21 @@ func New(ctx *context.Context) (plugin.Handler, error) {
 
 func (t *commandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
+	// get job context
+	jobCtx := &jobContext{}
+	if j.Context != nil {
+		if err := j.Context.Unmarshal(jobCtx); err != nil {
+			return err
+		}
+	}
+	jobCtx.Query = normalizeTrinoQuery(jobCtx.Query)
+
+	if !canQueryBeExecuted(jobCtx.Query, j.User, c) {
+		log.Printf("user %s is not allowed to run the query", j.User)
+		// todo add metrics here and eventually enable in prod
+	}
 	// let's submit our query to trino
-	req, err := newRequest(r, j, c)
+	req, err := newRequest(r, j, c, jobCtx)
 	if err != nil {
 		return err
 	}
@@ -71,4 +85,26 @@ func (t *commandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Clust
 
 	return nil
 
+}
+
+func canQueryBeExecuted(query, user string, c *cluster.Cluster) bool {
+	log.Printf("checking if user %s can run the query: %s\n", user, query)
+	// todo add metrics for time spent here
+	if query == `` {
+		return false
+	}
+
+	for _, rbac := range c.RBACs {
+		allowed, err := rbac.HasAccess(user, query)
+		if err != nil {
+			log.Printf("failed to check rbac: %v", err)
+			return false
+		}
+		if !allowed {
+			log.Printf("user %s is not allowed to run the query", user)
+			return false
+		}
+	}
+	log.Printf("user %s is allowed to run the query", user)
+	return true
 }
