@@ -30,12 +30,6 @@ type jobContext struct {
 	Query        string            `yaml:"query" json:"query"`
 	Params       map[string]string `yaml:"params,omitempty" json:"params,omitempty"`
 	ReturnResult bool              `yaml:"return_result,omitempty" json:"return_result,omitempty"`
-}
-
-type executionContext struct {
-	query        string
-	params       map[string]string
-	returnResult bool
 	conn         driver.Conn
 }
 
@@ -66,18 +60,18 @@ func New(ctx *hdctx.Context) (plugin.Handler, error) {
 func (cmd *commandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 	ctx := context.Background()
 
-	exc, err := cmd.createExecutionContext(j, c)
+	jobContext, err := cmd.createJobContext(j, c)
 	if err != nil {
-		handleMethod.LogAndCountError(err, "create_exc")
+		handleMethod.LogAndCountError(err, "create_job_context")
 		return err
 	}
 
-	rows, err := exc.exec(ctx)
+	rows, err := jobContext.execute(ctx)
 	if err != nil {
-		handleMethod.LogAndCountError(err, "exec")
+		handleMethod.LogAndCountError(err, "execute")
 		return err
 	}
-	res, err := CollectResults(rows)
+	res, err := collectResults(rows)
 	if err != nil {
 		handleMethod.LogAndCountError(err, "collect_results")
 		return err
@@ -88,7 +82,7 @@ func (cmd *commandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Clu
 	return nil
 }
 
-func (cmd *commandContext) createExecutionContext(j *job.Job, c *cluster.Cluster) (*executionContext, error) {
+func (cmd *commandContext) createJobContext(j *job.Job, c *cluster.Cluster) (*jobContext, error) {
 	// get cluster context
 	clusterCtx := &clusterContext{}
 	if c.Context != nil {
@@ -119,28 +113,23 @@ func (cmd *commandContext) createExecutionContext(j *job.Job, c *cluster.Cluster
 		createExcMethod.CountError("open_connection")
 		return nil, fmt.Errorf("failed to open ClickHouse connection: %v", err)
 	}
-
-	return &executionContext{
-		query:        jobCtx.Query,
-		params:       jobCtx.Params,
-		returnResult: jobCtx.ReturnResult,
-		conn:         conn,
-	}, nil
+	jobCtx.conn = conn
+	return jobCtx, nil
 }
 
-func (exc *executionContext) exec(ctx context.Context) (driver.Rows, error) {
+func (j *jobContext) execute(ctx context.Context) (driver.Rows, error) {
 	var args []any
-	for k, v := range exc.params {
+	for k, v := range j.Params {
 		args = append(args, clickhouse.Named(k, v))
 	}
-	if exc.returnResult {
-		return exc.conn.Query(ctx, exc.query, args...)
+	if j.ReturnResult {
+		return j.conn.Query(ctx, j.Query, args...)
 	}
-	return dummyRowsInstance, exc.conn.Exec(ctx, exc.query, args...)
+	return dummyRowsInstance, j.conn.Exec(ctx, j.Query, args...)
 
 }
 
-func CollectResults(rows driver.Rows) (*result.Result, error) {
+func collectResults(rows driver.Rows) (*result.Result, error) {
 	defer rows.Close()
 
 	cols := rows.Columns()
