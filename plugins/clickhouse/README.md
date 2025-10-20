@@ -126,8 +126,8 @@ Results are returned in structured format:
 ```json
 {
   "columns": [
-    {"name": "user_id", "type": "UInt64"},
-    {"name": "events", "type": "UInt64"}
+    {"name": "user_id", "type": "long"},
+    {"name": "events", "type": "long"}
   ],
   "data": [
     [12345, 156],
