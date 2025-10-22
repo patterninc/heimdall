@@ -24,6 +24,7 @@ var chTypeToResultTypeName = map[string]string{
 	"Date32":      "int32",
 	"DateTime":    "long",
 	"DateTime64":  "long",
+	"Bool":        "boolean",
 }
 
 // Map of base type -> handler
@@ -45,7 +46,9 @@ var chTypeHandlers = map[string]chScanHandler{
 	"DateTime":    handleTime,
 	"DateTime64":  handleTime,
 	"Decimal":     handleDecimal,
+	"Bool":        handleBool,
 }
+
 // Type handler signature
 type chScanHandler func(nullable bool) (scanTarget any, reader func() any)
 
@@ -77,6 +80,7 @@ func handleFloat32(nullable bool) (any, func() any) { return makeScanTarget[floa
 func handleFloat64(nullable bool) (any, func() any) { return makeScanTarget[float64](nullable) }
 func handleString(nullable bool) (any, func() any)  { return makeScanTarget[string](nullable) }
 func handleTime(nullable bool) (any, func() any)    { return makeScanTarget[time.Time](nullable) }
+func handleBool(nullable bool) (any, func() any)    { return makeScanTarget[bool](nullable) }
 func handleDecimal(nullable bool) (any, func() any) {
 	if nullable {
 		var p decimal.NullDecimal
