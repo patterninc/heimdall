@@ -63,8 +63,8 @@ ECS clusters must specify Fargate configuration, IAM roles, and network settings
   version: 0.0.1
   description: ECS Fargate cluster for batch jobs
   context:
-    cpu: 256
-    memory: 512
+    max_cpu: 4096
+    max_memory: 8192
     max_task_count: 10
     execution_role_arn: arn:aws:iam::123456789012:role/ecsTaskExecutionRole
     task_role_arn: arn:aws:iam::123456789012:role/ecsTaskRole
@@ -95,6 +95,8 @@ A typical ECS job includes task configuration and optional overrides:
   "cluster_criteria": ["type:fargate"],
   "context": {
     "task_count": 2,
+    "cpu": 256,
+    "memory": 512,
     "container_overrides": [
       {
         "name": "main",
@@ -345,6 +347,8 @@ container_overrides:
     polling_interval: "30s"  # 30 seconds
     timeout: "1h"            # 1 hour
     max_fail_count: 3
+    cpu: 256
+    memory: 512
   tags:
     - type:ecs
   cluster_tags:

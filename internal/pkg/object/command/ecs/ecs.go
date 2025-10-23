@@ -25,6 +25,8 @@ import (
 type ecsCommandContext struct {
 	TaskDefinitionTemplate string                    `yaml:"task_definition_template,omitempty" json:"task_definition_template,omitempty"`
 	TaskCount              int                       `yaml:"task_count,omitempty" json:"task_count,omitempty"`
+	CPU                    int                       `yaml:"cpu,omitempty" json:"cpu,omitempty"`
+	Memory                 int                       `yaml:"memory,omitempty" json:"memory,omitempty"`
 	ContainerOverrides     []types.ContainerOverride `yaml:"container_overrides,omitempty" json:"container_overrides,omitempty"`
 	PollingInterval        duration.Duration         `yaml:"polling_interval,omitempty" json:"polling_interval,omitempty"`
 	Timeout                duration.Duration         `yaml:"timeout,omitempty" json:"timeout,omitempty"`
@@ -33,8 +35,8 @@ type ecsCommandContext struct {
 
 // ECS cluster context structure
 type ecsClusterContext struct {
-	CPU              int       `yaml:"cpu,omitempty" json:"cpu,omitempty"`
-	Memory           int       `yaml:"memory,omitempty" json:"memory,omitempty"`
+	MaxCPU           int       `yaml:"max_cpu,omitempty" json:"max_cpu,omitempty"`
+	MaxMemory        int       `yaml:"max_memory,omitempty" json:"max_memory,omitempty"`
 	MaxTaskCount     int       `yaml:"max_task_count,omitempty" json:"max_task_count,omitempty"`
 	ExecutionRoleARN string    `yaml:"execution_role_arn,omitempty" json:"execution_role_arn,omitempty"`
 	TaskRoleARN      string    `yaml:"task_role_arn,omitempty" json:"task_role_arn,omitempty"`
@@ -69,6 +71,8 @@ type taskTracker struct {
 // executionContext holds the final resolved configuration for job execution.
 type executionContext struct {
 	TaskCount             int                       `json:"task_count"`
+	CPU                   int                       `json:"cpu"`
+	Memory                int                       `json:"memory"`
 	TaskDefinitionWrapper *taskDefinitionWrapper    `json:"task_definition_wrapper"`
 	ContainerOverrides    []types.ContainerOverride `json:"container_overrides"`
 	ClusterConfig         *ecsClusterContext        `json:"cluster_config"`
@@ -155,8 +159,8 @@ func (execCtx *executionContext) registerTaskDefinition() error {
 		Family:                  aws.String(aws.ToString(execCtx.TaskDefinitionWrapper.TaskDefinition.Family)),
 		RequiresCompatibilities: []types.Compatibility{types.CompatibilityFargate},
 		NetworkMode:             types.NetworkModeAwsvpc,
-		Cpu:                     aws.String(fmt.Sprintf("%d", execCtx.ClusterConfig.CPU)),
-		Memory:                  aws.String(fmt.Sprintf("%d", execCtx.ClusterConfig.Memory)),
+		Cpu:                     aws.String(fmt.Sprintf("%d", execCtx.CPU)),
+		Memory:                  aws.String(fmt.Sprintf("%d", execCtx.Memory)),
 		ExecutionRoleArn:        aws.String(execCtx.ClusterConfig.ExecutionRoleARN),
 		TaskRoleArn:             aws.String(execCtx.ClusterConfig.TaskRoleARN),
 		ContainerDefinitions:    execCtx.TaskDefinitionWrapper.TaskDefinition.ContainerDefinitions,
@@ -371,6 +375,14 @@ func validateExecutionContext(ctx *executionContext) error {
 
 	if ctx.TaskCount <= 0 || ctx.TaskCount > ctx.ClusterConfig.MaxTaskCount {
 		return fmt.Errorf("task count (%d) needs to be greater than 0 and less than cluster max task count (%d)", ctx.TaskCount, ctx.ClusterConfig.MaxTaskCount)
+	}
+
+	if ctx.CPU <= 0 || ctx.CPU > ctx.ClusterConfig.MaxCPU {
+		return fmt.Errorf("cpu (%d) needs to be greater than 0 and less than or equal to cluster max cpu (%d)", ctx.CPU, ctx.ClusterConfig.MaxCPU)
+	}
+
+	if ctx.Memory <= 0 || ctx.Memory > ctx.ClusterConfig.MaxMemory {
+		return fmt.Errorf("memory (%d) needs to be greater than 0 and less than or equal to cluster max memory (%d)", ctx.Memory, ctx.ClusterConfig.MaxMemory)
 	}
 
 	return nil
