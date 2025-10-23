@@ -1,6 +1,6 @@
 /* you might want to consider adding this preflight line here. it enables tailwind's preflight. we can't do it by default in our other apps because they are relying on their own css reset but if you can it will make your app look more like "standard" tailwind */
 /* @import "tailwindcss/preflight.css" layer(base); */
-@import '../../node_modules/@patterninc/react-ui/dist/pattern-themed-tailwind.css';
+@import '@patterninc/react-ui/pattern-themed-tailwind.css';
 
 @theme {
   --color-background: var(--background);
