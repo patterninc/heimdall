@@ -1,0 +1,23 @@
+# FYI, dockerignore syntax is different from gitignore syntax. It uses Go's filepath.Match, meaning "node_modules"
+# only ignores node_modules in the root directory, but "**/node_modules" ignores node_modules at any level
+
+.git
+**/node_modules
+**/coverage
+**/*.tsbuildinfo
+**/dist
+
+# Never copy files that have secrets into docker images
+**/.env
+**/*.pem
+**/.aws
+
+# next cache
+**/.next
+
+# Stuff just to make images smaller
+**/.gitignore
+**/*.md
+**/Dockerfile
+**/.dockerignore
+**/.DS_Store

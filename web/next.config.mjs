@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Don't typecheck during `next build`, so Docker build is faster.
+  typescript: { ignoreBuildErrors: true },
+
   async rewrites() {
     const apiUrl = process.env.API_URL || 'http://localhost:9090'
 
