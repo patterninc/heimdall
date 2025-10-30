@@ -5,6 +5,7 @@ import (
 
 	"github.com/patterninc/heimdall/pkg/object"
 	"github.com/patterninc/heimdall/pkg/object/status"
+	"github.com/patterninc/heimdall/pkg/rbac"
 )
 
 var (
@@ -14,6 +15,8 @@ var (
 type Cluster struct {
 	object.Object `yaml:",inline" json:",inline"`
 	Status        status.Status `yaml:"status,omitempty" json:"status,omitempty"`
+	RBACNames     []string      `yaml:"rbacs,omitempty" json:"rbacs,omitempty"`
+	RBACs         []rbac.RBAC   `yaml:"-" json:"-"`
 }
 
 type Clusters map[string]*Cluster
