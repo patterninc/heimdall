@@ -1,11 +1,33 @@
 package clickhouse
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
 )
+
+type Decimal struct {
+	d *decimal.Decimal
+}
+
+func (d *Decimal) Scan(value interface{}) error {
+	// first try to see if the data is stored in database as a Numeric datatype
+	if value == nil {
+		return nil
+	}
+	switch v := value.(type) {
+	case decimal.Decimal:
+		if d.d == nil {
+			d.d = new(decimal.Decimal)
+		}
+		*d.d = v
+		return nil
+	default:
+		return fmt.Errorf("cannot scan type %T into Decimal", value)
+	}
+}
 
 var chTypeToResultTypeName = map[string]string{
 	"UInt8":       "int",
@@ -18,6 +40,7 @@ var chTypeToResultTypeName = map[string]string{
 	"Int64":       "long",
 	"Float32":     "float",
 	"Float64":     "double",
+	"Decimal":     "double",
 	"String":      "string",
 	"FixedString": "string",
 	"Date":        "int32",
@@ -82,19 +105,12 @@ func handleString(nullable bool) (any, func() any)  { return makeScanTarget[stri
 func handleTime(nullable bool) (any, func() any)    { return makeScanTarget[time.Time](nullable) }
 func handleBool(nullable bool) (any, func() any)    { return makeScanTarget[bool](nullable) }
 func handleDecimal(nullable bool) (any, func() any) {
-	if nullable {
-		var p decimal.NullDecimal
-		return &p, func() any {
-			if p.Valid {
-				val, _ := p.Decimal.Float64()
-				return val
-			}
+	var v Decimal
+	return &v, func() any {
+		if v.d == nil {
 			return nil
 		}
-	}
-	var v decimal.Decimal
-	return &v, func() any {
-		val, _ := v.Float64()
+		val, _ := v.d.Float64()
 		return val
 	}
 }
