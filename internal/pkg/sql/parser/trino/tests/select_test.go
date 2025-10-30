@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/patterninc/heimdall/pkg/sql/parser"
-	"github.com/patterninc/heimdall/pkg/sql/parser/trino"
+	"github.com/patterninc/heimdall/internal/pkg/sql/parser"
+	"github.com/patterninc/heimdall/internal/pkg/sql/parser/trino"
 )
 
 const (

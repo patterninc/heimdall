@@ -20,6 +20,7 @@ import (
 	"github.com/patterninc/heimdall/pkg/object/command"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
+	"github.com/patterninc/heimdall/internal/pkg/rbac"
 )
 
 const (
@@ -42,6 +43,7 @@ type Heimdall struct {
 	Server           *server.Server       `yaml:"server,omitempty" json:"server,omitempty"`
 	Commands         command.Commands     `yaml:"commands,omitempty" json:"commands,omitempty"`
 	Clusters         cluster.Clusters     `yaml:"clusters,omitempty" json:"clusters,omitempty"`
+	RBACs            rbac.RBACs           `yaml:"rbacs,omitempty" json:"rbacs,omitempty"`
 	JobsDirectory    string               `yaml:"jobs_directory,omitempty" json:"jobs_directory,omitempty"`
 	ArchiveDirectory string               `yaml:"archive_directory,omitempty" json:"archive_directory,omitempty"`
 	ResultDirectory  string               `yaml:"result_directory,omitempty" json:"result_directory,omitempty"`
