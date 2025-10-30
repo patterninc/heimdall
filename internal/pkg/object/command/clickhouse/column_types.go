@@ -18,26 +18,6 @@ func (d *Decimal) Scan(value interface{}) error {
 		return nil
 	}
 	switch v := value.(type) {
-
-	case float32:
-		*d.d = decimal.NewFromFloat(float64(v))
-		return nil
-
-	case float64:
-		// numeric in sqlite3 sends us float64
-		*d.d = decimal.NewFromFloat(v)
-		return nil
-
-	case int64:
-		// at least in sqlite3 when the value is 0 in db, the data is sent
-		// to us as an int64 instead of a float64 ...
-		*d.d = decimal.New(v, 0)
-		return nil
-
-	case uint64:
-		// while clickhouse may send 0 in db as uint64
-		*d.d = decimal.NewFromUint64(v)
-		return nil
 	case decimal.Decimal:
 		if d.d == nil {
 			d.d = new(decimal.Decimal)
