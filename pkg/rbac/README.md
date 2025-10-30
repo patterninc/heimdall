@@ -17,14 +17,11 @@ The module consists of several key components:
 ### Core Interfaces
 
 - **`RBAC`**: Main interface for access control providers
-- **`Client`**: Interface for communicating with external systems (Apache Ranger)
-
 ### Apache Ranger Integration
 
 The module currently supports Apache Ranger as the primary RBAC provider through:
 
 - **`ApacheRanger`**: Main implementation of RBAC interface
-- **`client`**: HTTP client for Ranger API communication
 - **`Policy`**: Represents Ranger policies with resources and permissions
 - **`User`** and **`Group`**: Represent Ranger users and groups
 
@@ -33,7 +30,7 @@ The module currently supports Apache Ranger as the primary RBAC provider through
 ### YAML Configuration Example
 
 ```yaml
-rbac:
+rbacs:
   - type: apache_ranger
     name: my-ranger
     service_name: my_service
@@ -165,15 +162,6 @@ type RBAC interface {
 }
 ```
 
-### Client Interface
-
-```go
-type Client interface {
-    GetUsers() (map[string]*User, error)
-    GetGroups() (map[string]*Group, error)
-    GetPolicies(serviceName string) ([]*Policy, error)
-}
-```
 
 ## Error Handling
 

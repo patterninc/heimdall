@@ -18,6 +18,7 @@ const (
 
 func (h *Heimdall) loadPlugins() (map[string]func(*context.Context) (hp.Handler, error), error) {
 
+	return nil,nil
 	plugins := make(map[string]func(*context.Context) (hp.Handler, error))
 
 	files, err := os.ReadDir(h.PluginsDirectory)

@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/patterninc/heimdall/pkg/sql/parser"
+	"github.com/patterninc/heimdall/internal/pkg/sql/parser"
 )
 
 const (

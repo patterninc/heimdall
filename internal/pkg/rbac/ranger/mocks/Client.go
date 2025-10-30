@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	ranger "github.com/patterninc/heimdall/pkg/rbac/ranger"
+	ranger "github.com/patterninc/heimdall/internal/pkg/rbac/ranger"
 	mock "github.com/stretchr/testify/mock"
 )
 

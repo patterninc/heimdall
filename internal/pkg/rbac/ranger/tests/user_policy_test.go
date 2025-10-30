@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/patterninc/heimdall/pkg/rbac/ranger"
+	"github.com/patterninc/heimdall/internal/pkg/rbac/ranger"
 )
 
 func TestDenyPermissionsForUser(t *testing.T) {

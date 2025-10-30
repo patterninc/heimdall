@@ -19,16 +19,27 @@ auth:
 
 # supported commands
 commands:
-  - name: ping-0.0.1
+  # # - name: ping-0.0.1
+  #   status: active
+  #   plugin: ping
+  #   version: 0.0.1
+  #   store_result_sync: false
+  #   description: Test ping command
+  #   tags:
+  #     - type:ping
+  #   cluster_tags:
+  #     - type:localhost
+  - name: trino-475
     status: active
-    plugin: ping
-    version: 0.0.1
-    store_result_sync: false
-    description: Test ping command
+    plugin: trino
+    version: 475
+    description: Run Trino queries
+    context:
+      poll_interval: 250  # milliseconds between poll attempts
     tags:
-      - type:ping
+      - type:trino
     cluster_tags:
-      - type:localhost
+      - type:trino
 
 # supported clusters
 clusters:
@@ -39,3 +50,13 @@ clusters:
     tags:
       - type:localhost
       - data:local
+  - name: eks-trino-475
+    status: active
+    version: 475
+    description: Trino cluster in us-west-2
+    tags:
+      - type:trino
+      - data:prod
+    rbacs:
+      - my-ranger
+

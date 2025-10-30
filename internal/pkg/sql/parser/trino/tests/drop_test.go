@@ -6,48 +6,36 @@ import (
 	"testing"
 
 	"github.com/patterninc/heimdall/pkg/sql/parser"
-	"github.com/patterninc/heimdall/pkg/sql/parser/trino"
+	"github.com/patterninc/heimdall/internal/pkg/sql/parser/trino"
 )
 
-func TestParseSQLAlter(t *testing.T) {
+func TestParseSQLDrop(t *testing.T) {
 	tests := []struct {
 		name     string
 		query    string
 		expected []parser.Access
 	}{
 		{
-			name:  "Alter table add column",
-			query: "ALTER TABLE public.users ADD COLUMN email VARCHAR;",
+			name:  "simple Drop TABLE without catalog",
+			query: "DROP TABLE public.sales",
 			expected: []parser.Access{
 				&parser.TableAccess{
-					Table:   "users",
+					Table:   "sales",
 					Schema:  "public",
 					Catalog: defaultCatalog,
-					Act:     parser.ALTER,
+					Act:     parser.DROP,
 				},
 			},
 		},
 		{
-			name:  "Alter table with catalog",
-			query: "ALTER TABLE test_catalog.public.inventory DROP COLUMN obsolete_flag;",
+			name:  "Drop table with catalog",
+			query: `DROP TABLE  IF EXISTS test_catalog.public.sales;`,
 			expected: []parser.Access{
 				&parser.TableAccess{
-					Table:   "inventory",
+					Table:   "sales",
 					Schema:  "public",
 					Catalog: "test_catalog",
-					Act:     parser.ALTER,
-				},
-			},
-		},
-		{
-			name:  "Alter table rename table",
-			query: "ALTER TABLE schema_name.old_table_name RENAME TO schema_name.new_table_name;",
-			expected: []parser.Access{
-				&parser.TableAccess{
-					Table:   "old_table_name",
-					Schema:  "schema_name",
-					Catalog: defaultCatalog,
-					Act:     parser.ALTER,
+					Act:     parser.DROP,
 				},
 			},
 		},

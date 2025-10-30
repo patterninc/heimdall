@@ -8,7 +8,7 @@ import (
 
 	"github.com/patterninc/heimdall/internal/pkg/heimdall"
 	"github.com/patterninc/heimdall/internal/pkg/janitor"
-	"github.com/patterninc/heimdall/internal/pkg/server"
+	// "github.com/patterninc/heimdall/internal/pkg/server"
 )
 
 const (
@@ -38,13 +38,13 @@ func main() {
 
 	// setup defaults before we unmarshal config
 	h := heimdall.Heimdall{
-		Server: &server.Server{
-			Address:           defaultAddress,
-			ReadTimeout:       defaultReadTimeout,
-			WriteTimeout:      defaulWriteTimeout,
-			IdleTimeout:       defaultIdleTimeout,
-			ReadHeaderTimeout: defaultReadHeaderTimeout,
-		},
+		// Server: &server.Server{
+		// 	Address:           defaultAddress,
+		// 	ReadTimeout:       defaultReadTimeout,
+		// 	WriteTimeout:      defaulWriteTimeout,
+		// 	IdleTimeout:       defaultIdleTimeout,
+		// 	ReadHeaderTimeout: defaultReadHeaderTimeout,
+		// },
 		Janitor: &janitor.Janitor{
 			Keepalive: defaultJanitorKeepalive,
 			StaleJob:  defaultStaleJob,
@@ -52,16 +52,16 @@ func main() {
 	}
 
 	// load config file
-	if err := config.LoadYAML(configFile, &h); err != nil {
+	if err := config.LoadYAML("/Users/ivanhladush/git/heimdall/configs/local.yaml", &h); err != nil {
 		process.Bail(`config`, err)
 	}
 
-	// setup version
-	if Build != `` {
-		h.Version = Build
-	} else {
-		h.Version = defaultBuild
-	}
+	// // setup version
+	// if Build != `` {
+	// 	h.Version = Build
+	// } else {
+	// 	h.Version = defaultBuild
+	// }
 
 	// start proxy
 	if err := h.Start(); err != nil {

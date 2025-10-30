@@ -9,8 +9,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/patterninc/heimdall/pkg/sql/parser"
-	"github.com/patterninc/heimdall/pkg/sql/parser/factory"
+	"github.com/patterninc/heimdall/internal/pkg/sql/parser"
+	"github.com/patterninc/heimdall/internal/pkg/sql/parser/factory"
 )
 
 var (

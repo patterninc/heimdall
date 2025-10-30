@@ -11,7 +11,6 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/patterninc/heimdall/internal/pkg/auth"
 	"github.com/patterninc/heimdall/internal/pkg/database"
 	"github.com/patterninc/heimdall/internal/pkg/janitor"
 	"github.com/patterninc/heimdall/internal/pkg/pool"
@@ -20,7 +19,7 @@ import (
 	"github.com/patterninc/heimdall/pkg/object/command"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
-	"github.com/patterninc/heimdall/pkg/rbac"
+	"github.com/patterninc/heimdall/internal/pkg/rbac"
 )
 
 const (
@@ -41,20 +40,20 @@ const (
 
 type Heimdall struct {
 	Server           *server.Server       `yaml:"server,omitempty" json:"server,omitempty"`
-	Commands         command.Commands     `yaml:"commands,omitempty" json:"commands,omitempty"`
-	Clusters         cluster.Clusters     `yaml:"clusters,omitempty" json:"clusters,omitempty"`
-	RBACs            rbac.RBACs           `yaml:"rbacs,omitempty" json:"rbacs,omitempty"`
-	JobsDirectory    string               `yaml:"jobs_directory,omitempty" json:"jobs_directory,omitempty"`
-	ArchiveDirectory string               `yaml:"archive_directory,omitempty" json:"archive_directory,omitempty"`
-	ResultDirectory  string               `yaml:"result_directory,omitempty" json:"result_directory,omitempty"`
-	PluginsDirectory string               `yaml:"plugin_directory,omitempty" json:"plugin_directory,omitempty"`
-	Database         *database.Database   `yaml:"database,omitempty" json:"database,omitempty"`
+	Commands         command.Commands   `yaml:"commands,omitempty" json:"commands,omitempty"`
+	Clusters         cluster.Clusters   `yaml:"clusters,omitempty" json:"clusters,omitempty"`
+	RBACs            rbac.RBACs         `yaml:"rbacs,omitempty" json:"rbacs,omitempty"`
+	JobsDirectory    string             `yaml:"jobs_directory,omitempty" json:"jobs_directory,omitempty"`
+	ArchiveDirectory string             `yaml:"archive_directory,omitempty" json:"archive_directory,omitempty"`
+	ResultDirectory  string             `yaml:"result_directory,omitempty" json:"result_directory,omitempty"`
+	PluginsDirectory string             `yaml:"plugin_directory,omitempty" json:"plugin_directory,omitempty"`
+	Database         *database.Database `yaml:"database,omitempty" json:"database,omitempty"`
 	Pool             *pool.Pool[*job.Job] `yaml:"pool,omitempty" json:"pool,omitempty"`
 	Auth             *auth.Auth           `yaml:"auth,omitempty" json:"auth,omitempty"`
-	Janitor          *janitor.Janitor     `yaml:"janitor,omitempty" json:"janitor,omitempty"`
-	Version          string               `yaml:"-" json:"-"`
-	agentName        string
-	commandHandlers  map[string]plugin.Handler
+	Janitor         *janitor.Janitor `yaml:"janitor,omitempty" json:"janitor,omitempty"`
+	Version         string           `yaml:"-" json:"-"`
+	agentName       string
+	commandHandlers map[string]plugin.Handler
 }
 
 func (h *Heimdall) Init() error {
@@ -64,12 +63,12 @@ func (h *Heimdall) Init() error {
 		h.JobsDirectory = defaultJobsDirectory
 	}
 
-	// set archive directory if not set
+	// // set archive directory if not set
 	if h.ArchiveDirectory == `` {
 		h.ArchiveDirectory = defaultArchiveDirectory
 	}
 
-	// set result directory if not set
+	// // set result directory if not set
 	if h.ResultDirectory == `` {
 		h.ResultDirectory = defaultResultDirectory
 	}
@@ -146,14 +145,13 @@ func (h *Heimdall) Init() error {
 		}
 	}
 
-	// start janitor
+	// // start janitor
 	if err := h.Janitor.Start(h.Database); err != nil {
 		return err
 	}
 
 	// let's start the agent
 	return h.Pool.Start(h.runAsyncJob, h.getAsyncJobs)
-
 }
 
 func (h *Heimdall) Start() error {

@@ -3,9 +3,9 @@ package tests
 import (
 	"testing"
 
-	"github.com/patterninc/heimdall/pkg/rbac/ranger"
-	"github.com/patterninc/heimdall/pkg/rbac/ranger/mocks"
-	"github.com/patterninc/heimdall/pkg/sql/parser/trino"
+	"github.com/patterninc/heimdall/internal/pkg/rbac/ranger"
+	"github.com/patterninc/heimdall/internal/pkg/rbac/ranger/mocks"
+	"github.com/patterninc/heimdall/internal/pkg/sql/parser/trino"
 )
 
 const (
