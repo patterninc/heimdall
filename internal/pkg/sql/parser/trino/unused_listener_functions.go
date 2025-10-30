@@ -4,7 +4,7 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/patterninc/heimdall/pkg/sql/parser/trino/grammar"
+	"github.com/patterninc/heimdall/internal/pkg/sql/parser/trino/grammar"
 )
 
 // EnterParse is called when production parse is entered.
