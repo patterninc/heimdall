@@ -7,25 +7,22 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/patterninc/heimdall/internal/pkg/rbac/ranger"
+	"github.com/patterninc/heimdall/pkg/rbac"
 )
 
 var (
 	ErrRBACIDsAreNotUnique = errors.New("rbac IDs are not unique")
-	supportedRBACs         = map[string]func() RBAC{
-		`apache_ranger`: NewRanger,
+	supportedRBACs         = map[string]func() rbac.RBAC{
+		`apache_ranger`: ranger.New,
 	}
 )
 
-type RBAC interface {
-	Init() error
-	HasAccess(user string, query string) (bool, error)
-	GetName() string
-}
+type R rbac.RBAC
 
-type RBACs map[string]RBAC
+type RBACs map[string]R
 
 type configs struct {
-	RBAC []RBAC
+	RBAC []R
 }
 
 func (c *RBACs) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -36,7 +33,7 @@ func (c *RBACs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
-	items := make(map[string]RBAC)
+	items := make(map[string]R)
 
 	for _, t := range temp.RBAC {
 		items[t.GetName()] = t
@@ -73,8 +70,4 @@ func (c *configs) UnmarshalYAML(value *yaml.Node) error {
 		c.RBAC = append(c.RBAC, r)
 	}
 	return nil
-}
-
-func NewRanger() RBAC {
-	return &ranger.Ranger{}
 }

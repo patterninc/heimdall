@@ -10,6 +10,7 @@ import (
 
 	"github.com/patterninc/heimdall/internal/pkg/sql/parser"
 	"github.com/patterninc/heimdall/internal/pkg/sql/parser/factory"
+	"github.com/patterninc/heimdall/pkg/rbac"
 )
 
 var (
@@ -129,4 +130,8 @@ func (r *Ranger) UnmarshalYAML(value *yaml.Node) error {
 		r.SyncIntervalInMinutes = 5
 	}
 	return nil
+}
+
+func New() rbac.RBAC {
+	return &Ranger{}
 }
