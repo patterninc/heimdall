@@ -17,12 +17,10 @@ var (
 	}
 )
 
-type R rbac.RBAC
-
-type RBACs map[string]R
+type RBACs map[string]rbac.RBAC
 
 type configs struct {
-	RBAC []R
+	RBAC []rbac.RBAC
 }
 
 func (c *RBACs) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -33,7 +31,7 @@ func (c *RBACs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
-	items := make(map[string]R)
+	items := make(map[string]rbac.RBAC)
 
 	for _, t := range temp.RBAC {
 		items[t.GetName()] = t
