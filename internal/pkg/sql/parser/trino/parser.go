@@ -4,8 +4,8 @@ import (
 	"log"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/patterninc/heimdall/pkg/sql/parser"
-	"github.com/patterninc/heimdall/pkg/sql/parser/trino/grammar"
+	"github.com/patterninc/heimdall/internal/pkg/sql/parser"
+	"github.com/patterninc/heimdall/internal/pkg/sql/parser/trino/grammar"
 )
 
 type TrinoAccessReceiver struct {
@@ -30,3 +30,4 @@ func (t *TrinoAccessReceiver) ParseAccess(sql string) ([]parser.Access, error) {
 
 	return col.collected, nil
 }
+

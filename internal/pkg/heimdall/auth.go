@@ -28,10 +28,10 @@ func (h *Heimdall) auth(next http.Handler) http.Handler {
 
 		// let's get username from the header
 		username := ``
-		if h.Auth != nil {
-			// TODO: process error here...
-			username, _ = h.Auth.GetUser(r)
-		}
+		// if h.Auth != nil {
+		// 	// TODO: process error here...
+		// 	username, _ = h.Auth.GetUser(r)
+		// }
 
 		// let's write this username to request context...
 		ctx := context.WithValue(r.Context(), userNameKey, username)
