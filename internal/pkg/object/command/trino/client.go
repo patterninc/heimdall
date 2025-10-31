@@ -45,7 +45,7 @@ type response struct {
 	Error   map[string]any `json:"error"`
 }
 
-func newRequest(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (*request, error) {
+func newRequest(r *plugin.Runtime, j *job.Job, c *cluster.Cluster, jobCtx *jobContext) (*request, error) {
 
 	// get cluster context
 	clusterCtx := &clusterContext{}
@@ -54,15 +54,6 @@ func newRequest(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (*request, er
 			return nil, err
 		}
 	}
-
-	// get job context
-	jobCtx := &jobContext{}
-	if j.Context != nil {
-		if err := j.Context.Unmarshal(jobCtx); err != nil {
-			return nil, err
-		}
-	}
-	jobCtx.Query = normalizeTrinoQuery(jobCtx.Query)
 
 	// form context for trino request
 	req := &request{

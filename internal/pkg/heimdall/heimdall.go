@@ -21,6 +21,7 @@ import (
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
 	"github.com/patterninc/heimdall/internal/pkg/rbac"
+	rbacI "github.com/patterninc/heimdall/pkg/rbac"
 )
 
 const (
@@ -87,6 +88,14 @@ func (h *Heimdall) Init() error {
 		return err
 	}
 
+	rbacsByName := map[string]rbacI.RBAC{}
+	for rbacName, r := range h.RBACs {
+		if err := r.Init(); err != nil {
+			return fmt.Errorf("failed to init rbac %s: %w", rbacName, err)
+		}
+		rbacsByName[rbacName] = r
+	}
+
 	h.commandHandlers = make(map[string]plugin.Handler)
 
 	// process commands / add default values if missing, write commands to db
@@ -127,6 +136,16 @@ func (h *Heimdall) Init() error {
 		// let's record command in the database
 		if err := h.clusterUpsert(c); err != nil {
 			return err
+		}
+		// set RBACs for the cluster
+		if len(c.RBACNames) > 0 {
+			for _, rbacName := range c.RBACNames {
+				r, found := rbacsByName[rbacName]
+				if !found {
+					return fmt.Errorf("failed to find rbac %s for cluster %s", rbacName, c.Name)
+				}
+				c.RBACs = append(c.RBACs, r)
+			}
 		}
 
 	}

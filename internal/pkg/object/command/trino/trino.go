@@ -2,8 +2,10 @@ package trino
 
 import (
 	"fmt"
+	"log"
 	"time"
 
+	"github.com/hladush/go-telemetry/pkg/telemetry"
 	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
@@ -11,8 +13,13 @@ import (
 )
 
 const (
+	trinoPlugin         = `trino`
 	finishedState       = `FINISHED`
 	defaultPollInterval = 150 // ms
+)
+
+var (
+	canBeExecutedMethod = telemetry.NewMethod("canBeExecuted", trinoPlugin)
 )
 
 type commandContext struct {
@@ -47,8 +54,21 @@ func New(ctx *context.Context) (plugin.Handler, error) {
 
 func (t *commandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
+	// get job context
+	jobCtx := &jobContext{}
+	if j.Context != nil {
+		if err := j.Context.Unmarshal(jobCtx); err != nil {
+			return err
+		}
+	}
+	jobCtx.Query = normalizeTrinoQuery(jobCtx.Query)
+
+	if !canQueryBeExecuted(jobCtx.Query, j.User, j.ID, c) {
+		log.Printf("user %s is not allowed to run the query", j.User)
+		// this code will be enabled in prod after some testing
+	}
 	// let's submit our query to trino
-	req, err := newRequest(r, j, c)
+	req, err := newRequest(r, j, c, jobCtx)
 	if err != nil {
 		return err
 	}
@@ -71,4 +91,26 @@ func (t *commandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Clust
 
 	return nil
 
+}
+
+func canQueryBeExecuted(query, user, id string, c *cluster.Cluster) bool {
+	defer canBeExecutedMethod.RecordLatency(time.Now())
+	if query == `` {
+		return false
+	}
+
+	for _, rbac := range c.RBACs {
+		allowed, err := rbac.HasAccess(user, query)
+		if err != nil {
+			canBeExecutedMethod.LogAndCountError(err, "error checking access for user %s and jobID %s", user, id)
+			return false
+		}
+		if !allowed {
+			err = fmt.Errorf("access denied for user %s to run the query in jobID %s", user, id)
+			canBeExecutedMethod.LogAndCountError(err)
+			return false
+		}
+	}
+	canBeExecutedMethod.LogAndCountSuccess("access granted for user %s to run the query, jobID %s", user, id)
+	return true
 }
