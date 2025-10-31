@@ -151,7 +151,6 @@ func (c *client) executeRequest(method string, endpoint string, v interface{}, r
 	}
 
 	vals, _ := io.ReadAll(resp.Body)
-	fmt.Println(string(vals))
 	resp.Body = io.NopCloser(bytes.NewReader(vals))
 	if v != nil {
 		return json.NewDecoder(resp.Body).Decode(v)

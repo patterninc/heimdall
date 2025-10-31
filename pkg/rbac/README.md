@@ -36,7 +36,7 @@ rbacs:
     service_name: my_service
     sync_interval_in_minutes: 30
     client:
-      url: https://ranger.example.com
+      endpoint: https://ranger.example.com
       username: admin
       password: secret
     parser:
