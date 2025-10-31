@@ -102,7 +102,8 @@ func canQueryBeExecuted(query, user, id string, c *cluster.Cluster) bool {
 	for _, rbac := range c.RBACs {
 		allowed, err := rbac.HasAccess(user, query)
 		if err != nil {
-			canBeExecutedMethod.LogAndCountError(err, "error checking access for user %s and jobID %s", user, id)
+			err = fmt.Errorf("error checking an access for user %s and jobID %s cause: %w", user, id, err)
+			canBeExecutedMethod.LogAndCountError(err)
 			return false
 		}
 		if !allowed {
@@ -111,6 +112,7 @@ func canQueryBeExecuted(query, user, id string, c *cluster.Cluster) bool {
 			return false
 		}
 	}
-	canBeExecutedMethod.LogAndCountSuccess("access granted for user %s to run the query, jobID %s", user, id)
+	
+	canBeExecutedMethod.CountSuccess()
 	return true
 }

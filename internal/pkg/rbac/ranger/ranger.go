@@ -110,20 +110,21 @@ func (r *Ranger) HasAccess(user string, query string) (bool, error) {
 	return true, nil
 }
 
-func (r *Ranger) GetName() string {
-	return r.Name
-}
 
 func (r *Ranger) SyncState() error {
+	// receive all policies from ranger
 	policies, err := r.Client.GetPolicies(r.ServiceName)
 	if err != nil {
 		return err
 	}
+
+	// receive all users and their groups from ranger
 	users, err := r.Client.GetUsers()
 	if err != nil {
 		return err
 	}
 
+	// map users by their groups
 	usersByGroup := map[string][]string{}
 	for _, user := range users {
 		for _, gName := range user.GroupNameList {
@@ -131,22 +132,29 @@ func (r *Ranger) SyncState() error {
 		}
 	}
 
+	// collect all allow and deny permissions by user
 	newPermissionsByUser := map[string]*userPermissions{}
 	for _, policy := range policies {
+		// skip disabled policies
 		if !policy.IsEnabled {
 			continue
 		}
+		// skip policies that do not have catalog, schema, or table defined
 		if policy.Resources == nil || policy.Resources.Catalog == nil || policy.Resources.Schema == nil || policy.Resources.Table == nil {
 			// Skip policies that do not have catalog, schema, or table defined
 			continue
 		}
 
+		// initialize policy and preprocess its values for faster matching
 		if err := policy.init(); err != nil {
 			log.Println("Error initializing policy:", err)
 			return err
 		}
 
+		// collect controlled actions by user
 		controlledActions := policy.getControlledActions(usersByGroup)
+		
+		// assign allowed actions to users
 		for userName, actions := range controlledActions.allowedActionsByUser {
 			if _, ok := newPermissionsByUser[userName]; !ok {
 				newPermissionsByUser[userName] = &userPermissions{
@@ -158,6 +166,8 @@ func (r *Ranger) SyncState() error {
 				newPermissionsByUser[userName].AllowPolicies[action] = append(newPermissionsByUser[userName].AllowPolicies[action], policy)
 			}
 		}
+
+		// assign denied actions to users
 		for userName, actions := range controlledActions.deniedActionsByUser {
 			if _, ok := newPermissionsByUser[userName]; !ok {
 				newPermissionsByUser[userName] = &userPermissions{
@@ -174,6 +184,10 @@ func (r *Ranger) SyncState() error {
 	r.permissionsByUser = newPermissionsByUser
 	log.Println("Syncing users and groups from Apache Ranger for service:", r.ServiceName)
 	return nil
+}
+
+func (r *Ranger) GetName() string {
+	return r.Name
 }
 
 func (r *Ranger) UnmarshalYAML(value *yaml.Node) error {

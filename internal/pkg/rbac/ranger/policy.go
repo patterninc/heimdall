@@ -68,7 +68,7 @@ type Policy struct {
 	DenyPolicyItems     []*PolicyItem `json:"denyPolicyItems"`
 	AllowExceptions     []*PolicyItem `json:"allowExceptions"`
 	DenyExceptions      []*PolicyItem `json:"denyExceptions"`
-	ServiceType         string       `json:"serviceType"`
+	ServiceType         string        `json:"serviceType"`
 }
 
 type Resource struct {
@@ -104,8 +104,8 @@ type Access struct {
 
 type PolicyItem struct {
 	Accesses []*Access `json:"accesses"`
-	Users    []string `json:"users,omitempty"`
-	Groups   []string `json:"groups,omitempty"`
+	Users    []string  `json:"users,omitempty"`
+	Groups   []string  `json:"groups,omitempty"`
 	Actions  []parser.Action
 }
 
@@ -138,8 +138,9 @@ func preprocessValues(rawValues []string) ([]*value, error) {
 	for i, v := range rawValues {
 		isRegexp := strings.HasSuffix(v, "*")
 		v = strings.TrimRight(v, "*")
+
 		if strings.Count(v, "*") > 0 {
-			return nil, fmt.Errorf("Invalid value value %s* is allowed only at the end of the string. ")
+			return nil, fmt.Errorf("Invalid value value %s* is allowed only at the end of the string. ", v)
 		}
 		result[i] = &value{
 			isRegexp: isRegexp,
@@ -191,6 +192,7 @@ func (p *Policy) getAllPolicyByUser(
 	policiesItem := policyItemsToActionsByUser(items, usersByGroup)
 	exceptionsItem := policyItemsToActionsByUser(exceptions, usersByGroup)
 
+	// remove exception actions from policies actions
 	for user, actions := range exceptionsItem {
 		if _, ok := policiesItem[user]; !ok {
 			continue
@@ -203,7 +205,9 @@ func (p *Policy) getAllPolicyByUser(
 		}
 	}
 
+	
 	result := map[string][]parser.Action{}
+	// convert map[user]map[parser.Action]struct{} to map[user][]parser.Action
 	for user, actionsMap := range policiesItem {
 		actions := make([]parser.Action, 0, len(actionsMap))
 		for action := range actionsMap {
