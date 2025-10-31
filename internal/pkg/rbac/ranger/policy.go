@@ -1,8 +1,8 @@
 package ranger
 
 import (
+	"fmt"
 	"log"
-	"regexp"
 	"strings"
 
 	"github.com/patterninc/heimdall/internal/pkg/sql/parser"
@@ -64,10 +64,10 @@ type Policy struct {
 	Resources           *Resource   `json:"resources"`
 	AdditionalResources []*Resource `json:"additionalResources"`
 	AllResources        []*Resource
-	PolicyItems         []PolicyItem `json:"policyItems"`
-	DenyPolicyItems     []PolicyItem `json:"denyPolicyItems"`
-	AllowExceptions     []PolicyItem `json:"allowExceptions"`
-	DenyExceptions      []PolicyItem `json:"denyExceptions"`
+	PolicyItems         []*PolicyItem `json:"policyItems"`
+	DenyPolicyItems     []*PolicyItem `json:"denyPolicyItems"`
+	AllowExceptions     []*PolicyItem `json:"allowExceptions"`
+	DenyExceptions      []*PolicyItem `json:"denyExceptions"`
 	ServiceType         string       `json:"serviceType"`
 }
 
@@ -79,9 +79,23 @@ type Resource struct {
 }
 
 type ResourceField struct {
-	Values     []string `json:"values"`
+	RawValues  []string `json:"values"`
 	IsExcludes bool     `json:"isExcludes"`
-	regexp     *regexp.Regexp
+	values     []*value
+}
+
+type value struct {
+	value    string
+	isRegexp bool
+}
+
+func (rf *ResourceField) IsPrefixFor(s string) bool {
+	for _, v := range rf.values {
+		if v.isRegexp && strings.HasPrefix(s, v.value) || s == v.value {
+			return true
+		}
+	}
+	return false
 }
 
 type Access struct {
@@ -89,7 +103,7 @@ type Access struct {
 }
 
 type PolicyItem struct {
-	Accesses []Access `json:"accesses"`
+	Accesses []*Access `json:"accesses"`
 	Users    []string `json:"users,omitempty"`
 	Groups   []string `json:"groups,omitempty"`
 	Actions  []parser.Action
@@ -100,20 +114,39 @@ type ControlledActions struct {
 	deniedActionsByUser  map[string][]parser.Action
 }
 
-func (p *Policy) init() error {
+func (p *Policy) init() (err error) {
 	p.AllResources = append([]*Resource{p.Resources}, p.AdditionalResources...)
 	for _, v := range p.AllResources {
-		if len(v.Catalog.Values) != 0 {
-			v.Catalog.regexp = regexp.MustCompile("^(" + patternsToRegex(v.Catalog.Values) + ")$")
+		v.Catalog.values, err = preprocessValues(v.Catalog.RawValues)
+		if err != nil {
+			return err
 		}
-		if len(v.Schema.Values) != 0 {
-			v.Schema.regexp = regexp.MustCompile("^(" + patternsToRegex(v.Schema.Values) + ")$")
+		v.Schema.values, err = preprocessValues(v.Schema.RawValues)
+		if err != nil {
+			return err
 		}
-		if len(v.Table.Values) != 0 {
-			v.Table.regexp = regexp.MustCompile("^(" + patternsToRegex(v.Table.Values) + ")$")
+		v.Table.values, err = preprocessValues(v.Table.RawValues)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func preprocessValues(rawValues []string) ([]*value, error) {
+	result := make([]*value, len(rawValues))
+	for i, v := range rawValues {
+		isRegexp := strings.HasSuffix(v, "*")
+		v = strings.TrimRight(v, "*")
+		if strings.Count(v, "*") > 0 {
+			return nil, fmt.Errorf("Invalid value value %s* is allowed only at the end of the string. ")
+		}
+		result[i] = &value{
+			isRegexp: isRegexp,
+			value:    v,
+		}
+	}
+	return result, nil
 }
 
 func (p *Policy) doesControlAnAccess(access parser.Access) bool {
@@ -126,18 +159,15 @@ func (p *Policy) doesControlAnAccess(access parser.Access) bool {
 
 func (p *Policy) doesControlTableAccess(a *parser.TableAccess) bool {
 	for _, v := range p.AllResources {
-		match := v.Catalog.regexp.MatchString(a.Catalog)
-		if match == v.Catalog.IsExcludes {
+
+		if v.Catalog.IsPrefixFor(a.Catalog) == v.Catalog.IsExcludes {
 			continue
 		}
 
-		match = v.Schema.regexp.MatchString(a.Schema)
-		if match == v.Schema.IsExcludes {
+		if v.Schema.IsPrefixFor(a.Schema) == v.Schema.IsExcludes {
 			continue
 		}
-
-		match = v.Table.regexp.MatchString(a.Table)
-		if match == v.Table.IsExcludes {
+		if v.Table.IsPrefixFor(a.Table) == v.Table.IsExcludes {
 			continue
 		}
 
@@ -154,8 +184,8 @@ func (p *Policy) getControlledActions(usersByGroup map[string][]string) Controll
 }
 
 func (p *Policy) getAllPolicyByUser(
-	items []PolicyItem,
-	exceptions []PolicyItem,
+	items []*PolicyItem,
+	exceptions []*PolicyItem,
 	usersByGroup map[string][]string,
 ) map[string][]parser.Action {
 	policiesItem := policyItemsToActionsByUser(items, usersByGroup)
@@ -184,21 +214,6 @@ func (p *Policy) getAllPolicyByUser(
 	return result
 }
 
-func globToRegex(pattern string) string {
-	escaped := regexp.QuoteMeta(pattern)
-	escaped = strings.ReplaceAll(escaped, "\\*", ".*")
-	escaped = strings.ReplaceAll(escaped, "\\?", ".")
-	return escaped
-}
-
-func patternsToRegex(patterns []string) string {
-	var regexes []string
-	for _, pat := range patterns {
-		regexes = append(regexes, globToRegex(pat))
-	}
-	return strings.Join(regexes, "|")
-}
-
 func (p *PolicyItem) getPermissions() []parser.Action {
 	if p.Actions != nil {
 		return p.Actions
@@ -221,7 +236,7 @@ func (p *PolicyItem) getPermissions() []parser.Action {
 
 }
 
-func policyItemsToActionsByUser(items []PolicyItem, usersByGroup map[string][]string) map[string]map[parser.Action]struct{} {
+func policyItemsToActionsByUser(items []*PolicyItem, usersByGroup map[string][]string) map[string]map[parser.Action]struct{} {
 	permissions := make(map[string]map[parser.Action]struct{})
 
 	for _, item := range items {

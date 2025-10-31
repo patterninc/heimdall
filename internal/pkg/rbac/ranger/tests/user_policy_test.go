@@ -174,33 +174,33 @@ func getAllowAllPolicyWithDenyForUser(denyAccess []string) []*ranger.Policy {
 			PolicyPriority: 1,
 			Resources: &ranger.Resource{
 				Catalog: &ranger.ResourceField{
-					Values:     []string{"default_catalog"},
+					RawValues:  []string{"default_catalog"},
 					IsExcludes: false,
 				},
 				Schema: &ranger.ResourceField{
-					Values:     []string{"public"},
+					RawValues:  []string{"public"},
 					IsExcludes: false,
 				},
 				Table: &ranger.ResourceField{
-					Values:     []string{"table1"},
+					RawValues:  []string{"table1"},
 					IsExcludes: false,
 				},
 			},
-			PolicyItems: []ranger.PolicyItem{
+			PolicyItems: []*ranger.PolicyItem{
 				{
 					Users: []string{testUserName},
-					Accesses: []ranger.Access{
+					Accesses: []*ranger.Access{
 						{Type: "all"},
 					},
 				},
 			},
-			DenyPolicyItems: []ranger.PolicyItem{
+			DenyPolicyItems: []*ranger.PolicyItem{
 				{
 					Users: []string{testUserName},
-					Accesses: func() []ranger.Access {
-						var accesses []ranger.Access
+					Accesses: func() []*ranger.Access {
+						var accesses []*ranger.Access
 						for _, a := range denyAccess {
-							accesses = append(accesses, ranger.Access{Type: a})
+							accesses = append(accesses, &ranger.Access{Type: a})
 						}
 						return accesses
 					}(),
@@ -221,45 +221,45 @@ func getAllowAllPolicyWithDenyAndExceptionForUser(denyAccess, exceptionAccess []
 			PolicyPriority: 1,
 			Resources: &ranger.Resource{
 				Catalog: &ranger.ResourceField{
-					Values:     []string{"default_catalog"},
+					RawValues:  []string{"default_catalog"},
 					IsExcludes: false,
 				},
 				Schema: &ranger.ResourceField{
-					Values:     []string{"public"},
+					RawValues:  []string{"public"},
 					IsExcludes: false,
 				},
 				Table: &ranger.ResourceField{
-					Values:     []string{"table1"},
+					RawValues:  []string{"table1"},
 					IsExcludes: false,
 				},
 			},
-			PolicyItems: []ranger.PolicyItem{
+			PolicyItems: []*ranger.PolicyItem{
 				{
 					Users: []string{testUserName},
-					Accesses: []ranger.Access{
+					Accesses: []*ranger.Access{
 						{Type: "all"},
 					},
 				},
 			},
-			DenyPolicyItems: []ranger.PolicyItem{
+			DenyPolicyItems: []*ranger.PolicyItem{
 				{
 					Users: []string{testUserName},
-					Accesses: func() []ranger.Access {
-						var accesses []ranger.Access
+					Accesses: func() []*ranger.Access {
+						var accesses []*ranger.Access
 						for _, a := range denyAccess {
-							accesses = append(accesses, ranger.Access{Type: a})
+							accesses = append(accesses, &ranger.Access{Type: a})
 						}
 						return accesses
 					}(),
 				},
 			},
-			DenyExceptions: []ranger.PolicyItem{
+			DenyExceptions: []*ranger.PolicyItem{
 				{
 					Users: []string{testUserName},
-					Accesses: func() []ranger.Access {
-						var accesses []ranger.Access
+					Accesses: func() []*ranger.Access {
+						var accesses []*ranger.Access
 						for _, a := range exceptionAccess {
-							accesses = append(accesses, ranger.Access{Type: a})
+							accesses = append(accesses, &ranger.Access{Type: a})
 						}
 						return accesses
 					}(),
@@ -279,25 +279,25 @@ func getDefaultUserAllowPolicy(accessType []string) *ranger.Policy {
 		PolicyPriority: 1,
 		Resources: &ranger.Resource{
 			Catalog: &ranger.ResourceField{
-				Values:     []string{"default_catalog"},
+				RawValues:  []string{"default_catalog"},
 				IsExcludes: false,
 			},
 			Schema: &ranger.ResourceField{
-				Values:     []string{"public"},
+				RawValues:  []string{"public"},
 				IsExcludes: false,
 			},
 			Table: &ranger.ResourceField{
-				Values:     []string{"table1"},
+				RawValues:  []string{"table1"},
 				IsExcludes: false,
 			},
 		},
-		PolicyItems: []ranger.PolicyItem{
+		PolicyItems: []*ranger.PolicyItem{
 			{
 				Users: []string{testUserName},
-				Accesses: func() []ranger.Access {
-					var accesses []ranger.Access
+				Accesses: func() []*ranger.Access {
+					var accesses []*ranger.Access
 					for _, at := range accessType {
-						accesses = append(accesses, ranger.Access{Type: at})
+						accesses = append(accesses, &ranger.Access{Type: at})
 					}
 					return accesses
 				}(),
@@ -316,33 +316,33 @@ func getDefaultAllActionsUserPolicyWithExcludeForDefaultUser(excludeAccess []str
 		PolicyPriority: 1,
 		Resources: &ranger.Resource{
 			Catalog: &ranger.ResourceField{
-				Values:     []string{"default_catalog"},
+				RawValues:  []string{"default_catalog"},
 				IsExcludes: false,
 			},
 			Schema: &ranger.ResourceField{
-				Values:     []string{"public"},
+				RawValues:  []string{"public"},
 				IsExcludes: false,
 			},
 			Table: &ranger.ResourceField{
-				Values:     []string{"table1"},
+				RawValues:  []string{"table1"},
 				IsExcludes: false,
 			},
 		},
-		PolicyItems: []ranger.PolicyItem{
+		PolicyItems: []*ranger.PolicyItem{
 			{
 				Users: []string{testUserName},
-				Accesses: []ranger.Access{
+				Accesses: []*ranger.Access{
 					{Type: "all"},
 				},
 			},
 		},
-		AllowExceptions: []ranger.PolicyItem{
+		AllowExceptions: []*ranger.PolicyItem{
 			{
 				Users: []string{testUserName},
-				Accesses: func() []ranger.Access {
-					var accesses []ranger.Access
+				Accesses: func() []*ranger.Access {
+					var accesses []*ranger.Access
 					for _, ex := range excludeAccess {
-						accesses = append(accesses, ranger.Access{Type: ex})
+						accesses = append(accesses, &ranger.Access{Type: ex})
 					}
 					return accesses
 				}(),
