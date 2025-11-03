@@ -140,7 +140,7 @@ func preprocessValues(rawValues []string) ([]*value, error) {
 		v = strings.TrimRight(v, "*")
 
 		if strings.Count(v, "*") > 0 {
-			return nil, fmt.Errorf("Invalid value value %s* is allowed only at the end of the string. ", v)
+			return nil, fmt.Errorf("invalid value %q: '*' wildcard is only allowed at the end", v)
 		}
 		result[i] = &value{
 			isRegexp: isRegexp,
@@ -177,8 +177,8 @@ func (p *Policy) doesControlTableAccess(a *parser.TableAccess) bool {
 	return false
 }
 
-func (p *Policy) getControlledActions(usersByGroup map[string][]string) ControlledActions {
-	return ControlledActions{
+func (p *Policy) getControlledActions(usersByGroup map[string][]string) *ControlledActions {
+	return &ControlledActions{
 		allowedActionsByUser: p.getAllPolicyByUser(p.PolicyItems, p.AllowExceptions, usersByGroup),
 		deniedActionsByUser:  p.getAllPolicyByUser(p.DenyPolicyItems, p.DenyExceptions, usersByGroup),
 	}
@@ -205,7 +205,6 @@ func (p *Policy) getAllPolicyByUser(
 		}
 	}
 
-	
 	result := map[string][]parser.Action{}
 	// convert map[user]map[parser.Action]struct{} to map[user][]parser.Action
 	for user, actionsMap := range policiesItem {
@@ -227,14 +226,15 @@ func (p *PolicyItem) getPermissions() []parser.Action {
 		accessType := strings.ToLower(access.Type)
 
 		if accessType == allActionAccessType {
+			p.Actions = allActions
 			return allActions
 		}
 		if action, ok := actionByName[accessType]; ok {
 			p.Actions = append(p.Actions, action)
 			continue
-		} else {
-			log.Println("Unknown action type in ranger policy:", accessType)
 		}
+		log.Println("Unknown action type in ranger policy:", accessType)
+
 	}
 	return p.Actions
 
