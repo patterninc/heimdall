@@ -117,16 +117,15 @@ type ControlledActions struct {
 func (p *Policy) init() (err error) {
 	p.AllResources = append([]*Resource{p.Resources}, p.AdditionalResources...)
 	for _, v := range p.AllResources {
-		v.Catalog.values, err = preprocessValues(v.Catalog.RawValues)
-		if err != nil {
+
+		if v.Catalog.values, err = preprocessValues(v.Catalog.RawValues); err != nil {
 			return err
 		}
-		v.Schema.values, err = preprocessValues(v.Schema.RawValues)
-		if err != nil {
+
+		if v.Schema.values, err = preprocessValues(v.Schema.RawValues); err != nil {
 			return err
 		}
-		v.Table.values, err = preprocessValues(v.Table.RawValues)
-		if err != nil {
+		if v.Table.values, err = preprocessValues(v.Table.RawValues); err != nil {
 			return err
 		}
 	}
@@ -161,14 +160,9 @@ func (p *Policy) doesControlAnAccess(access parser.Access) bool {
 func (p *Policy) doesControlTableAccess(a *parser.TableAccess) bool {
 	for _, v := range p.AllResources {
 
-		if v.Catalog.IsPrefixFor(a.Catalog) == v.Catalog.IsExcludes {
-			continue
-		}
-
-		if v.Schema.IsPrefixFor(a.Schema) == v.Schema.IsExcludes {
-			continue
-		}
-		if v.Table.IsPrefixFor(a.Table) == v.Table.IsExcludes {
+		if v.Catalog.IsPrefixFor(a.Catalog) == v.Catalog.IsExcludes ||
+			v.Schema.IsPrefixFor(a.Schema) == v.Schema.IsExcludes ||
+			v.Table.IsPrefixFor(a.Table) == v.Table.IsExcludes {
 			continue
 		}
 
