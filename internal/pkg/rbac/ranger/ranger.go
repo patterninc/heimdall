@@ -88,16 +88,16 @@ func (r *Ranger) HasAccess(user string, query string) (bool, error) {
 	permissions := r.permissionsByUser[user]
 
 	for _, access := range accessList {
-		for _, permition := range permissions.DenyPolicies[access.Action()] {
-			if permition.doesControlAnAccess(access) {
-				log.Println("Access denied by ranger policy", "user", user, "policy", permition.Name, "action", access.Action(), "resource", access.QualifiedName())
+		for _, permission := range permissions.DenyPolicies[access.Action()] {
+			if permission.doesControlAnAccess(access) {
+				log.Println("Access denied by ranger policy", "user", user, "policy", permission.Name, "action", access.Action(), "resource", access.QualifiedName())
 				return false, nil
 			}
 		}
 		foundAllowPolicy := false
-		for _, permition := range permissions.AllowPolicies[access.Action()] {
-			if permition.doesControlAnAccess(access) {
-				log.Println("Access allowed by ranger policy", "user", user, "policy", permition.Name, "action", access.Action(), "resource", access.QualifiedName())
+		for _, permission := range permissions.AllowPolicies[access.Action()] {
+			if permission.doesControlAnAccess(access) {
+				log.Println("Access allowed by ranger policy", "user", user, "policy", permission.Name, "action", access.Action(), "resource", access.QualifiedName())
 				foundAllowPolicy = true
 				break
 			}
