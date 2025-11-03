@@ -153,9 +153,10 @@ func (r *Ranger) SyncState() error {
 
 		// collect controlled actions by user
 		controlledActions := policy.getControlledActions(usersByGroup)
-		
+
 		// assign allowed actions to users
 		for userName, actions := range controlledActions.allowedActionsByUser {
+			// initialize user permissions if not exists
 			if _, ok := newPermissionsByUser[userName]; !ok {
 				newPermissionsByUser[userName] = &userPermissions{
 					AllowPolicies: map[parser.Action][]*Policy{},
@@ -169,6 +170,7 @@ func (r *Ranger) SyncState() error {
 
 		// assign denied actions to users
 		for userName, actions := range controlledActions.deniedActionsByUser {
+			// initialize user permissions if not exists
 			if _, ok := newPermissionsByUser[userName]; !ok {
 				newPermissionsByUser[userName] = &userPermissions{
 					AllowPolicies: map[parser.Action][]*Policy{},
