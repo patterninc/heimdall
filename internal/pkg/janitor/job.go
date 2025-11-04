@@ -2,6 +2,7 @@ package janitor
 
 import (
 	_ "embed"
+	"fmt"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
 )
@@ -14,6 +15,27 @@ var queryFailStaleJobs string
 
 //go:embed queries/stale_jobs_delete.sql
 var queryStaleJobsDelete string
+
+//go:embed queries/old_jobs_cluster_tags_delete.sql
+var queryOldJobsClusterTagsDelete string
+
+//go:embed queries/old_jobs_command_tags_delete.sql
+var queryOldJobsCommandTagsDelete string
+
+//go:embed queries/old_jobs_tags_delete.sql
+var queryOldJobsTagsDelete string
+
+//go:embed queries/old_jobs_delete.sql
+var queryOldJobsDelete string
+
+var (
+	queriesForOldJobsCleanup = []string{
+		queryOldJobsClusterTagsDelete,
+		queryOldJobsCommandTagsDelete,
+		queryOldJobsTagsDelete,
+		queryOldJobsDelete,
+	}
+)
 
 func (j *Janitor) cleanupStaleJobs() error {
 
@@ -73,4 +95,39 @@ func (j *Janitor) cleanupStaleJobs() error {
 
 	return nil
 
+}
+
+func (j *Janitor) cleanupFinishedJobs() error {
+	if j.FinishedJobRetentionDays == 0 {
+		return nil
+	}
+	// Start transactional session
+	sess, err := j.db.NewSession(true)
+	if err != nil {
+		return err
+	}
+	defer sess.Close()
+
+	defer func() {
+		_ = sess.Rollback()
+	}()
+
+	exec := func(query string, args ...any) error {
+		if _, err := sess.Exec(query, args...); err != nil {
+			return fmt.Errorf("failed to exec query %q: %w", query, err)
+		}
+		return nil
+	}
+
+	for _, q := range queriesForOldJobsCleanup {
+		if err := exec(q, j.FinishedJobRetentionDays); err != nil {
+			return err
+		}
+	}
+
+	if err := sess.Commit(); err != nil {
+		return fmt.Errorf("failed to commit cleanup transaction: %w", err)
+	}
+	
+	return nil
 }
