@@ -3,8 +3,12 @@ package janitor
 import (
 	"context"
 	_ "embed"
+<<<<<<< HEAD
 	"sync"
 	"time"
+=======
+	"fmt"
+>>>>>>> 4dc6ffe (Add functionality for old jobs removal)
 
 	"github.com/go-faster/errors"
 	"github.com/hladush/go-telemetry/pkg/telemetry"
@@ -33,9 +37,34 @@ var queryJobsSetFailed string
 
 func (j *Janitor) worker() bool {
 
+<<<<<<< HEAD
 	// track worker cycle
 	workerMethod.CountRequest()
 	defer workerMethod.RecordLatency(time.Now())
+=======
+//go:embed queries/old_jobs_cluster_tags_delete.sql
+var queryOldJobsClusterTagsDelete string
+
+//go:embed queries/old_jobs_command_tags_delete.sql
+var queryOldJobsCommandTagsDelete string
+
+//go:embed queries/old_jobs_tags_delete.sql
+var queryOldJobsTagsDelete string
+
+//go:embed queries/old_jobs_delete.sql
+var queryOldJobsDelete string
+
+var (
+	queriesForOldJobsCleanup = []string{
+		queryOldJobsClusterTagsDelete,
+		queryOldJobsCommandTagsDelete,
+		queryOldJobsTagsDelete,
+		queryOldJobsDelete,
+	}
+)
+
+func (j *Janitor) cleanupStaleJobs() error {
+>>>>>>> 4dc6ffe (Add functionality for old jobs removal)
 
 	// create database session with transaction
 	sess, err := j.db.NewSession(true)
@@ -189,4 +218,39 @@ func (j *Janitor) updateJobs(sess *database.Session, jobs []*job.Job) error {
 
 	return nil
 
+}
+
+func (j *Janitor) cleanupFinishedJobs() error {
+	if j.FinishedJobRetentionDays == 0 {
+		return nil
+	}
+	// Start transactional session
+	sess, err := j.db.NewSession(true)
+	if err != nil {
+		return err
+	}
+	defer sess.Close()
+
+	defer func() {
+		_ = sess.Rollback()
+	}()
+
+	exec := func(query string, args ...any) error {
+		if _, err := sess.Exec(query, args...); err != nil {
+			return fmt.Errorf("failed to exec query %q: %w", query, err)
+		}
+		return nil
+	}
+
+	for _, q := range queriesForOldJobsCleanup {
+		if err := exec(q, j.FinishedJobRetentionDays); err != nil {
+			return err
+		}
+	}
+
+	if err := sess.Commit(); err != nil {
+		return fmt.Errorf("failed to commit cleanup transaction: %w", err)
+	}
+	
+	return nil
 }
