@@ -14,7 +14,7 @@ const (
 )
 
 var (
-	startMethod = telemetry.NewMethod("Start", "janitor")
+	startMethod = telemetry.NewMethod("Start", "Janitor")
 )
 
 type Janitor struct {

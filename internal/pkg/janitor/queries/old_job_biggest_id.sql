@@ -1,0 +1,1 @@
+SELECT MAX(system_job_id) FROM jobs WHERE updated_at < extract(epoch FROM now() - ($1 || ' days')::interval)::int;
