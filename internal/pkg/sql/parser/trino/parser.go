@@ -1,9 +1,8 @@
 package trino
 
 import (
-	"log"
-
 	"github.com/antlr4-go/antlr/v4"
+	
 	"github.com/patterninc/heimdall/internal/pkg/sql/parser"
 	"github.com/patterninc/heimdall/internal/pkg/sql/parser/trino/grammar"
 )
@@ -17,7 +16,6 @@ func NewTrinoAccessReceiver(defaultCatalog string) *TrinoAccessReceiver {
 }
 
 func (t *TrinoAccessReceiver) ParseAccess(sql string) ([]parser.Access, error) {
-	log.Printf("Parsing SQL query: %s", sql)
 	is := antlr.NewInputStream(sql)
 	lexer := grammar.NewTrinoLexer(is)
 	tokens := antlr.NewCommonTokenStream(lexer, 0)
