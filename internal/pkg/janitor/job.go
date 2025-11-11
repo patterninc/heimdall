@@ -1,6 +1,7 @@
 package janitor
 
 import (
+	"database/sql"
 	_ "embed"
 	"fmt"
 
@@ -27,6 +28,9 @@ var queryOldJobsTagsDelete string
 
 //go:embed queries/old_jobs_delete.sql
 var queryOldJobsDelete string
+
+//go:embed queries/old_job_biggest_id.sql
+var queryOldJobsBiggestID string
 
 var (
 	queriesForOldJobsCleanup = []string{
@@ -101,33 +105,37 @@ func (j *Janitor) cleanupFinishedJobs() error {
 	if j.FinishedJobRetentionDays == 0 {
 		return nil
 	}
-	// Start transactional session
-	sess, err := j.db.NewSession(true)
+	// open session
+	sess, err := j.db.NewSession(false)
 	if err != nil {
 		return err
 	}
 	defer sess.Close()
 
-	defer func() {
-		_ = sess.Rollback()
-	}()
+	// get biggest ID of old jobs
+	row, err := sess.QueryRow(queryOldJobsBiggestID, j.FinishedJobRetentionDays)
+	if err != nil {
+		return fmt.Errorf("failed to get biggest ID of old jobs: %w", err)
+	}
 
-	exec := func(query string, args ...any) error {
-		if _, err := sess.Exec(query, args...); err != nil {
-			return fmt.Errorf("failed to exec query %q: %w", query, err)
+	var biggestID sql.NullInt64
+	if err := row.Scan(&biggestID); err != nil {
+		if err == sql.ErrNoRows {
+			return nil
 		}
+		return fmt.Errorf("failed to get biggest ID of old jobs: %w", err)
+	}
+	
+	if !biggestID.Valid || biggestID.Int64 == 0 {
 		return nil
 	}
 
+	// remove old jobs data
 	for _, q := range queriesForOldJobsCleanup {
-		if err := exec(q, j.FinishedJobRetentionDays); err != nil {
+		if _, err := sess.Exec(q, biggestID.Int64); err != nil {
 			return err
 		}
 	}
 
-	if err := sess.Commit(); err != nil {
-		return fmt.Errorf("failed to commit cleanup transaction: %w", err)
-	}
-	
 	return nil
 }

@@ -1,4 +1,7 @@
 DELETE FROM job_tags
 WHERE system_job_id IN (
-  SELECT system_job_id FROM jobs WHERE updated_at < extract(epoch FROM now() - ($1 || ' days')::interval)::int
+  SELECT system_job_id
+  FROM job_tags
+  WHERE system_job_id <= $1
+  LIMIT 1000
 );
