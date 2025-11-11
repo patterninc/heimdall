@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	maxLogChunkSize   = 200                // Process 100 log entries at a time
+	maxLogChunkSize   = 200                // Process 200 log entries at a time
 	maxLogMemoryBytes = 1024 * 1024 * 1024 // 1GB safety limit
 )
 
