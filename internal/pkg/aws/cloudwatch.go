@@ -1,21 +1,25 @@
-package ecs
+package aws
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 )
 
-const (
-	maxLogChunkSize   = 200                // Process 200 log entries at a time
-	maxLogMemoryBytes = 1024 * 1024 * 1024 // 1GB safety limit
-)
+func PullLogs(writer *os.File, logGroup, logStream string, chunkSize int, memoryLimit int64) error {
 
-func pullCloudWatchLogs(client *cloudwatchlogs.Client, writer *os.File, logGroup, logStream string) error {
+	// initialize AWS session
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	// create a new cloudwatch logs client
+	client := cloudwatchlogs.NewFromConfig(cfg)
 
 	// Write log stream header to differentiate streams
 	header := fmt.Sprintf("=== %s ===\n\n", logStream)
@@ -27,14 +31,14 @@ func pullCloudWatchLogs(client *cloudwatchlogs.Client, writer *os.File, logGroup
 		LogGroupName:  aws.String(logGroup),
 		LogStreamName: aws.String(logStream),
 		StartFromHead: aws.Bool(true),
-		Limit:         aws.Int32(maxLogChunkSize),
+		Limit:         aws.Int32(int32(chunkSize)),
 	}
 
 	var previousToken *string
 
 	// Loop through log events
 	for {
-		output, err := client.GetLogEvents(context.Background(), input)
+		output, err := client.GetLogEvents(ctx, input)
 		if err != nil {
 			return err
 		}
@@ -52,9 +56,14 @@ func pullCloudWatchLogs(client *cloudwatchlogs.Client, writer *os.File, logGroup
 			totalMemoryUsed += int64(len(formattedLog))
 		}
 
-		// Stop if: memory limit reached or same token returned (end of stream)
-		if totalMemoryUsed >= maxLogMemoryBytes ||
-			(previousToken != nil && *previousToken == *output.NextForwardToken) {
+		// Stop if the memory limit is reached
+		if totalMemoryUsed >= memoryLimit {
+			writer.WriteString("Memory limit reached. Truncating logs.\n")
+			break
+		}
+
+		// If the next token is the same as the previous token, we have reached the end of the logs
+		if previousToken != nil && *previousToken == *output.NextForwardToken {
 			break
 		}
 

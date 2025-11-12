@@ -13,6 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/hladush/go-telemetry/pkg/telemetry"
+	heimdallAws "github.com/patterninc/heimdall/internal/pkg/aws"
 	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/duration"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
@@ -109,11 +111,14 @@ const (
 	errPollingTimeout                    = "polling timed out for arns %v after %v"
 	Timeout                FailureReason = "timeout"
 	Error                  FailureReason = "error"
+	maxLogChunkSize                      = 200                // Process 200 log entries at a time
+	maxLogMemoryBytes                    = 1024 * 1024 * 1024 // 1GB safety limit
 )
 
 var (
 	ctx                = ct.Background()
 	errMissingTemplate = fmt.Errorf("task definition template is required")
+	methodMetrics      = telemetry.NewMethod("ecs", "ecs plugin")
 )
 
 func New(commandContext *context.Context) (plugin.Handler, error) {
@@ -166,6 +171,7 @@ func (e *ecsCommandContext) handler(r *plugin.Runtime, job *job.Job, cluster *cl
 
 	// Return error based on failure reason
 	if execCtx.failureError != nil {
+		methodMetrics.LogAndCountError(execCtx.failureError, "ecs task failure")
 		return execCtx.failureError
 	}
 
@@ -393,7 +399,6 @@ func buildExecutionContext(commandCtx *ecsCommandContext, j *job.Job, c *cluster
 		return nil, err
 	}
 	execCtx.ecsClient = ecs.NewFromConfig(cfg)
-	execCtx.logsClient = cloudwatchlogs.NewFromConfig(cfg)
 
 	return execCtx, nil
 
@@ -650,7 +655,7 @@ func (execCtx *executionContext) retrieveLogs() error {
 		case types.LogDriverAwslogs:
 			logGroup := logInfo.options["awslogs-group"]
 			logStream := fmt.Sprintf("%s/%s/%s", logInfo.options["awslogs-stream-prefix"], logInfo.containerName, taskID)
-			if err := pullCloudWatchLogs(execCtx.logsClient, writer, logGroup, logStream); err != nil {
+			if err := heimdallAws.PullLogs(writer, logGroup, logStream, maxLogChunkSize, maxLogMemoryBytes); err != nil {
 				return err
 			}
 		default:
