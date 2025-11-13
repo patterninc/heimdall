@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"time"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
 )
@@ -112,8 +113,10 @@ func (j *Janitor) cleanupFinishedJobs() error {
 	}
 	defer sess.Close()
 
+	retentionTimestamp := time.Now().AddDate(0, 0, -j.FinishedJobRetentionDays).Unix()
+	
 	// get biggest ID of old jobs
-	row, err := sess.QueryRow(queryOldJobsBiggestID, j.FinishedJobRetentionDays)
+	row, err := sess.QueryRow(queryOldJobsBiggestID, retentionTimestamp)
 	if err != nil {
 		return fmt.Errorf("failed to get biggest ID of old jobs: %w", err)
 	}
@@ -125,15 +128,21 @@ func (j *Janitor) cleanupFinishedJobs() error {
 		}
 		return fmt.Errorf("failed to get biggest ID of old jobs: %w", err)
 	}
-	
+
 	if !biggestID.Valid || biggestID.Int64 == 0 {
 		return nil
 	}
 
 	// remove old jobs data
 	for _, q := range queriesForOldJobsCleanup {
-		if _, err := sess.Exec(q, biggestID.Int64); err != nil {
-			return err
+		for {
+			affectedRows, err := sess.Exec(q, biggestID.Int64)
+			if err != nil {
+				return err
+			}
+			if affectedRows == 0 {
+				break
+			}
 		}
 	}
 
