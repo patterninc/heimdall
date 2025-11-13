@@ -1,9 +1,12 @@
 package janitor
 
 import (
+	"context"
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/go-faster/errors"
 	"github.com/hladush/go-telemetry/pkg/telemetry"
@@ -30,8 +33,6 @@ var queryJobsSetCanceled string
 //go:embed queries/jobs_set_failed.sql
 var queryJobsSetFailed string
 
-func (j *Janitor) worker() bool {
-
 //go:embed queries/old_jobs_cluster_tags_delete.sql
 var queryOldJobsClusterTagsDelete string
 
@@ -56,7 +57,10 @@ var (
 	}
 )
 
-func (j *Janitor) cleanupStaleJobs() error {
+func (j *Janitor) worker() bool {
+	// track worker cycle
+	workerMethod.CountRequest()
+	defer workerMethod.RecordLatency(time.Now())
 
 	// create database session with transaction
 	sess, err := j.db.NewSession(true)
@@ -213,7 +217,7 @@ func (j *Janitor) updateJobs(sess *database.Session, jobs []*job.Job) error {
 }
 
 func (j *Janitor) cleanupFinishedJobs() error {
-	if j.FinishedJobRetentionDays == 0 {
+	if j.FinishedJobRetentionDays <= 0 {
 		return nil
 	}
 	// open session
@@ -223,8 +227,10 @@ func (j *Janitor) cleanupFinishedJobs() error {
 	}
 	defer sess.Close()
 
+	retentionTimestamp := time.Now().AddDate(0, 0, -j.FinishedJobRetentionDays).Unix()
+
 	// get biggest ID of old jobs
-	row, err := sess.QueryRow(queryOldJobsBiggestID, j.FinishedJobRetentionDays)
+	row, err := sess.QueryRow(queryOldJobsBiggestID, retentionTimestamp)
 	if err != nil {
 		return fmt.Errorf("failed to get biggest ID of old jobs: %w", err)
 	}
@@ -236,15 +242,21 @@ func (j *Janitor) cleanupFinishedJobs() error {
 		}
 		return fmt.Errorf("failed to get biggest ID of old jobs: %w", err)
 	}
-	
+
 	if !biggestID.Valid || biggestID.Int64 == 0 {
 		return nil
 	}
 
 	// remove old jobs data
 	for _, q := range queriesForOldJobsCleanup {
-		if _, err := sess.Exec(q, biggestID.Int64); err != nil {
-			return err
+		for {
+			affectedRows, err := sess.Exec(q, biggestID.Int64)
+			if err != nil {
+				return err
+			}
+			if affectedRows == 0 {
+				break
+			}
 		}
 	}
 
