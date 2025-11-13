@@ -10,15 +10,16 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/hladush/go-telemetry/pkg/telemetry"
+	heimdallAws "github.com/patterninc/heimdall/internal/pkg/aws"
 	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/duration"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
-	"github.com/patterninc/heimdall/pkg/result"
-	"github.com/patterninc/heimdall/pkg/result/column"
 )
 
 // ECS command context structure
@@ -55,6 +56,14 @@ type vpcConfig struct {
 type taskDefinitionWrapper struct {
 	TaskDefinition      *types.TaskDefinition
 	EssentialContainers map[string]bool
+	LogGroups           []containerLogInfo
+}
+
+// containerLogInfo holds log configuration for a container
+type containerLogInfo struct {
+	containerName string
+	logDriver     types.LogDriver
+	options       map[string]string
 }
 
 // Task position tracker structure
@@ -63,10 +72,12 @@ type taskTracker struct {
 	ActiveARN     string
 	TaskNum       int // Original task number (0, 1, 2, etc.)
 	Retries       int
-	ExecutionTime float64
 	FailedARNs    []string // History of ARNs for this position
 	Completed     bool
+	FailureReason string
 }
+
+type FailureReason string
 
 // executionContext holds the final resolved configuration for job execution.
 type executionContext struct {
@@ -81,24 +92,33 @@ type executionContext struct {
 	Timeout         duration.Duration `json:"timeout"`
 	MaxFailCount    int               `json:"max_fail_count"`
 
-	ecsClient  *ecs.Client
-	taskDefARN *string
-	tasks      map[string]*taskTracker
+	runtime       *plugin.Runtime
+	ecsClient     *ecs.Client
+	logsClient    *cloudwatchlogs.Client
+	taskDefARN    *string
+	tasks         map[string]*taskTracker
+	failureReason FailureReason
+	failureError  error
 }
 
 const (
-	defaultPollingInterval = duration.Duration(30 * time.Second)
-	defaultTaskTimeout     = duration.Duration(1 * time.Hour)
-	defaultMaxFailCount    = 1
-	defaultTaskCount       = 1
-	startedByPrefix        = "heimdall-job-"
-	errMaxFailCount        = "task %s failed %d times (max: %d), giving up"
-	errPollingTimeout      = "polling timed out for arns %v after %v"
+	defaultPollingInterval               = duration.Duration(30 * time.Second)
+	defaultTaskTimeout                   = duration.Duration(1 * time.Hour)
+	defaultMaxFailCount                  = 1
+	defaultTaskCount                     = 1
+	startedByPrefix                      = "heimdall-job-"
+	errMaxFailCount                      = "task %s failed %d times (max: %d), giving up"
+	errPollingTimeout                    = "polling timed out for arns %v after %v"
+	Timeout                FailureReason = "timeout"
+	Error                  FailureReason = "error"
+	maxLogChunkSize                      = 200                // Process 200 log entries at a time
+	maxLogMemoryBytes                    = 1024 * 1024 * 1024 // 1GB safety limit
 )
 
 var (
 	ctx                = ct.Background()
 	errMissingTemplate = fmt.Errorf("task definition template is required")
+	methodMetrics      = telemetry.NewMethod("ecs", "ecs plugin")
 )
 
 func New(commandContext *context.Context) (plugin.Handler, error) {
@@ -124,7 +144,7 @@ func New(commandContext *context.Context) (plugin.Handler, error) {
 func (e *ecsCommandContext) handler(r *plugin.Runtime, job *job.Job, cluster *cluster.Cluster) error {
 
 	// Build execution context with resolved configuration and loaded template
-	execCtx, err := buildExecutionContext(e, job, cluster)
+	execCtx, err := buildExecutionContext(e, job, cluster, r)
 	if err != nil {
 		return err
 	}
@@ -144,9 +164,15 @@ func (e *ecsCommandContext) handler(r *plugin.Runtime, job *job.Job, cluster *cl
 		return err
 	}
 
-	// Store results
-	if err := storeResults(execCtx, job); err != nil {
-		return err
+	// Try to retrieve logs, but don't fail the job if it fails
+	if err := execCtx.retrieveLogs(); err != nil {
+		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Failed to retrieve logs: %v\n", err))
+	}
+
+	// Return error based on failure reason
+	if execCtx.failureError != nil {
+		methodMetrics.LogAndCountError(execCtx.failureError, "ecs task failure")
+		return execCtx.failureError
 	}
 
 	return nil
@@ -227,14 +253,14 @@ func (execCtx *executionContext) pollForCompletion() error {
 			return err
 		}
 
-		// Check if all tasks are complete
-		allComplete := true
+		// Keep track of when we are done polling
+		done := true
 
 		for _, task := range describeOutput.Tasks {
 
 			// If the task is not stopped, it's not complete
 			if aws.ToString(task.LastStatus) != "STOPPED" {
-				allComplete = false
+				done = false
 				continue
 			}
 
@@ -246,17 +272,18 @@ func (execCtx *executionContext) pollForCompletion() error {
 
 			// Check for task failures based on exit code
 			if isTaskSuccessful(task, execCtx) {
-				// Update the tracker directly
-				tracker.ExecutionTime = time.Since(startTime).Seconds() // Total time from start
 				tracker.Completed = true
 				continue
 			}
 
+			// Tracker failed; increment retries and add to failed ARNs
 			tracker.Retries++
 			tracker.FailedARNs = append(tracker.FailedARNs, aws.ToString(task.TaskArn))
 
 			// Exit if we've failed too many times
 			if tracker.Retries >= execCtx.MaxFailCount {
+				execCtx.failureReason = Error
+				execCtx.failureError = fmt.Errorf(errMaxFailCount, tracker.ActiveARN, tracker.Retries, execCtx.MaxFailCount)
 
 				// Stop all other running tasks
 				reason := fmt.Sprintf(errMaxFailCount, tracker.ActiveARN, tracker.Retries, execCtx.MaxFailCount)
@@ -264,7 +291,9 @@ func (execCtx *executionContext) pollForCompletion() error {
 					return err
 				}
 
-				return fmt.Errorf("%s", reason)
+				// We are done; exit polling inner-loop
+				done = true
+				break
 			}
 
 			newTaskARN, err := runTask(execCtx, tracker.Name, tracker.TaskNum)
@@ -276,12 +305,12 @@ func (execCtx *executionContext) pollForCompletion() error {
 			tracker.ActiveARN = newTaskARN
 
 			// Task failed but will be restarted, so mark as not complete
-			allComplete = false
+			done = false
 			continue
 		}
 
-		// If all tasks are complete, break out of the loop
-		if allComplete {
+		// If we are done polling, break out of the loop
+		if done {
 			break
 		}
 
@@ -295,29 +324,34 @@ func (execCtx *executionContext) pollForCompletion() error {
 				}
 			}
 
+			// Set failure reason and error for timeout case
+			execCtx.failureReason = Timeout
+			execCtx.failureError = fmt.Errorf(errPollingTimeout, incompleteARNs, execCtx.Timeout)
+
 			// Stop all remaining tasks
 			reason := fmt.Sprintf(errPollingTimeout, incompleteARNs, execCtx.Timeout)
 			if err := stopAllTasks(execCtx, reason); err != nil {
 				return err
 			}
 
-			// Return error with information about incomplete tasks
-			return fmt.Errorf("%s", reason)
+			// We're done; exit polling loop
+			break
 		}
 
 		// Sleep until next poll time
 		time.Sleep(time.Duration(execCtx.PollingInterval))
 	}
 
-	// If you're here, all tasks are complete
+	// Polling complete - either success or failure, continue to retrieve logs and store results
 	return nil
 
 }
 
-func buildExecutionContext(commandCtx *ecsCommandContext, j *job.Job, c *cluster.Cluster) (*executionContext, error) {
+func buildExecutionContext(commandCtx *ecsCommandContext, j *job.Job, c *cluster.Cluster, runtime *plugin.Runtime) (*executionContext, error) {
 
 	execCtx := &executionContext{
-		tasks: make(map[string]*taskTracker),
+		tasks:   make(map[string]*taskTracker),
+		runtime: runtime,
 	}
 
 	// Create a context from commandCtx and unmarshal onto execCtx (defaults)
@@ -431,6 +465,10 @@ func buildContainerOverrides(execCtx *executionContext) error {
 
 // stopAllTasks stops all non-completed tasks with the given reason
 func stopAllTasks(execCtx *executionContext, reason string) error {
+	// AWS ECS has a 1024 character limit on the reason field
+	if len(reason) > 1024 {
+		reason = reason[:1021] + "..."
+	}
 
 	for _, t := range execCtx.tasks {
 		if t.Completed {
@@ -446,6 +484,8 @@ func stopAllTasks(execCtx *executionContext, reason string) error {
 		if err != nil {
 			return err
 		}
+
+		t.FailureReason = reason
 	}
 
 	return nil
@@ -476,9 +516,22 @@ func loadTaskDefinitionTemplate(templatePath string) (*taskDefinitionWrapper, er
 		}
 	}
 
+	// Pre-compute containers with log configurations
+	var logGroups []containerLogInfo
+	for _, containerDef := range taskDef.ContainerDefinitions {
+		if containerDef.LogConfiguration != nil {
+			logGroups = append(logGroups, containerLogInfo{
+				containerName: aws.ToString(containerDef.Name),
+				logDriver:     containerDef.LogConfiguration.LogDriver,
+				options:       containerDef.LogConfiguration.Options,
+			})
+		}
+	}
+
 	return &taskDefinitionWrapper{
 		TaskDefinition:      &taskDef,
 		EssentialContainers: essentialContainers,
+		LogGroups:           logGroups,
 	}, nil
 
 }
@@ -549,27 +602,66 @@ func isTaskSuccessful(task types.Task, execCtx *executionContext) bool {
 
 }
 
-// storeResults builds and stores the final result for the job.
-func storeResults(execCtx *executionContext, j *job.Job) error {
+// We pull logs from cloudwatch for all containers in a single task that represents the job outcome
+func (execCtx *executionContext) retrieveLogs() error {
 
-	// Build result
-	j.Result = &result.Result{}
-	j.Result.Columns = []*column.Column{
-		{Name: "task_arn", Type: "string"},
-		{Name: "duration", Type: "float"},
-		{Name: "retries", Type: "int"},
-		{Name: "failed_arns", Type: "string"},
+	var selectedTask *taskTracker
+	var writer *os.File
+
+	// Select appropriate task based on execution context failure reason
+	switch execCtx.failureReason {
+	case Timeout:
+		// Select first incomplete task for timeout scenarios
+		for _, tracker := range execCtx.tasks {
+			if !tracker.Completed {
+				selectedTask = tracker
+				break
+			}
+		}
+		writer = execCtx.runtime.Stderr
+
+	case Error:
+		// Select task that hit max retries (3 retries)
+		for _, tracker := range execCtx.tasks {
+			if tracker.Retries >= execCtx.MaxFailCount {
+				selectedTask = tracker
+				break
+			}
+		}
+		writer = execCtx.runtime.Stderr
+
+	default:
+		// No failure reason - select any completed task for success case
+		for _, tracker := range execCtx.tasks {
+			if tracker.Completed {
+				selectedTask = tracker
+				break
+			}
+		}
+		writer = execCtx.runtime.Stdout
 	}
 
-	// Create result data from task results
-	j.Result.Data = make([][]interface{}, 0, len(execCtx.tasks))
-	for _, tracker := range execCtx.tasks {
-		j.Result.Data = append(j.Result.Data, []interface{}{
-			tracker.ActiveARN,
-			tracker.ExecutionTime,
-			tracker.Retries,
-			strings.Join(tracker.FailedARNs, ","),
-		})
+	// Extract task ID from ARN
+	arnParts := strings.Split(selectedTask.ActiveARN, "/")
+	if len(arnParts) < 2 {
+		return nil
+	}
+	taskID := arnParts[len(arnParts)-1]
+
+	// Process each container log configuration
+	for _, logInfo := range execCtx.TaskDefinitionWrapper.LogGroups {
+		// Case statement for different log drivers
+		switch logInfo.logDriver {
+		case types.LogDriverAwslogs:
+			logGroup := logInfo.options["awslogs-group"]
+			logStream := fmt.Sprintf("%s/%s/%s", logInfo.options["awslogs-stream-prefix"], logInfo.containerName, taskID)
+			if err := heimdallAws.PullLogs(writer, logGroup, logStream, maxLogChunkSize, maxLogMemoryBytes); err != nil {
+				return err
+			}
+		default:
+			// Unsupported log driver - do nothing
+			execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Unsupported log driver for log retrieval: %s\n", logInfo.logDriver))
+		}
 	}
 
 	return nil

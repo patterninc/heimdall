@@ -189,32 +189,39 @@ The task definition template should be a complete ECS task definition JSON file:
 
 ---
 
-## 📊 Job Results
+## 📊 Job Logs
 
-The plugin returns comprehensive task execution results including:
+The ECS plugin supports CloudWatch log retrieval from your containers after job completion. Configure the `awslogs` log driver in your task definition to enable log collection:
 
 ```json
 {
-  "columns": [
-    {"name": "task_arn", "type": "string"},
-    {"name": "duration", "type": "float"},
-    {"name": "retries", "type": "int"},
-    {"name": "failed_arns", "type": "string"}
-  ],
-  "data": [
-    ["arn:aws:ecs:us-west-2:123456789012:task/abc123", 45.2, 0, ""],
-    ["arn:aws:ecs:us-west-2:123456789012:task/def456", 43.8, 2, "arn:aws:ecs:us-west-2:123456789012:task/old1,arn:aws:ecs:us-west-2:123456789012:task/old2"]
-  ]
+  "logConfiguration": {
+    "logDriver": "awslogs",
+    "options": {
+      "awslogs-group": "/ecs/batch-job",
+      "awslogs-region": "us-west-2", 
+      "awslogs-stream-prefix": "ecs"
+    }
+  }
 }
 ```
 
-**Result Fields:**
-- `task_arn`: The final task ARN (successful or last retry)
-- `duration`: Total execution time in seconds
-- `retries`: Number of retries attempted
-- `failed_arns`: Comma-separated list of failed task ARNs
+Logs are formatted with timestamps and stream context:
 
----
+```
+=== ecs/main/abc123def456789 ===
+
+[2023-11-11 13:45:23] Starting application...
+[2023-11-11 13:45:24] Processing data batch
+[2023-11-11 13:45:25] Task completed successfully
+```
+
+**Log Routing:**
+- **Successful jobs**: Logs from a successful task → **stdout**
+- **Failed jobs**: Logs from the failed task (max retries) → **stderr**  
+- **Timeout jobs**: Logs from an incomplete task → **stderr**
+
+**Note**: When multiple tasks run in parallel, only logs from a single representative task are retrieved after the job completes. For successful jobs, this is the last completed task. For failed jobs, this is the task that reached maximum retries. 
 
 ## 🔍 Task Monitoring
 
