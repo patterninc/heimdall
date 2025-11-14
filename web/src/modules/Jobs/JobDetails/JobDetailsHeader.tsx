@@ -23,11 +23,11 @@ const JobDetailsHeader = ({
               {jobData?.status === 'FAILED' ? (
                 <Alert type='error' text={jobData?.error} />
               ) : null}
-              {jobData?.context?.properties ? (
+              {jobData?.context?.parameters?.properties ? (
                 <div>
                   <SectionHeader title='Context' />
                   <ul>
-                    {Object.entries(jobData?.context?.properties || {}).map(
+                    {Object.entries(jobData?.context?.parameters?.properties || {}).map(
                       ([key, value]) => (
                         <li key={key}>
                           {key}:{value}
