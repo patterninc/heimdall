@@ -1,6 +1,7 @@
 package trino
 
 import (
+	ct "context"
 	"fmt"
 	"log"
 	"time"
@@ -52,7 +53,7 @@ func New(ctx *context.Context) (plugin.Handler, error) {
 
 }
 
-func (t *commandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (t *commandContext) handler(ct ct.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	// get job context
 	jobCtx := &jobContext{}
@@ -112,7 +113,7 @@ func canQueryBeExecuted(query, user, id string, c *cluster.Cluster) bool {
 			return false
 		}
 	}
-	
+
 	canBeExecutedMethod.CountSuccess()
 	return true
 }

@@ -57,8 +57,7 @@ func New(ctx *hdctx.Context) (plugin.Handler, error) {
 	return t.handler, nil
 }
 
-func (cmd *commandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
-	ctx := context.Background()
+func (cmd *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	jobContext, err := cmd.createJobContext(j, c)
 	if err != nil {

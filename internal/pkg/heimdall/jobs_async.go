@@ -1,6 +1,7 @@
 package heimdall
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 
@@ -88,9 +89,9 @@ func (h *Heimdall) getAsyncJobs(limit int) ([]*job.Job, error) {
 
 }
 
-func (h *Heimdall) runAsyncJob(j *job.Job) error {
+func (h *Heimdall) runAsyncJob(ctx context.Context, j *job.Job) error {
 
-	// let's updte job status that we're running it...
+	// let's update job status to RUNNING...
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
 		return h.updateAsyncJobStatus(j, err)
@@ -113,19 +114,11 @@ func (h *Heimdall) runAsyncJob(j *job.Job) error {
 		return h.updateAsyncJobStatus(j, fmt.Errorf(formatErrUnknownCluster, j.CluserID))
 	}
 
-	return h.updateAsyncJobStatus(j, h.runJob(j, command, cluster))
+	return h.updateAsyncJobStatus(j, h.runJob(j, command, cluster, ctx))
 
 }
 
 func (h *Heimdall) updateAsyncJobStatus(j *job.Job, jobError error) error {
-
-	// we updte the final job status based on presence of the error
-	if jobError == nil {
-		j.Status = status.Succeeded
-	} else {
-		j.Status = status.Failed
-		j.Error = jobError.Error()
-	}
 
 	// now we update that status in the database
 	sess, err := h.Database.NewSession(true)

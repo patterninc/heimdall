@@ -3,6 +3,7 @@ package sparkeks
 import (
 	"bytes"
 	"context"
+	ct "context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -155,7 +156,11 @@ func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
 }
 
 // handler executes the Spark EKS job submission and execution.
-func (s *sparkEksCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (s *sparkEksCommandContext) handler(ct ct.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+
+	// Assign global context to incoming cancellation context
+	ctx = ct
+
 	// 1. Build execution context, create URIs, and upload query
 	execCtx, err := buildExecutionContextAndURI(r, j, c, s)
 	if err != nil {

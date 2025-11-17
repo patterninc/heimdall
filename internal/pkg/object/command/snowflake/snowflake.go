@@ -1,6 +1,7 @@
 package snowflake
 
 import (
+	ct "context"
 	"crypto/rsa"
 	"crypto/x509"
 	"database/sql"
@@ -70,7 +71,7 @@ func New(_ *context.Context) (plugin.Handler, error) {
 	return s.handler, nil
 }
 
-func (s *snowflakeCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (s *snowflakeCommandContext) handler(ct ct.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	clusterContext := &snowflakeClusterContext{}
 	if c.Context != nil {

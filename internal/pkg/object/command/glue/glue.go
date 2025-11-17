@@ -1,6 +1,8 @@
 package glue
 
 import (
+	ct "context"
+
 	"github.com/patterninc/heimdall/internal/pkg/aws"
 	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
@@ -31,7 +33,7 @@ func New(commandContext *context.Context) (plugin.Handler, error) {
 
 }
 
-func (g *glueCommandContext) handler(_ *plugin.Runtime, j *job.Job, _ *cluster.Cluster) (err error) {
+func (g *glueCommandContext) handler(ct ct.Context, _ *plugin.Runtime, j *job.Job, _ *cluster.Cluster) (err error) {
 
 	// let's unmarshal job context
 	jc := &glueJobContext{}

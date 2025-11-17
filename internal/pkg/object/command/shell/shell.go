@@ -1,6 +1,7 @@
 package shell
 
 import (
+	ct "context"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -47,7 +48,7 @@ func New(commandContext *context.Context) (plugin.Handler, error) {
 
 }
 
-func (s *shellCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (s *shellCommandContext) handler(ct ct.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	// let's unmarshal job context
 	jc := &shellJobContext{}

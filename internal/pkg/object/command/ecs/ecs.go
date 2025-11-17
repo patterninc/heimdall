@@ -121,7 +121,7 @@ func New(commandContext *context.Context) (plugin.Handler, error) {
 }
 
 // handler implements the main ECS plugin logic
-func (e *ecsCommandContext) handler(r *plugin.Runtime, job *job.Job, cluster *cluster.Cluster) error {
+func (e *ecsCommandContext) handler(ctx ct.Context, r *plugin.Runtime, job *job.Job, cluster *cluster.Cluster) error {
 
 	// Build execution context with resolved configuration and loaded template
 	execCtx, err := buildExecutionContext(e, job, cluster)
@@ -140,7 +140,7 @@ func (e *ecsCommandContext) handler(r *plugin.Runtime, job *job.Job, cluster *cl
 	}
 
 	// Poll for completion
-	if err := execCtx.pollForCompletion(); err != nil {
+	if err := execCtx.pollForCompletion(ctx); err != nil {
 		return err
 	}
 
@@ -197,7 +197,7 @@ func (execCtx *executionContext) startTasks(jobID string) error {
 }
 
 // monitor tasks until completion, faliure, or timeout
-func (execCtx *executionContext) pollForCompletion() error {
+func (execCtx *executionContext) pollForCompletion(ctx ct.Context) error {
 
 	startTime := time.Now()
 	stopTime := startTime.Add(time.Duration(execCtx.Timeout))
@@ -305,8 +305,13 @@ func (execCtx *executionContext) pollForCompletion() error {
 			return fmt.Errorf("%s", reason)
 		}
 
-		// Sleep until next poll time
-		time.Sleep(time.Duration(execCtx.PollingInterval))
+		// Check for cancellation or sleep until next poll time
+		select {
+		case <-ctx.Done():
+			stopAllTasks(execCtx, "Job cancelled by user")
+			return nil
+		case <-time.After(time.Duration(execCtx.PollingInterval)):
+		}
 	}
 
 	// If you're here, all tasks are complete

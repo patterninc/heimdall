@@ -1,6 +1,7 @@
 package ping
 
 import (
+	ct "context"
 	"fmt"
 
 	"github.com/patterninc/heimdall/pkg/context"
@@ -23,7 +24,7 @@ func New(_ *context.Context) (plugin.Handler, error) {
 
 }
 
-func (p *pingCommandContext) handler(_ *plugin.Runtime, j *job.Job, _ *cluster.Cluster) (err error) {
+func (p *pingCommandContext) handler(ct ct.Context, _ *plugin.Runtime, j *job.Job, _ *cluster.Cluster) (err error) {
 
 	j.Result, err = result.FromMessage(fmt.Sprintf(messageFormat, j.User))
 	return

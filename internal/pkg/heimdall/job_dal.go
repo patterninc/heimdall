@@ -304,3 +304,22 @@ func (h *Heimdall) getJobStatuses(_ *database.Filter) (any, error) {
 	return database.GetSlice(h.Database, queryJobStatusesSelect)
 
 }
+
+func (h *Heimdall) updateJobStatusToCancelling(job *job.Job) error {
+
+	// open connection
+	sess, err := h.Database.NewSession(true)
+	if err != nil {
+		return err
+	}
+	defer sess.Close()
+
+	// update job status to CANCELLING
+	_, err = sess.Exec(queryJobStatusUpdate, job.Status, job.Error, job.SystemID)
+	if err != nil {
+		return err
+	}
+
+	// commit transaction
+	return sess.Commit()
+}

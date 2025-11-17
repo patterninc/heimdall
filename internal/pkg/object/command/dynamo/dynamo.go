@@ -44,7 +44,7 @@ func New(_ *context.Context) (plugin.Handler, error) {
 }
 
 // Handler for the Spark job submission.
-func (d *dynamoCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
+func (d *dynamoCommandContext) handler(ct ct.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
 
 	// let's unmarshal job context
 	jobContext := &dynamoJobContext{}

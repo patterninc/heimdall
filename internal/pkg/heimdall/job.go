@@ -1,6 +1,7 @@
 package heimdall
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -67,7 +68,7 @@ func (h *Heimdall) submitJob(j *job.Job) (any, error) {
 	}
 
 	// let's run the job
-	err = h.runJob(j, command, cluster)
+	err = h.runJob(j, command, cluster, context.Background())
 
 	// before we process the error, we'll make the best effort to record this job in the database
 	go h.insertJob(j, cluster.ID, command.ID)
@@ -76,7 +77,7 @@ func (h *Heimdall) submitJob(j *job.Job) (any, error) {
 
 }
 
-func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *cluster.Cluster) error {
+func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *cluster.Cluster, ctx context.Context) error {
 
 	defer runJobMethod.RecordLatency(time.Now(), command.Name, cluster.Name)
 	runJobMethod.CountRequest(command.Name, cluster.Name)
@@ -107,7 +108,7 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 	go h.jobKeepalive(keepaliveActive, job.SystemID, h.agentName)
 
 	// let's execute command
-	if err := h.commandHandlers[command.ID](runtime, job, cluster); err != nil {
+	if err := h.commandHandlers[command.ID](ctx, runtime, job, cluster); err != nil {
 
 		job.Status = jobStatus.Failed
 		job.Error = err.Error()
@@ -116,6 +117,14 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 
 		return err
 
+	}
+
+	if ctx.Err() != nil {
+
+		job.Status = jobStatus.Cancelled
+		runJobMethod.LogAndCountError(ctx.Err(), command.Name, cluster.Name)
+
+		return nil
 	}
 
 	if job.StoreResultSync || !job.IsSync {
@@ -155,6 +164,31 @@ func (h *Heimdall) storeResults(runtime *plugin.Runtime, job *job.Job) error {
 	}
 
 	return nil
+}
+
+func (h *Heimdall) cancelJob(req *jobRequest) (any, error) {
+
+	// validate that job exists and get its current status
+	currentJob, err := h.getJob(req)
+	if err != nil {
+		return nil, err
+	}
+
+	job := currentJob.(*job.Job)
+
+	// check if job can be cancelled (must be running or accepted)
+	if job.Status != jobStatus.Running && job.Status != jobStatus.Accepted {
+		return nil, fmt.Errorf("job cannot be cancelled: current status is %v", job.Status)
+	}
+	// update job status to CANCELLING
+	job.Status = jobStatus.Cancelling
+	if err := h.updateJobStatusToCancelling(job); err != nil {
+		return nil, err
+	}
+
+	job.UpdatedAt = int(time.Now().Unix())
+
+	return job, nil
 }
 
 func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {

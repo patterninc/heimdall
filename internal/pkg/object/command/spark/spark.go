@@ -92,7 +92,7 @@ func New(commandContext *context.Context) (plugin.Handler, error) {
 }
 
 // Handler for the Spark job submission.
-func (s *sparkCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
+func (s *sparkCommandContext) handler(ct ct.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
 
 	// let's unmarshal job context
 	jobContext := &sparkJobContext{}
