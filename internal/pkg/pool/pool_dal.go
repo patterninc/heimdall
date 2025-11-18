@@ -2,13 +2,15 @@ package pool
 
 import (
 	_ "embed"
+
+	"github.com/patterninc/heimdall/pkg/object/job/status"
 )
 
 //go:embed queries/cancelling_jobs_select.sql
 var queryCancellingJobsSelect string
 
-//go:embed queries/job_status_cancelled_update.sql
-var queryJobStatusCancelledUpdate string
+//go:embed queries/job_status_update_by_id.sql
+var queryJobStatusUpdate string
 
 // getCancellingJobs retrieves jobs in CANCELLING state from database
 func (p *Pool[T]) getCancellingJobs() []string {
@@ -49,7 +51,7 @@ func (p *Pool[T]) updateJobStatusToCancelled(jobID string) error {
 	}
 	defer sess.Close()
 
-	_, err = sess.Exec(queryJobStatusCancelledUpdate, jobID)
+	_, err = sess.Exec(queryJobStatusUpdate, status.Cancelled, "", jobID)
 
 	if err == nil {
 		return sess.Commit()

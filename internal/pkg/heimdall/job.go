@@ -119,6 +119,7 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 
 	}
 
+	// Check if context was cancelled
 	if ctx.Err() != nil {
 
 		job.Status = jobStatus.Cancelled
@@ -174,19 +175,24 @@ func (h *Heimdall) cancelJob(req *jobRequest) (any, error) {
 		return nil, err
 	}
 
-	job := currentJob.(*job.Job)
+	// make sure we have a job object
+	job, ok := currentJob.(*job.Job)
+	if !ok {
+		return nil, fmt.Errorf("expected *job.Job, got %T", currentJob)
+	}
 
 	// check if job can be cancelled (must be running or accepted)
 	if job.Status != jobStatus.Running && job.Status != jobStatus.Accepted {
 		return nil, fmt.Errorf("job cannot be cancelled: current status is %v", job.Status)
 	}
 	// update job status to CANCELLING
-	job.Status = jobStatus.Cancelling
 	if err := h.updateJobStatusToCancelling(job); err != nil {
 		return nil, err
 	}
 
+	// update object to return to caller
 	job.UpdatedAt = int(time.Now().Unix())
+	job.Status = jobStatus.Cancelling
 
 	return job, nil
 }
