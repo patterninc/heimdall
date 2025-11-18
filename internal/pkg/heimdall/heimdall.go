@@ -156,7 +156,7 @@ func (h *Heimdall) Init() error {
 	}
 
 	// let's start the agent
-	return h.Pool.Start(h.runAsyncJob, h.getAsyncJobs, h.Database)
+	return h.Pool.Start(h.runAsyncJob, h.getAsyncJobs)
 
 }
 

@@ -305,13 +305,8 @@ func (execCtx *executionContext) pollForCompletion(ctx ct.Context) error {
 			return fmt.Errorf("%s", reason)
 		}
 
-		// Check for cancellation or sleep until next poll time
-		select {
-		case <-ctx.Done():
-			stopAllTasks(execCtx, "Job cancelled by user")
-			return nil
-		case <-time.After(time.Duration(execCtx.PollingInterval)):
-		}
+		// sleep for polling interval
+		time.Sleep(time.Duration(execCtx.PollingInterval))
 	}
 
 	// If you're here, all tasks are complete

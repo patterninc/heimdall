@@ -114,7 +114,7 @@ func (h *Heimdall) runAsyncJob(ctx context.Context, j *job.Job) error {
 		return h.updateAsyncJobStatus(j, fmt.Errorf(formatErrUnknownCluster, j.CluserID))
 	}
 
-	return h.updateAsyncJobStatus(j, h.runJob(j, command, cluster, ctx))
+	return h.updateAsyncJobStatus(j, h.runJob(ctx, j, command, cluster))
 
 }
 

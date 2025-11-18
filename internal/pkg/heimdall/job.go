@@ -3,6 +3,7 @@ package heimdall
 import (
 	"context"
 	"crypto/rand"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -45,7 +46,7 @@ type commandOnCluster struct {
 	cluster *cluster.Cluster
 }
 
-func (h *Heimdall) submitJob(j *job.Job) (any, error) {
+func (h *Heimdall) submitJob(ctx context.Context, j *job.Job) (any, error) {
 
 	// set / add job properties
 	if err := j.Init(); err != nil {
@@ -68,7 +69,7 @@ func (h *Heimdall) submitJob(j *job.Job) (any, error) {
 	}
 
 	// let's run the job
-	err = h.runJob(j, command, cluster, context.Background())
+	err = h.runJob(ctx, j, command, cluster)
 
 	// before we process the error, we'll make the best effort to record this job in the database
 	go h.insertJob(j, cluster.ID, command.ID)
@@ -77,7 +78,7 @@ func (h *Heimdall) submitJob(j *job.Job) (any, error) {
 
 }
 
-func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *cluster.Cluster, ctx context.Context) error {
+func (h *Heimdall) runJob(ctx context.Context, job *job.Job, command *command.Command, cluster *cluster.Cluster) error {
 
 	defer runJobMethod.RecordLatency(time.Now(), command.Name, cluster.Name)
 	runJobMethod.CountRequest(command.Name, cluster.Name)
@@ -107,25 +108,54 @@ func (h *Heimdall) runJob(job *job.Job, command *command.Command, cluster *clust
 	// ...and now we just start keepalive function for this job
 	go h.jobKeepalive(keepaliveActive, job.SystemID, h.agentName)
 
-	// let's execute command
-	if err := h.commandHandlers[command.ID](ctx, runtime, job, cluster); err != nil {
+	// Create channels for coordination between plugin execution and cancellation monitoring
+	jobDone := make(chan error, 1)
+	cancelMonitorDone := make(chan struct{})
 
-		job.Status = jobStatus.Failed
-		job.Error = err.Error()
+	// Create cancellable context for the job
+	pluginCtx, cancel := context.WithCancel(ctx)
 
-		runJobMethod.LogAndCountError(err, command.Name, cluster.Name)
+	// Start plugin execution in goroutine
+	go func() {
+		defer close(cancelMonitorDone) // signal monitoring to stop
+		err := h.commandHandlers[command.ID](pluginCtx, runtime, job, cluster)
+		jobDone <- err
+	}()
 
-		return err
+	// Start cancellation monitoring in goroutine
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
 
+		for {
+			select {
+			case <-cancelMonitorDone:
+				return // plugin finished, stop monitoring
+			case <-ticker.C:
+				if h.isJobCancelling(job) {
+					cancel() // trigger context cancellation
+					return
+				}
+			}
+		}
+	}()
+
+	// Wait for job execution to complete
+	jobErr := <-jobDone
+
+	// Check if context was cancelled FIRST (takes precedence over plugin errors)
+	if pluginCtx.Err() != nil {
+		job.Status = jobStatus.Cancelling // janitor finishes the cancellation process
+		runJobMethod.LogAndCountError(pluginCtx.Err(), command.Name, cluster.Name)
+		return nil
 	}
 
-	// Check if context was cancelled
-	if ctx.Err() != nil {
-
-		job.Status = jobStatus.Cancelled
-		runJobMethod.LogAndCountError(ctx.Err(), command.Name, cluster.Name)
-
-		return nil
+	// Handle plugin execution result (only if not cancelled)
+	if jobErr != nil {
+		job.Status = jobStatus.Failed
+		job.Error = jobErr.Error()
+		runJobMethod.LogAndCountError(jobErr, command.Name, cluster.Name)
+		return jobErr
 	}
 
 	if job.StoreResultSync || !job.IsSync {
@@ -167,10 +197,10 @@ func (h *Heimdall) storeResults(runtime *plugin.Runtime, job *job.Job) error {
 	return nil
 }
 
-func (h *Heimdall) cancelJob(req *jobRequest) (any, error) {
+func (h *Heimdall) cancelJob(ctx context.Context, req *jobRequest) (any, error) {
 
 	// validate that job exists and get its current status
-	currentJob, err := h.getJob(req)
+	currentJob, err := h.getJob(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -181,20 +211,24 @@ func (h *Heimdall) cancelJob(req *jobRequest) (any, error) {
 		return nil, fmt.Errorf("expected *job.Job, got %T", currentJob)
 	}
 
-	// check if job can be cancelled (must be running or accepted)
-	if job.Status != jobStatus.Running && job.Status != jobStatus.Accepted {
+	// check current job status
+	switch job.Status {
+	// already cancelled/cancelling - return success (idempotent)
+	case jobStatus.Cancelling, jobStatus.Cancelled:
+		return job, nil
+	case jobStatus.Running, jobStatus.Accepted:
+		// can be cancelled - proceed with cancellation
+		if err := h.updateJobStatusToCancelling(job); err != nil {
+			return nil, err
+		}
+		// update object to return to caller
+		job.UpdatedAt = int(time.Now().Unix())
+		job.Status = jobStatus.Cancelling
+		return job, nil
+	default:
+		// job is in a final state (succeeded, failed, etc.) - cannot be cancelled
 		return nil, fmt.Errorf("job cannot be cancelled: current status is %v", job.Status)
 	}
-	// update job status to CANCELLING
-	if err := h.updateJobStatusToCancelling(job); err != nil {
-		return nil, err
-	}
-
-	// update object to return to caller
-	job.UpdatedAt = int(time.Now().Unix())
-	job.Status = jobStatus.Cancelling
-
-	return job, nil
 }
 
 func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
@@ -213,7 +247,7 @@ func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// let's validate jobID we got
-	if _, err := h.getJobStatus(&jobRequest{ID: jobID}); err != nil {
+	if _, err := h.getJobStatus(r.Context(), &jobRequest{ID: jobID}); err != nil {
 		writeAPIError(w, err, nil)
 		return
 	}
@@ -303,4 +337,27 @@ func (h *Heimdall) resolveJob(commandCriteria, clusterCriteria *set.Set[string])
 	// if there was only one pair found, pairIndex will stay zero...
 	return pairs[pairIndex].command, pairs[pairIndex].cluster, nil
 
+}
+
+// isJobCancelling checks if a specific job is in CANCELLING state
+func (h *Heimdall) isJobCancelling(j *job.Job) bool {
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return false
+	}
+	defer sess.Close()
+
+	row, err := sess.QueryRow(queryJobStatusSelect, j.ID)
+	if err != nil {
+		return false
+	}
+
+	r := &job.Job{}
+
+	err = row.Scan(&r.Status, &r.Error, &r.UpdatedAt)
+	if err != nil {
+		return false
+	}
+
+	return r.Status == jobStatus.Cancelling
 }

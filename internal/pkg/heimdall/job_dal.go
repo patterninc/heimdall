@@ -1,6 +1,7 @@
 package heimdall
 
 import (
+	"context"
 	"database/sql"
 	_ "embed"
 	"encoding/json"
@@ -157,7 +158,7 @@ func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, er
 
 }
 
-func (h *Heimdall) getJob(j *jobRequest) (any, error) {
+func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -197,7 +198,7 @@ func (h *Heimdall) getJob(j *jobRequest) (any, error) {
 
 }
 
-func (h *Heimdall) getJobs(f *database.Filter) (any, error) {
+func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error) {
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -243,7 +244,7 @@ func (h *Heimdall) getJobs(f *database.Filter) (any, error) {
 
 }
 
-func (h *Heimdall) getJobStatus(j *jobRequest) (any, error) {
+func (h *Heimdall) getJobStatus(ctx context.Context, j *jobRequest) (any, error) {
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -300,7 +301,7 @@ func jobParseContextAndTags(j *job.Job, jobContext string, sess *database.Sessio
 
 }
 
-func (h *Heimdall) getJobStatuses(_ *database.Filter) (any, error) {
+func (h *Heimdall) getJobStatuses(ctx context.Context, _ *database.Filter) (any, error) {
 
 	return database.GetSlice(h.Database, queryJobStatusesSelect)
 

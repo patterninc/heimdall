@@ -1,6 +1,7 @@
 package heimdall
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -48,7 +49,7 @@ func writeAPIError(w http.ResponseWriter, err error, obj any) {
 	w.Write(responseJSON)
 }
 
-func payloadHandler[T any](fn func(*T) (any, error)) http.HandlerFunc {
+func payloadHandler[T any](fn func(context.Context, *T) (any, error)) http.HandlerFunc {
 	// start latency timer
 	defer payloadHandlerMethod.RecordLatency(time.Now())
 
@@ -81,7 +82,7 @@ func payloadHandler[T any](fn func(*T) (any, error)) http.HandlerFunc {
 		}
 
 		// execute request
-		result, err := fn(&payload)
+		result, err := fn(r.Context(), &payload)
 		if err != nil {
 			writeAPIError(w, err, result)
 			return

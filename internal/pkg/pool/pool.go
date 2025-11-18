@@ -3,10 +3,8 @@ package pool
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
-	"github.com/patterninc/heimdall/internal/pkg/database"
 	"github.com/patterninc/heimdall/pkg/object/job"
 )
 
@@ -19,16 +17,9 @@ type Pool[T any] struct {
 	Size  int `yaml:"size,omitempty" json:"size,omitempty"`
 	Sleep int `yaml:"sleep,omitempty" json:"sleep,omitempty"`
 	queue chan *job.Job
-
-	runningJobs    map[string]context.CancelFunc
-	runningJobsMux sync.RWMutex
-	db             *database.Database
 }
 
-func (p *Pool[T]) Start(worker func(context.Context, *job.Job) error, getWork func(int) ([]*job.Job, error), database *database.Database) error {
-
-	// record database context
-	p.db = database
+func (p *Pool[T]) Start(worker func(context.Context, *job.Job) error, getWork func(int) ([]*job.Job, error)) error {
 
 	// do we have the size set?
 	if p.Size <= 0 {
@@ -45,12 +36,6 @@ func (p *Pool[T]) Start(worker func(context.Context, *job.Job) error, getWork fu
 
 	// let's set the counter
 	tokens := &counter{}
-
-	// Initialize tracking
-	p.runningJobs = make(map[string]context.CancelFunc)
-
-	// Start cancellation polling loop
-	go p.pollForCancellations()
 
 	// let's provision workers
 	for i := 0; i < p.Size; i++ {
@@ -70,16 +55,8 @@ func (p *Pool[T]) Start(worker func(context.Context, *job.Job) error, getWork fu
 					break
 				}
 
-				ctx, cancel := context.WithCancel(context.Background())
-
-				// register job as running
-				p.registerRunningJob(w.ID, cancel)
-
 				// do the work....
-				err := worker(ctx, w)
-
-				// remove job from running jobs
-				p.unregisterRunningJob(w.ID)
+				err := worker(context.Background(), w)
 
 				if err != nil {
 					// TODO: implement proper error logging
@@ -134,53 +111,4 @@ func (p *Pool[T]) Start(worker func(context.Context, *job.Job) error, getWork fu
 	}(tokens)
 
 	return nil
-}
-
-func (p *Pool[T]) pollForCancellations() {
-	// let's poll for cancellations every 15 seconds
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
-
-	for range ticker.C {
-
-		// Get jobs in CANCELLING state from database
-		cancellingJobs := p.getCancellingJobs()
-
-		// Check each cancelling job
-		for _, jobID := range cancellingJobs {
-			if cancelFunc, isLocal := p.isJobRunningLocally(jobID); isLocal {
-				cancelFunc() // Trigger context cancellation
-
-				// Update job status to CANCELLED in database
-				p.updateJobStatusToCancelled(jobID)
-			}
-		}
-	}
-}
-
-func (p *Pool[T]) registerRunningJob(jobID string, cancel context.CancelFunc) {
-
-	p.runningJobsMux.Lock()
-	defer p.runningJobsMux.Unlock()
-
-	p.runningJobs[jobID] = cancel
-
-}
-
-func (p *Pool[T]) unregisterRunningJob(jobID string) {
-
-	p.runningJobsMux.Lock()
-	defer p.runningJobsMux.Unlock()
-
-	delete(p.runningJobs, jobID)
-}
-
-// Check if a job is running locally
-func (p *Pool[T]) isJobRunningLocally(jobID string) (context.CancelFunc, bool) {
-
-	p.runningJobsMux.RLock()
-	defer p.runningJobsMux.RUnlock()
-
-	cancelFunc, exists := p.runningJobs[jobID]
-	return cancelFunc, exists
 }
