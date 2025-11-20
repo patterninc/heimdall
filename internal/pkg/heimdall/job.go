@@ -78,16 +78,16 @@ func (h *Heimdall) submitJob(ctx context.Context, j *job.Job) (any, error) {
 
 }
 
-func (h *Heimdall) runJob(ctx context.Context, job *job.Job, command *command.Command, cluster *cluster.Cluster) error {
+func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Command, cluster *cluster.Cluster) error {
 
 	defer runJobMethod.RecordLatency(time.Now(), command.Name, cluster.Name)
 	runJobMethod.CountRequest(command.Name, cluster.Name)
 
 	// let's set environment
 	runtime := &plugin.Runtime{
-		WorkingDirectory: h.JobsDirectory + separator + job.ID,
-		ArchiveDirectory: h.ArchiveDirectory + separator + job.ID,
-		ResultDirectory:  h.ResultDirectory + separator + job.ID,
+		WorkingDirectory: h.JobsDirectory + separator + j.ID,
+		ArchiveDirectory: h.ArchiveDirectory + separator + j.ID,
+		ResultDirectory:  h.ResultDirectory + separator + j.ID,
 		Version:          h.Version,
 		UserAgent:        fmt.Sprintf(formatUserAgent, h.Version),
 	}
@@ -106,7 +106,7 @@ func (h *Heimdall) runJob(ctx context.Context, job *job.Job, command *command.Co
 	defer close(keepaliveActive)
 
 	// ...and now we just start keepalive function for this job
-	go h.jobKeepalive(keepaliveActive, job.SystemID, h.agentName)
+	go h.jobKeepalive(keepaliveActive, j.SystemID, h.agentName)
 
 	// Create channels for coordination between plugin execution and cancellation monitoring
 	jobDone := make(chan error, 1)
@@ -118,7 +118,7 @@ func (h *Heimdall) runJob(ctx context.Context, job *job.Job, command *command.Co
 	// Start plugin execution in goroutine
 	go func() {
 		defer close(cancelMonitorDone) // signal monitoring to stop
-		err := h.commandHandlers[command.ID](pluginCtx, runtime, job, cluster)
+		err := h.commandHandlers[command.ID](pluginCtx, runtime, j, cluster)
 		jobDone <- err
 	}()
 
@@ -129,12 +129,17 @@ func (h *Heimdall) runJob(ctx context.Context, job *job.Job, command *command.Co
 
 		for {
 			select {
+			// plugin finished, stop monitoring
 			case <-cancelMonitorDone:
-				return // plugin finished, stop monitoring
+				return
 			case <-ticker.C:
-				if h.isJobCancelling(job) {
-					cancel() // trigger context cancellation
-					return
+				// If job is in cancelling state, trigger context cancellation
+				result, err := h.getJobStatus(ctx, &jobRequest{ID: j.ID})
+				if err == nil {
+					if job, ok := result.(*job.Job); ok && job.Status == jobStatus.Cancelling {
+						cancel()
+						return
+					}
 				}
 			}
 		}
@@ -143,42 +148,42 @@ func (h *Heimdall) runJob(ctx context.Context, job *job.Job, command *command.Co
 	// Wait for job execution to complete
 	jobErr := <-jobDone
 
-	// Check if context was cancelled FIRST (takes precedence over plugin errors)
+	// Check if context was cancelled and mark status appropriately
 	if pluginCtx.Err() != nil {
-		job.Status = jobStatus.Cancelling // janitor finishes the cancellation process
+		j.Status = jobStatus.Cancelling // janitor will update to cancelled when resources are cleaned up
 		runJobMethod.LogAndCountError(pluginCtx.Err(), command.Name, cluster.Name)
 		return nil
 	}
 
 	// Handle plugin execution result (only if not cancelled)
 	if jobErr != nil {
-		job.Status = jobStatus.Failed
-		job.Error = jobErr.Error()
+		j.Status = jobStatus.Failed
+		j.Error = jobErr.Error()
 		runJobMethod.LogAndCountError(jobErr, command.Name, cluster.Name)
 		return jobErr
 	}
 
-	if job.StoreResultSync || !job.IsSync {
-		h.storeResults(runtime, job)
+	if j.StoreResultSync || !j.IsSync {
+		h.storeResults(runtime, j)
 	} else {
-		go h.storeResults(runtime, job)
+		go h.storeResults(runtime, j)
 	}
 
-	job.Status = jobStatus.Succeeded
+	j.Status = jobStatus.Succeeded
 
 	runJobMethod.CountSuccess(command.Name, cluster.Name)
 	return nil
 
 }
 
-func (h *Heimdall) storeResults(runtime *plugin.Runtime, job *job.Job) error {
+func (h *Heimdall) storeResults(runtime *plugin.Runtime, j *job.Job) error {
 	// do we have result to be written?
-	if job.Result == nil {
+	if j.Result == nil {
 		return nil
 	}
 
 	// prepare result
-	data, err := json.Marshal(job.Result)
+	data, err := json.Marshal(j.Result)
 	if err != nil {
 
 		return err
@@ -187,7 +192,9 @@ func (h *Heimdall) storeResults(runtime *plugin.Runtime, job *job.Job) error {
 	// write result
 	writeFileFunc := os.WriteFile
 	if strings.HasPrefix(runtime.ResultDirectory, s3Prefix) {
-		writeFileFunc = aws.WriteToS3
+		writeFileFunc = func(name string, data []byte, perm os.FileMode) error {
+			return aws.WriteToS3(context.Background(), name, data, perm)
+		}
 	}
 	if err := writeFileFunc(runtime.ResultDirectory+separator+resultFilename, data, 0600); err != nil {
 
@@ -218,12 +225,11 @@ func (h *Heimdall) cancelJob(ctx context.Context, req *jobRequest) (any, error) 
 		return job, nil
 	case jobStatus.Running, jobStatus.Accepted:
 		// can be cancelled - proceed with cancellation
-		if err := h.updateJobStatusToCancelling(job); err != nil {
+		job.Status = jobStatus.Cancelling
+		job.UpdatedAt = int(time.Now().Unix())
+		if err := h.updateAsyncJobStatus(job, nil); err != nil {
 			return nil, err
 		}
-		// update object to return to caller
-		job.UpdatedAt = int(time.Now().Unix())
-		job.Status = jobStatus.Cancelling
 		return job, nil
 	default:
 		// job is in a final state (succeeded, failed, etc.) - cannot be cancelled
@@ -266,7 +272,9 @@ func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
 	readFileFunc := os.ReadFile
 	filenamePath := fmt.Sprintf(jobFileFormat, sourceDirectory, jobID, filename)
 	if strings.HasPrefix(filenamePath, s3Prefix) {
-		readFileFunc = aws.ReadFromS3
+		readFileFunc = func(path string) ([]byte, error) {
+			return aws.ReadFromS3(context.Background(), path)
+		}
 	}
 
 	// get file's content
@@ -337,27 +345,4 @@ func (h *Heimdall) resolveJob(commandCriteria, clusterCriteria *set.Set[string])
 	// if there was only one pair found, pairIndex will stay zero...
 	return pairs[pairIndex].command, pairs[pairIndex].cluster, nil
 
-}
-
-// isJobCancelling checks if a specific job is in CANCELLING state
-func (h *Heimdall) isJobCancelling(j *job.Job) bool {
-	sess, err := h.Database.NewSession(false)
-	if err != nil {
-		return false
-	}
-	defer sess.Close()
-
-	row, err := sess.QueryRow(queryJobStatusSelect, j.ID)
-	if err != nil {
-		return false
-	}
-
-	r := &job.Job{}
-
-	err = row.Scan(&r.Status, &r.Error, &r.UpdatedAt)
-	if err != nil {
-		return false
-	}
-
-	return r.Status == jobStatus.Cancelling
 }

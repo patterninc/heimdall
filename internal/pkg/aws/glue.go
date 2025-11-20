@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -17,7 +18,7 @@ var (
 	ErrMissingCatalogTableMetadata = fmt.Errorf(`missing table metadata in the glue catalog`)
 )
 
-func GetTableMetadata(catalogID, tableName string) ([]byte, error) {
+func GetTableMetadata(ctx context.Context, catalogID, tableName string) ([]byte, error) {
 
 	// split tableName to namespace and table names
 	tableNameParts := strings.Split(tableName, `.`)
@@ -27,18 +28,18 @@ func GetTableMetadata(catalogID, tableName string) ([]byte, error) {
 	}
 
 	// let's get the latest metadata file location
-	location, err := getTableMetadataLocation(catalogID, tableNameParts[0], tableNameParts[1])
+	location, err := getTableMetadataLocation(ctx, catalogID, tableNameParts[0], tableNameParts[1])
 	if err != nil {
 		return nil, err
 	}
 
 	// let's pull the file content
-	return ReadFromS3(location)
+	return ReadFromS3(ctx, location)
 
 }
 
 // function that calls AWS glue catalog to get the snapshot ID for a given database, table and branch
-func getTableMetadataLocation(catalogID, databaseName, tableName string) (string, error) {
+func getTableMetadataLocation(ctx context.Context, catalogID, databaseName, tableName string) (string, error) {
 
 	// Return an error if databaseName or tableName is empty
 	if databaseName == `` || tableName == `` {

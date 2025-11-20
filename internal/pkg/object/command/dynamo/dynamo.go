@@ -1,7 +1,7 @@
 package dynamo
 
 import (
-	ct "context"
+	"context"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
-	"github.com/patterninc/heimdall/pkg/context"
+	heimdallContext "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
@@ -31,12 +31,11 @@ type dynamoClusterContext struct {
 type dynamoCommandContext struct{}
 
 var (
-	ctx               = ct.Background()
 	assumeRoleSession = aws.String("AssumeRoleSession")
 )
 
 // New creates a new dynamo plugin handler.
-func New(_ *context.Context) (plugin.Handler, error) {
+func New(_ *heimdallContext.Context) (plugin.Handler, error) {
 
 	s := &dynamoCommandContext{}
 	return s.handler, nil
@@ -44,7 +43,7 @@ func New(_ *context.Context) (plugin.Handler, error) {
 }
 
 // Handler for the Spark job submission.
-func (d *dynamoCommandContext) handler(ct ct.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
+func (d *dynamoCommandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
 
 	// let's unmarshal job context
 	jobContext := &dynamoJobContext{}

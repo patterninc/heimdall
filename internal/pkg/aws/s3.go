@@ -13,12 +13,11 @@ import (
 )
 
 var (
-	ctx      = context.Background()
 	rxS3Path = regexp.MustCompile(`^s3://([^/]+)/(.*)$`)
 )
 
 // WriteToS3 writes a file to S3, providing the same interface as os.WriteFile function
-func WriteToS3(name string, data []byte, _ os.FileMode) error {
+func WriteToS3(ctx context.Context, name string, data []byte, _ os.FileMode) error {
 
 	bucket, key, err := parseS3Path(name)
 	if err != nil {
@@ -47,7 +46,7 @@ func WriteToS3(name string, data []byte, _ os.FileMode) error {
 
 }
 
-func ReadFromS3(name string) ([]byte, error) {
+func ReadFromS3(ctx context.Context, name string) ([]byte, error) {
 
 	bucket, key, err := parseS3Path(name)
 	if err != nil {

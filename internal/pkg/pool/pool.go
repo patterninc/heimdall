@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/patterninc/heimdall/pkg/object/job"
 )
 
 const (
@@ -16,10 +14,10 @@ const (
 type Pool[T any] struct {
 	Size  int `yaml:"size,omitempty" json:"size,omitempty"`
 	Sleep int `yaml:"sleep,omitempty" json:"sleep,omitempty"`
-	queue chan *job.Job
+	queue chan T
 }
 
-func (p *Pool[T]) Start(worker func(context.Context, *job.Job) error, getWork func(int) ([]*job.Job, error)) error {
+func (p *Pool[T]) Start(worker func(context.Context, T) error, getWork func(int) ([]T, error)) error {
 
 	// do we have the size set?
 	if p.Size <= 0 {
@@ -32,7 +30,7 @@ func (p *Pool[T]) Start(worker func(context.Context, *job.Job) error, getWork fu
 	}
 
 	// set the queue of the size of double the pool size
-	p.queue = make(chan *job.Job, p.Size*2)
+	p.queue = make(chan T, p.Size*2)
 
 	// let's set the counter
 	tokens := &counter{}

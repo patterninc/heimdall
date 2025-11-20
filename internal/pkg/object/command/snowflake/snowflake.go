@@ -1,7 +1,7 @@
 package snowflake
 
 import (
-	ct "context"
+	"context"
 	"crypto/rsa"
 	"crypto/x509"
 	"database/sql"
@@ -11,7 +11,7 @@ import (
 
 	sf "github.com/snowflakedb/gosnowflake"
 
-	"github.com/patterninc/heimdall/pkg/context"
+	heimdallContext "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
@@ -66,12 +66,12 @@ func parsePrivateKey(privateKeyBytes []byte) (*rsa.PrivateKey, error) {
 
 }
 
-func New(_ *context.Context) (plugin.Handler, error) {
+func New(_ *heimdallContext.Context) (plugin.Handler, error) {
 	s := &snowflakeCommandContext{}
 	return s.handler, nil
 }
 
-func (s *snowflakeCommandContext) handler(ct ct.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (s *snowflakeCommandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	clusterContext := &snowflakeClusterContext{}
 	if c.Context != nil {
@@ -118,7 +118,7 @@ func (s *snowflakeCommandContext) handler(ct ct.Context, r *plugin.Runtime, j *j
 	}
 	defer db.Close()
 
-	rows, err := db.Query(jobContext.Query)
+	rows, err := db.QueryContext(ctx, jobContext.Query)
 	if err != nil {
 		return err
 	}

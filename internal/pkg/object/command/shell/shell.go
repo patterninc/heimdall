@@ -1,13 +1,13 @@
 package shell
 
 import (
-	ct "context"
+	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path"
 
-	"github.com/patterninc/heimdall/pkg/context"
+	heimdallContext "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
@@ -34,7 +34,7 @@ type runtimeContext struct {
 	Runtime *plugin.Runtime      `yaml:"runtime,omitempty" json:"runtime,omitempty"`
 }
 
-func New(commandContext *context.Context) (plugin.Handler, error) {
+func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
 
 	s := &shellCommandContext{}
 
@@ -48,7 +48,7 @@ func New(commandContext *context.Context) (plugin.Handler, error) {
 
 }
 
-func (s *shellCommandContext) handler(ct ct.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (s *shellCommandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	// let's unmarshal job context
 	jc := &shellJobContext{}
@@ -83,7 +83,7 @@ func (s *shellCommandContext) handler(ct ct.Context, r *plugin.Runtime, j *job.J
 	commandWithArguments = append(commandWithArguments, jc.Arguments...)
 
 	// configure command
-	cmd := exec.Command(commandWithArguments[0], commandWithArguments[1:]...)
+	cmd := exec.CommandContext(ctx, commandWithArguments[0], commandWithArguments[1:]...)
 
 	cmd.Stdout = r.Stdout
 	cmd.Stderr = r.Stderr

@@ -7,7 +7,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/hladush/go-telemetry/pkg/telemetry"
-	hdctx "github.com/patterninc/heimdall/pkg/context"
+	heimdallContext "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/object/job/status"
@@ -16,7 +16,7 @@ import (
 	"github.com/patterninc/heimdall/pkg/result/column"
 )
 
-type commandContext struct {
+type clickhouseCommandContext struct {
 	Username string `yaml:"username,omitempty" json:"username,omitempty"`
 	Password string `yaml:"password,omitempty" json:"password,omitempty"`
 }
@@ -45,11 +45,11 @@ var (
 )
 
 // New creates a new clickhouse plugin handler
-func New(ctx *hdctx.Context) (plugin.Handler, error) {
-	t := &commandContext{}
+func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
+	t := &clickhouseCommandContext{}
 
-	if ctx != nil {
-		if err := ctx.Unmarshal(t); err != nil {
+	if commandContext != nil {
+		if err := commandContext.Unmarshal(t); err != nil {
 			return nil, err
 		}
 	}
@@ -57,9 +57,9 @@ func New(ctx *hdctx.Context) (plugin.Handler, error) {
 	return t.handler, nil
 }
 
-func (cmd *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (cmd *clickhouseCommandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
-	jobContext, err := cmd.createJobContext(j, c)
+	jobContext, err := cmd.createJobContext(ctx, j, c)
 	if err != nil {
 		handleMethod.LogAndCountError(err, "create_job_context")
 		return err
@@ -81,7 +81,7 @@ func (cmd *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *jo
 	return nil
 }
 
-func (cmd *commandContext) createJobContext(j *job.Job, c *cluster.Cluster) (*jobContext, error) {
+func (cmd *clickhouseCommandContext) createJobContext(ctx context.Context, j *job.Job, c *cluster.Cluster) (*jobContext, error) {
 	// get cluster context
 	clusterCtx := &clusterContext{}
 	if c.Context != nil {

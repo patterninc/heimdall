@@ -12,7 +12,6 @@ import (
 	"github.com/patterninc/heimdall/internal/pkg/database"
 	"github.com/patterninc/heimdall/pkg/object"
 	"github.com/patterninc/heimdall/pkg/object/job"
-	jobStatus "github.com/patterninc/heimdall/pkg/object/job/status"
 )
 
 //go:embed queries/job/insert.sql
@@ -305,23 +304,4 @@ func (h *Heimdall) getJobStatuses(ctx context.Context, _ *database.Filter) (any,
 
 	return database.GetSlice(h.Database, queryJobStatusesSelect)
 
-}
-
-func (h *Heimdall) updateJobStatusToCancelling(job *job.Job) error {
-
-	// open connection
-	sess, err := h.Database.NewSession(true)
-	if err != nil {
-		return err
-	}
-	defer sess.Close()
-
-	// update job status to CANCELLING
-	_, err = sess.Exec(queryJobStatusUpdate, jobStatus.Cancelling, job.Error, job.SystemID)
-	if err != nil {
-		return err
-	}
-
-	// commit transaction
-	return sess.Commit()
 }
