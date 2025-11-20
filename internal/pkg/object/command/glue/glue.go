@@ -1,8 +1,10 @@
 package glue
 
 import (
+	"context"
+
 	"github.com/patterninc/heimdall/internal/pkg/aws"
-	"github.com/patterninc/heimdall/pkg/context"
+	heimdallContext "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
@@ -17,7 +19,7 @@ type glueJobContext struct {
 	TableName string `yaml:"table_name,omitempty" json:"table_name,omitempty"`
 }
 
-func New(commandContext *context.Context) (plugin.Handler, error) {
+func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
 
 	g := &glueCommandContext{}
 
@@ -31,7 +33,7 @@ func New(commandContext *context.Context) (plugin.Handler, error) {
 
 }
 
-func (g *glueCommandContext) handler(_ *plugin.Runtime, j *job.Job, _ *cluster.Cluster) (err error) {
+func (g *glueCommandContext) handler(ctx context.Context, _ *plugin.Runtime, j *job.Job, _ *cluster.Cluster) (err error) {
 
 	// let's unmarshal job context
 	jc := &glueJobContext{}
@@ -42,7 +44,7 @@ func (g *glueCommandContext) handler(_ *plugin.Runtime, j *job.Job, _ *cluster.C
 	}
 
 	// let's get our metadata
-	metadata, err := aws.GetTableMetadata(g.CatalogID, jc.TableName)
+	metadata, err := aws.GetTableMetadata(ctx, g.CatalogID, jc.TableName)
 	if err != nil {
 		return
 	}

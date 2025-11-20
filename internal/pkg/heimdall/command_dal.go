@@ -1,6 +1,7 @@
 package heimdall
 
 import (
+	"context"
 	"database/sql"
 	_ "embed"
 	"encoding/json"
@@ -82,13 +83,13 @@ var (
 	ErrUnknownCommandID = fmt.Errorf(`unknown command_id`)
 )
 
-func (h *Heimdall) submitCommand(c *command.Command) (any, error) {
+func (h *Heimdall) submitCommand(ctx context.Context, c *command.Command) (any, error) {
 
 	if err := h.commandUpsert(c); err != nil {
 		return nil, err
 	}
 
-	return h.getCommand(&command.Command{Object: object.Object{ID: c.ID}})
+	return h.getCommand(ctx, &command.Command{Object: object.Object{ID: c.ID}})
 
 }
 
@@ -145,7 +146,7 @@ func (h *Heimdall) commandUpsert(c *command.Command) error {
 
 }
 
-func (h *Heimdall) getCommand(c *command.Command) (any, error) {
+func (h *Heimdall) getCommand(ctx context.Context, c *command.Command) (any, error) {
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -185,7 +186,7 @@ func (h *Heimdall) getCommand(c *command.Command) (any, error) {
 
 }
 
-func (h *Heimdall) getCommandStatus(c *command.Command) (any, error) {
+func (h *Heimdall) getCommandStatus(ctx context.Context, c *command.Command) (any, error) {
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -214,7 +215,7 @@ func (h *Heimdall) getCommandStatus(c *command.Command) (any, error) {
 
 }
 
-func (h *Heimdall) updateCommandStatus(c *command.Command) (any, error) {
+func (h *Heimdall) updateCommandStatus(ctx context.Context, c *command.Command) (any, error) {
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -232,11 +233,11 @@ func (h *Heimdall) updateCommandStatus(c *command.Command) (any, error) {
 		return nil, ErrUnknownCommandID
 	}
 
-	return h.getCommandStatus(c)
+	return h.getCommandStatus(ctx, c)
 
 }
 
-func (h *Heimdall) getCommands(f *database.Filter) (any, error) {
+func (h *Heimdall) getCommands(ctx context.Context, f *database.Filter) (any, error) {
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -282,7 +283,7 @@ func (h *Heimdall) getCommands(f *database.Filter) (any, error) {
 
 }
 
-func (h *Heimdall) getCommandStatuses(_ *database.Filter) (any, error) {
+func (h *Heimdall) getCommandStatuses(ctx context.Context, _ *database.Filter) (any, error) {
 
 	return database.GetSlice(h.Database, queryCommandStatusesSelect)
 

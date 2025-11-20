@@ -2,6 +2,7 @@ package trino
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -45,7 +46,7 @@ type response struct {
 	Error   map[string]any `json:"error"`
 }
 
-func newRequest(r *plugin.Runtime, j *job.Job, c *cluster.Cluster, jobCtx *jobContext) (*request, error) {
+func newRequest(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster, jobCtx *jobContext) (*request, error) {
 
 	// get cluster context
 	clusterCtx := &clusterContext{}
@@ -72,7 +73,7 @@ func newRequest(r *plugin.Runtime, j *job.Job, c *cluster.Cluster, jobCtx *jobCo
 	}
 
 	// submit query
-	if err := req.submit(jobCtx.Query); err != nil {
+	if err := req.submit(ctx, jobCtx.Query); err != nil {
 		return nil, err
 	}
 
@@ -80,9 +81,9 @@ func newRequest(r *plugin.Runtime, j *job.Job, c *cluster.Cluster, jobCtx *jobCo
 
 }
 
-func (r *request) submit(query string) error {
+func (r *request) submit(ctx context.Context, query string) error {
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/v1/statement", r.endpoint), bytes.NewBuffer([]byte(query)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/v1/statement", r.endpoint), bytes.NewBuffer([]byte(query)))
 	if err != nil {
 		return err
 	}
@@ -91,9 +92,9 @@ func (r *request) submit(query string) error {
 
 }
 
-func (r *request) poll() error {
+func (r *request) poll(ctx context.Context) error {
 
-	req, err := http.NewRequest(http.MethodGet, r.nextUri, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, r.nextUri, nil)
 	if err != nil {
 		return err
 	}
