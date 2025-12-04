@@ -139,6 +139,14 @@ func unwrapCHType(t string) (base string, nullable bool) {
 	if isDecimal(s) {
 		return "Decimal", nullable
 	}
+	// DateTime64(precision) or DateTime64(precision, 'timezone') normalize to "DateTime64"
+	if strings.HasPrefix(s, "DateTime64(") {
+		return "DateTime64", nullable
+	}
+	// DateTime('timezone') normalize to "DateTime"
+	if strings.HasPrefix(s, "DateTime(") {
+		return "DateTime", nullable
+	}
 	return s, nullable
 }
 
