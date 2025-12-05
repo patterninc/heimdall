@@ -23,7 +23,7 @@
     "js-yaml": "^4.1.0",
     "moment": "^2.30.1",
     "moment-timezone": "^0.5.48",
-    "next": "15.3.3",
+    "next": "15.3.6",
     "nuqs": "^2.4.1",
     "react": "^19",
     "react-dom": "^19",
