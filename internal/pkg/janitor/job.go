@@ -1,7 +1,10 @@
 package janitor
 
 import (
+	"database/sql"
 	_ "embed"
+	"fmt"
+	"time"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
 )
@@ -14,6 +17,30 @@ var queryFailStaleJobs string
 
 //go:embed queries/stale_jobs_delete.sql
 var queryStaleJobsDelete string
+
+//go:embed queries/old_jobs_cluster_tags_delete.sql
+var queryOldJobsClusterTagsDelete string
+
+//go:embed queries/old_jobs_command_tags_delete.sql
+var queryOldJobsCommandTagsDelete string
+
+//go:embed queries/old_jobs_tags_delete.sql
+var queryOldJobsTagsDelete string
+
+//go:embed queries/old_jobs_delete.sql
+var queryOldJobsDelete string
+
+//go:embed queries/old_job_biggest_id.sql
+var queryOldJobsBiggestID string
+
+var (
+	queriesForOldJobsCleanup = []string{
+		queryOldJobsClusterTagsDelete,
+		queryOldJobsCommandTagsDelete,
+		queryOldJobsTagsDelete,
+		queryOldJobsDelete,
+	}
+)
 
 func (j *Janitor) cleanupStaleJobs() error {
 
@@ -73,4 +100,51 @@ func (j *Janitor) cleanupStaleJobs() error {
 
 	return nil
 
+}
+
+func (j *Janitor) cleanupFinishedJobs() error {
+	if j.FinishedJobRetentionDays == 0 {
+		return nil
+	}
+	// open session
+	sess, err := j.db.NewSession(false)
+	if err != nil {
+		return err
+	}
+	defer sess.Close()
+
+	retentionTimestamp := time.Now().AddDate(0, 0, -j.FinishedJobRetentionDays).Unix()
+	
+	// get biggest ID of old jobs
+	row, err := sess.QueryRow(queryOldJobsBiggestID, retentionTimestamp)
+	if err != nil {
+		return fmt.Errorf("failed to get biggest ID of old jobs: %w", err)
+	}
+
+	var biggestID sql.NullInt64
+	if err := row.Scan(&biggestID); err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		return fmt.Errorf("failed to get biggest ID of old jobs: %w", err)
+	}
+
+	if !biggestID.Valid || biggestID.Int64 == 0 {
+		return nil
+	}
+
+	// remove old jobs data
+	for _, q := range queriesForOldJobsCleanup {
+		for {
+			affectedRows, err := sess.Exec(q, biggestID.Int64)
+			if err != nil {
+				return err
+			}
+			if affectedRows == 0 {
+				break
+			}
+		}
+	}
+
+	return nil
 }
