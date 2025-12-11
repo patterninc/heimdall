@@ -119,6 +119,7 @@ const Commands = (): React.JSX.Element => {
   ])
 
   const filters: FilterStatesType<unknown> = useMemo(
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     () => ({
       id: {
         type: 'text',
