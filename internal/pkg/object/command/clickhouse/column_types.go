@@ -64,12 +64,13 @@ var chTypeHandlers = map[string]chScanHandler{
 	"Float64":     handleFloat64,
 	"String":      handleString,
 	"FixedString": handleString,
-	"Date":        handleTime,
-	"Date32":      handleTime,
-	"DateTime":    handleTime,
-	"DateTime64":  handleTime,
+	"Date":        handleDate,
+	"Date32":      handleDate,
+	"DateTime":    handleDateTime,
+	"DateTime64":  handleDateTime,
 	"Decimal":     handleDecimal,
 	"Bool":        handleBool,
+	"Array":       handleArray,
 }
 
 // Type handler signature
@@ -102,8 +103,39 @@ func handleInt64(nullable bool) (any, func() any)   { return makeScanTarget[int6
 func handleFloat32(nullable bool) (any, func() any) { return makeScanTarget[float32](nullable) }
 func handleFloat64(nullable bool) (any, func() any) { return makeScanTarget[float64](nullable) }
 func handleString(nullable bool) (any, func() any)  { return makeScanTarget[string](nullable) }
-func handleTime(nullable bool) (any, func() any)    { return makeScanTarget[time.Time](nullable) }
 func handleBool(nullable bool) (any, func() any)    { return makeScanTarget[bool](nullable) }
+
+func handleDate(nullable bool) (any, func() any) {
+	target, reader := makeScanTarget[time.Time](nullable)
+	return target, func() any {
+		v := reader()
+		if v == nil {
+			return nil
+		}
+		t := v.(time.Time)
+		// Return date as "YYYY-MM-DD"
+		return t.Format("2006-01-02")
+	}
+}
+
+func handleDateTime(nullable bool) (any, func() any) {
+	target, reader := makeScanTarget[time.Time](nullable)
+	return target, func() any {
+		v := reader()
+		if v == nil {
+			return nil
+		}
+		t := v.(time.Time)
+		// Check if there are any subsecond components
+		if t.Nanosecond() > 0 {
+			// Format with microseconds
+			return t.Format("2006-01-02T15:04:05.999999999")
+		}
+		// DateTime (second precision)
+		return t.Format("2006-01-02T15:04:05")
+	}
+}
+
 func handleDecimal(nullable bool) (any, func() any) {
 	var v Decimal
 	return &v, func() any {
@@ -113,6 +145,20 @@ func handleDecimal(nullable bool) (any, func() any) {
 		val, _ := v.d.Float64()
 		return val
 	}
+}
+
+func handleArray(nullable bool) (any, func() any) {
+	if nullable {
+		var p *[]any
+		return &p, func() any {
+			if p == nil {
+				return nil
+			}
+			return *p
+		}
+	}
+	var v []any
+	return &v, func() any { return v }
 }
 
 func handleDefault(nullable bool) (any, func() any) {
@@ -135,6 +181,17 @@ func unwrapCHType(t string) (base string, nullable bool) {
 		}
 		break
 	}
+
+	if strings.HasPrefix(s, "DateTime64(") {
+		return "DateTime64", nullable
+	}
+	if strings.HasPrefix(s, "DateTime(") {
+		return "DateTime", nullable
+	}
+	if strings.HasPrefix(s, "Array(") {
+		return "Array", nullable
+	}
+
 	// Decimal(N,S) normalize to "Decimal"
 	if isDecimal(s) {
 		return "Decimal", nullable
