@@ -5,7 +5,9 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/hladush/go-telemetry/pkg/telemetry"
 	_ "github.com/lib/pq"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
@@ -51,6 +53,7 @@ var queryJobStatusesSelect string
 
 var (
 	ErrUnknownJobID = fmt.Errorf(`unknown job_id`)
+	jobDALMetrics   = telemetry.NewMethod("db_connection", "job_dal")
 )
 
 var (
@@ -92,9 +95,14 @@ type jobRequest struct {
 
 func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, error) {
 
+	// Track DB connection for job insert operation
+	defer jobDALMetrics.RecordLatency(time.Now(), "operation", "insert_job")
+	jobDALMetrics.CountRequest("operation", "insert_job")
+
 	// open connection
 	sess, err := h.Database.NewSession(true)
 	if err != nil {
+		jobDALMetrics.LogAndCountError(err, "operation", "insert_job")
 		return 0, err
 	}
 	defer sess.Close()
@@ -149,18 +157,25 @@ func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, er
 	}
 
 	if err := sess.Commit(); err != nil {
+		jobDALMetrics.LogAndCountError(err, "operation", "insert_job")
 		return 0, err
 	}
 
+	jobDALMetrics.CountSuccess("operation", "insert_job")
 	return jobID, nil
 
 }
 
 func (h *Heimdall) getJob(j *jobRequest) (any, error) {
 
+	// Track DB connection for job get operation
+	defer jobDALMetrics.RecordLatency(time.Now(), "operation", "get_job")
+	jobDALMetrics.CountRequest("operation", "get_job")
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		jobDALMetrics.LogAndCountError(err, "operation", "get_job")
 		return nil, err
 	}
 	defer sess.Close()
@@ -189,29 +204,38 @@ func (h *Heimdall) getJob(j *jobRequest) (any, error) {
 	}
 
 	if err := jobParseContextAndTags(r, jobContext, sess); err != nil {
+		jobDALMetrics.LogAndCountError(err, "operation", "get_job")
 		return nil, err
 	}
 
+	jobDALMetrics.CountSuccess("operation", "get_job")
 	return r, nil
 
 }
 
 func (h *Heimdall) getJobs(f *database.Filter) (any, error) {
 
+	// Track DB connection for jobs list operation
+	defer jobDALMetrics.RecordLatency(time.Now(), "operation", "get_jobs")
+	jobDALMetrics.CountRequest("operation", "get_jobs")
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		jobDALMetrics.LogAndCountError(err, "operation", "get_jobs")
 		return nil, err
 	}
 	defer sess.Close()
 
 	query, args, err := f.Render(queryJobsSelect, jobsFilterConfig)
 	if err != nil {
+		jobDALMetrics.LogAndCountError(err, "operation", "get_jobs")
 		return nil, err
 	}
 
 	rows, err := sess.Query(query, args...)
 	if err != nil {
+		jobDALMetrics.LogAndCountError(err, "operation", "get_jobs")
 		return nil, err
 	}
 	defer rows.Close()
@@ -225,10 +249,12 @@ func (h *Heimdall) getJobs(f *database.Filter) (any, error) {
 
 		if err := rows.Scan(&r.SystemID, &r.ID, &r.Status, &r.Name, &r.Version, &r.Description, &jobContext, &r.Error, &r.User, &r.IsSync,
 			&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.CluserID, &r.ClusterName, &r.StoreResultSync); err != nil {
+			jobDALMetrics.LogAndCountError(err, "operation", "get_jobs")
 			return nil, err
 		}
 
 		if err := jobParseContextAndTags(r, jobContext, sess); err != nil {
+			jobDALMetrics.LogAndCountError(err, "operation", "get_jobs")
 			return nil, err
 		}
 
@@ -236,6 +262,7 @@ func (h *Heimdall) getJobs(f *database.Filter) (any, error) {
 
 	}
 
+	jobDALMetrics.CountSuccess("operation", "get_jobs")
 	return &resultset{
 		Data: result,
 	}, nil
@@ -244,9 +271,14 @@ func (h *Heimdall) getJobs(f *database.Filter) (any, error) {
 
 func (h *Heimdall) getJobStatus(j *jobRequest) (any, error) {
 
+	// Track DB connection for job status operation
+	defer jobDALMetrics.RecordLatency(time.Now(), "operation", "get_job_status")
+	jobDALMetrics.CountRequest("operation", "get_job_status")
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		jobDALMetrics.LogAndCountError(err, "operation", "get_job_status")
 		return nil, err
 	}
 	defer sess.Close()
@@ -261,12 +293,15 @@ func (h *Heimdall) getJobStatus(j *jobRequest) (any, error) {
 
 	if err := row.Scan(&r.Status, &r.Error, &r.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
+			jobDALMetrics.LogAndCountError(ErrUnknownJobID, "operation", "get_job_status")
 			return nil, ErrUnknownJobID
 		} else {
+			jobDALMetrics.LogAndCountError(err, "operation", "get_job_status")
 			return nil, err
 		}
 	}
 
+	jobDALMetrics.CountSuccess("operation", "get_job_status")
 	return r, nil
 
 }
