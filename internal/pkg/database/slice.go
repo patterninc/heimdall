@@ -7,26 +7,26 @@ import (
 )
 
 var (
-	sliceMetrics = telemetry.NewMethod("db_connection", "database_slice")
+	getSliceMethod = telemetry.NewMethod("db_connection", "get_slice")
 )
 
 func GetSlice(db *Database, query string) (any, error) {
 
 	// Track DB connection for slice query operation
-	defer sliceMetrics.RecordLatency(time.Now(), "operation", "get_slice")
-	sliceMetrics.CountRequest("operation", "get_slice")
+	defer getSliceMethod.RecordLatency(time.Now())
+	getSliceMethod.CountRequest()
 
 	// open connection
 	sess, err := db.NewSession(false)
 	if err != nil {
-		sliceMetrics.LogAndCountError(err, "operation", "get_slice")
+		getSliceMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
 
 	rows, err := sess.Query(query)
 	if err != nil {
-		sliceMetrics.LogAndCountError(err, "operation", "get_slice")
+		getSliceMethod.LogAndCountError(err, "query")
 		return nil, err
 	}
 	defer rows.Close()
@@ -37,7 +37,7 @@ func GetSlice(db *Database, query string) (any, error) {
 
 		var item any
 		if err := rows.Scan(&item); err != nil {
-			sliceMetrics.LogAndCountError(err, "operation", "get_slice")
+			getSliceMethod.LogAndCountError(err, "scan")
 			return nil, err
 		}
 
@@ -45,7 +45,7 @@ func GetSlice(db *Database, query string) (any, error) {
 
 	}
 
-	sliceMetrics.CountSuccess("operation", "get_slice")
+	getSliceMethod.CountSuccess()
 	return result, nil
 
 }

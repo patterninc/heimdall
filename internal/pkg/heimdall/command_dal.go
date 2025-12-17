@@ -81,8 +81,12 @@ var (
 )
 
 var (
-	ErrUnknownCommandID = fmt.Errorf(`unknown command_id`)
-	commandDALMetrics   = telemetry.NewMethod("db_connection", "command_dal")
+	ErrUnknownCommandID       = fmt.Errorf(`unknown command_id`)
+	upsertCommandMethod       = telemetry.NewMethod("db_connection", "upsert_command")
+	getCommandMethod          = telemetry.NewMethod("db_connection", "get_command")
+	getCommandStatusMethod    = telemetry.NewMethod("db_connection", "get_command_status")
+	updateCommandStatusMethod = telemetry.NewMethod("db_connection", "update_command_status")
+	getCommandsMethod         = telemetry.NewMethod("db_connection", "get_commands")
 )
 
 func (h *Heimdall) submitCommand(c *command.Command) (any, error) {
@@ -98,13 +102,13 @@ func (h *Heimdall) submitCommand(c *command.Command) (any, error) {
 func (h *Heimdall) commandUpsert(c *command.Command) error {
 
 	// Track DB connection for command upsert operation
-	defer commandDALMetrics.RecordLatency(time.Now(), "operation", "upsert_command")
-	commandDALMetrics.CountRequest("operation", "upsert_command")
+	defer upsertCommandMethod.RecordLatency(time.Now())
+	upsertCommandMethod.CountRequest()
 
 	// open connection
 	sess, err := h.Database.NewSession(true)
 	if err != nil {
-		commandDALMetrics.LogAndCountError(err, "operation", "upsert_command")
+		upsertCommandMethod.LogAndCountError(err, "new_session")
 		return err
 	}
 	defer sess.Close()
@@ -150,11 +154,11 @@ func (h *Heimdall) commandUpsert(c *command.Command) error {
 	}
 
 	if err := sess.Commit(); err != nil {
-		commandDALMetrics.LogAndCountError(err, "operation", "upsert_command")
+		upsertCommandMethod.LogAndCountError(err, "commit")
 		return err
 	}
 
-	commandDALMetrics.CountSuccess("operation", "upsert_command")
+	upsertCommandMethod.CountSuccess()
 	return nil
 
 }
@@ -162,13 +166,13 @@ func (h *Heimdall) commandUpsert(c *command.Command) error {
 func (h *Heimdall) getCommand(c *command.Command) (any, error) {
 
 	// Track DB connection for get command operation
-	defer commandDALMetrics.RecordLatency(time.Now(), "operation", "get_command")
-	commandDALMetrics.CountRequest("operation", "get_command")
+	defer getCommandMethod.RecordLatency(time.Now())
+	getCommandMethod.CountRequest()
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
-		commandDALMetrics.LogAndCountError(err, "operation", "get_command")
+		getCommandMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -190,20 +194,18 @@ func (h *Heimdall) getCommand(c *command.Command) (any, error) {
 	if err := row.Scan(&r.SystemID, &r.Status, &r.Name, &r.Version, &r.Plugin, &r.Description, &commandContext,
 		&r.User, &r.IsSync, &r.CreatedAt, &r.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
-			commandDALMetrics.LogAndCountError(ErrUnknownCommandID, "operation", "get_command")
 			return nil, ErrUnknownCommandID
 		} else {
-			commandDALMetrics.LogAndCountError(err, "operation", "get_command")
 			return nil, err
 		}
 	}
 
 	if err := commandParseContextAndTags(r, commandContext, sess); err != nil {
-		commandDALMetrics.LogAndCountError(err, "operation", "get_command")
+		getCommandMethod.LogAndCountError(err, "command_parse_context_and_tags")
 		return nil, err
 	}
 
-	commandDALMetrics.CountSuccess("operation", "get_command")
+	getCommandMethod.CountSuccess()
 	return r, nil
 
 }
@@ -211,13 +213,13 @@ func (h *Heimdall) getCommand(c *command.Command) (any, error) {
 func (h *Heimdall) getCommandStatus(c *command.Command) (any, error) {
 
 	// Track DB connection for command status operation
-	defer commandDALMetrics.RecordLatency(time.Now(), "operation", "get_command_status")
-	commandDALMetrics.CountRequest("operation", "get_command_status")
+	defer getCommandStatusMethod.RecordLatency(time.Now())
+	getCommandStatusMethod.CountRequest()
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
-		commandDALMetrics.LogAndCountError(err, "operation", "get_command_status")
+		getCommandStatusMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -232,15 +234,13 @@ func (h *Heimdall) getCommandStatus(c *command.Command) (any, error) {
 
 	if err := row.Scan(&r.Status, &r.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
-			commandDALMetrics.LogAndCountError(ErrUnknownCommandID, "operation", "get_command_status")
 			return nil, ErrUnknownCommandID
 		} else {
-			commandDALMetrics.LogAndCountError(err, "operation", "get_command_status")
 			return nil, err
 		}
 	}
 
-	commandDALMetrics.CountSuccess("operation", "get_command_status")
+	getCommandStatusMethod.CountSuccess()
 	return r, nil
 
 }
@@ -248,12 +248,13 @@ func (h *Heimdall) getCommandStatus(c *command.Command) (any, error) {
 func (h *Heimdall) updateCommandStatus(c *command.Command) (any, error) {
 
 	// Track DB connection for command status update operation
-	commandDALMetrics.CountRequest("operation", "update_command_status")
+	defer updateCommandStatusMethod.RecordLatency(time.Now())
+	updateCommandStatusMethod.CountRequest()
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
-		commandDALMetrics.LogAndCountError(err, "operation", "update_command_status")
+		updateCommandStatusMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -267,6 +268,7 @@ func (h *Heimdall) updateCommandStatus(c *command.Command) (any, error) {
 		return nil, ErrUnknownCommandID
 	}
 
+	updateCommandStatusMethod.CountSuccess()
 	return h.getCommandStatus(c)
 
 }
@@ -274,13 +276,13 @@ func (h *Heimdall) updateCommandStatus(c *command.Command) (any, error) {
 func (h *Heimdall) getCommands(f *database.Filter) (any, error) {
 
 	// Track DB connection for commands list operation
-	defer commandDALMetrics.RecordLatency(time.Now(), "operation", "get_commands")
-	commandDALMetrics.CountRequest("operation", "get_commands")
+	defer getCommandsMethod.RecordLatency(time.Now())
+	getCommandsMethod.CountRequest()
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
-		commandDALMetrics.LogAndCountError(err, "operation", "get_commands")
+		getCommandsMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -316,7 +318,7 @@ func (h *Heimdall) getCommands(f *database.Filter) (any, error) {
 
 	}
 
-	commandDALMetrics.CountSuccess("operation", "get_commands")
+	getCommandsMethod.CountSuccess()
 	return &resultset{
 		Data: result,
 	}, nil

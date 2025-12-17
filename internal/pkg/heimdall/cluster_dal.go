@@ -69,8 +69,12 @@ var (
 )
 
 var (
-	ErrUnknownClusterID = fmt.Errorf(`unknown cluster_id`)
-	clusterDALMetrics   = telemetry.NewMethod("db_connection", "cluster_dal")
+	ErrUnknownClusterID       = fmt.Errorf(`unknown cluster_id`)
+	upsertClusterMethod       = telemetry.NewMethod("db_connection", "upsert_cluster")
+	getClusterMethod          = telemetry.NewMethod("db_connection", "get_cluster")
+	getClusterStatusMethod    = telemetry.NewMethod("db_connection", "get_cluster_status")
+	updateClusterStatusMethod = telemetry.NewMethod("db_connection", "update_cluster_status")
+	getClustersMethod         = telemetry.NewMethod("db_connection", "get_clusters")
 )
 
 func (h *Heimdall) submitCluster(c *cluster.Cluster) (any, error) {
@@ -86,13 +90,13 @@ func (h *Heimdall) submitCluster(c *cluster.Cluster) (any, error) {
 func (h *Heimdall) clusterUpsert(c *cluster.Cluster) error {
 
 	// Track DB connection for cluster upsert operation
-	defer clusterDALMetrics.RecordLatency(time.Now(), "operation", "upsert_cluster")
-	clusterDALMetrics.CountRequest("operation", "upsert_cluster")
+	defer upsertClusterMethod.RecordLatency(time.Now())
+	upsertClusterMethod.CountRequest()
 
 	// open connection
 	sess, err := h.Database.NewSession(true)
 	if err != nil {
-		clusterDALMetrics.LogAndCountError(err, "operation", "upsert_cluster")
+		upsertClusterMethod.LogAndCountError(err, "new_session")
 		return err
 	}
 	defer sess.Close()
@@ -121,11 +125,11 @@ func (h *Heimdall) clusterUpsert(c *cluster.Cluster) error {
 	}
 
 	if err := sess.Commit(); err != nil {
-		clusterDALMetrics.LogAndCountError(err, "operation", "upsert_cluster")
+		upsertClusterMethod.LogAndCountError(err, "commit")
 		return err
 	}
 
-	clusterDALMetrics.CountSuccess("operation", "upsert_cluster")
+	upsertClusterMethod.CountSuccess()
 	return nil
 
 }
@@ -133,13 +137,13 @@ func (h *Heimdall) clusterUpsert(c *cluster.Cluster) error {
 func (h *Heimdall) getCluster(c *cluster.Cluster) (any, error) {
 
 	// Track DB connection for get cluster operation
-	defer clusterDALMetrics.RecordLatency(time.Now(), "operation", "get_cluster")
-	clusterDALMetrics.CountRequest("operation", "get_cluster")
+	defer getClusterMethod.RecordLatency(time.Now())
+	getClusterMethod.CountRequest()
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
-		clusterDALMetrics.LogAndCountError(err, "operation", "get_cluster")
+		getClusterMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -161,20 +165,18 @@ func (h *Heimdall) getCluster(c *cluster.Cluster) (any, error) {
 	if err := row.Scan(&r.SystemID, &r.Status, &r.Name, &r.Version, &r.Description, &clusterContext,
 		&r.User, &r.CreatedAt, &r.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
-			clusterDALMetrics.LogAndCountError(ErrUnknownClusterID, "operation", "get_cluster")
 			return nil, ErrUnknownClusterID
 		} else {
-			clusterDALMetrics.LogAndCountError(err, "operation", "get_cluster")
 			return nil, err
 		}
 	}
 
 	if err := clusterParseContextAndTags(r, clusterContext, sess); err != nil {
-		clusterDALMetrics.LogAndCountError(err, "operation", "get_cluster")
+		getClusterMethod.LogAndCountError(err, "cluster_parse_context_and_tags")
 		return nil, err
 	}
 
-	clusterDALMetrics.CountSuccess("operation", "get_cluster")
+	getClusterMethod.CountSuccess()
 	return r, nil
 
 }
@@ -182,13 +184,13 @@ func (h *Heimdall) getCluster(c *cluster.Cluster) (any, error) {
 func (h *Heimdall) getClusterStatus(c *cluster.Cluster) (any, error) {
 
 	// Track DB connection for cluster status operation
-	defer clusterDALMetrics.RecordLatency(time.Now(), "operation", "get_cluster_status")
-	clusterDALMetrics.CountRequest("operation", "get_cluster_status")
+	defer getClusterStatusMethod.RecordLatency(time.Now())
+	getClusterStatusMethod.CountRequest()
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
-		clusterDALMetrics.LogAndCountError(err, "operation", "get_cluster_status")
+		getClusterStatusMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -203,24 +205,26 @@ func (h *Heimdall) getClusterStatus(c *cluster.Cluster) (any, error) {
 
 	if err := row.Scan(&r.Status, &r.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
-			clusterDALMetrics.LogAndCountError(ErrUnknownClusterID, "operation", "get_cluster_status")
 			return nil, ErrUnknownClusterID
 		} else {
-			clusterDALMetrics.LogAndCountError(err, "operation", "get_cluster_status")
 			return nil, err
 		}
 	}
 
-	clusterDALMetrics.CountSuccess("operation", "get_cluster_status")
+	getClusterStatusMethod.CountSuccess()
 	return r, nil
 
 }
 
 func (h *Heimdall) updateClusterStatus(c *cluster.Cluster) (any, error) {
 
+	defer updateClusterStatusMethod.RecordLatency(time.Now())
+	updateClusterStatusMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		updateClusterStatusMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -234,6 +238,7 @@ func (h *Heimdall) updateClusterStatus(c *cluster.Cluster) (any, error) {
 		return nil, ErrUnknownClusterID
 	}
 
+	updateClusterStatusMethod.CountSuccess()
 	return h.getClusterStatus(c)
 
 }
@@ -241,13 +246,13 @@ func (h *Heimdall) updateClusterStatus(c *cluster.Cluster) (any, error) {
 func (h *Heimdall) getClusters(f *database.Filter) (any, error) {
 
 	// Track DB connection for clusters list operation
-	defer clusterDALMetrics.RecordLatency(time.Now(), "operation", "get_clusters")
-	clusterDALMetrics.CountRequest("operation", "get_clusters")
+	defer getClustersMethod.RecordLatency(time.Now())
+	getClustersMethod.CountRequest()
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
-		clusterDALMetrics.LogAndCountError(err, "operation", "get_clusters")
+		getClustersMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -283,7 +288,7 @@ func (h *Heimdall) getClusters(f *database.Filter) (any, error) {
 
 	}
 
-	clusterDALMetrics.CountSuccess("operation", "get_clusters")
+	getClustersMethod.CountSuccess()
 	return &resultset{
 		Data: result,
 	}, nil

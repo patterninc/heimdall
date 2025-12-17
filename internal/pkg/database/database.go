@@ -15,9 +15,8 @@ const (
 )
 
 var (
-	ctx                = context.Background()
-	dbConnectionMethod = telemetry.NewMethod("db_connection", "database")
-	dbSessionMethod    = telemetry.NewMethod("db_session", "database")
+	ctx              = context.Background()
+	newSessionMethod = telemetry.NewMethod("db_connection", "new_session")
 )
 
 type Database struct {
@@ -38,8 +37,8 @@ func (d *Database) NewSession(withTransaction bool) (*Session, error) {
 		transactionLabel = "true"
 	}
 
-	defer dbSessionMethod.RecordLatency(time.Now(), "with_transaction", transactionLabel)
-	dbSessionMethod.CountRequest("with_transaction", transactionLabel)
+	defer newSessionMethod.RecordLatency(time.Now(), "with_transaction", transactionLabel)
+	newSessionMethod.CountRequest("with_transaction", transactionLabel)
 
 	var err error
 
@@ -47,28 +46,27 @@ func (d *Database) NewSession(withTransaction bool) (*Session, error) {
 
 	// Track database connection creation
 	connectionStart := time.Now()
-	dbConnectionMethod.CountRequest("driver", dbDriverName)
+	newSessionMethod.CountRequest("with_transaction", transactionLabel)
 
 	// open connection
 	if s.db, err = sql.Open(dbDriverName, d.ConnectionString); err != nil {
-		dbConnectionMethod.LogAndCountError(err, "driver", dbDriverName)
-		dbSessionMethod.LogAndCountError(err, "with_transaction", transactionLabel)
+		newSessionMethod.LogAndCountError(err, "with_transaction", transactionLabel)
 		return nil, err
 	}
 
-	dbConnectionMethod.RecordLatency(connectionStart, "driver", dbDriverName)
-	dbConnectionMethod.CountSuccess("driver", dbDriverName)
+	newSessionMethod.RecordLatency(connectionStart, "with_transaction", transactionLabel)
+	newSessionMethod.CountSuccess("with_transaction", transactionLabel)
 
 	// start transaction
 	if withTransaction {
 		if s.trx, err = s.db.BeginTx(ctx, nil); err != nil {
 			s.db.Close() // Close the connection before returning error
-			dbSessionMethod.LogAndCountError(err, "with_transaction", transactionLabel)
+			newSessionMethod.LogAndCountError(err, "with_transaction", transactionLabel)
 			return nil, err
 		}
 	}
 
-	dbSessionMethod.CountSuccess("with_transaction", transactionLabel)
+	newSessionMethod.CountSuccess("with_transaction", transactionLabel)
 	return s, nil
 
 }
