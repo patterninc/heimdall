@@ -5,7 +5,9 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/hladush/go-telemetry/pkg/telemetry"
 	_ "github.com/lib/pq"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
@@ -67,7 +69,12 @@ var (
 )
 
 var (
-	ErrUnknownClusterID = fmt.Errorf(`unknown cluster_id`)
+	ErrUnknownClusterID       = fmt.Errorf(`unknown cluster_id`)
+	upsertClusterMethod       = telemetry.NewMethod("db_connection", "upsert_cluster")
+	getClusterMethod          = telemetry.NewMethod("db_connection", "get_cluster")
+	getClusterStatusMethod    = telemetry.NewMethod("db_connection", "get_cluster_status")
+	updateClusterStatusMethod = telemetry.NewMethod("db_connection", "update_cluster_status")
+	getClustersMethod         = telemetry.NewMethod("db_connection", "get_clusters")
 )
 
 func (h *Heimdall) submitCluster(c *cluster.Cluster) (any, error) {
@@ -82,9 +89,14 @@ func (h *Heimdall) submitCluster(c *cluster.Cluster) (any, error) {
 
 func (h *Heimdall) clusterUpsert(c *cluster.Cluster) error {
 
+	// Track DB connection for cluster upsert operation
+	defer upsertClusterMethod.RecordLatency(time.Now())
+	upsertClusterMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(true)
 	if err != nil {
+		upsertClusterMethod.LogAndCountError(err, "new_session")
 		return err
 	}
 	defer sess.Close()
@@ -112,15 +124,26 @@ func (h *Heimdall) clusterUpsert(c *cluster.Cluster) error {
 		}
 	}
 
-	return sess.Commit()
+	if err := sess.Commit(); err != nil {
+		upsertClusterMethod.LogAndCountError(err, "commit")
+		return err
+	}
+
+	upsertClusterMethod.CountSuccess()
+	return nil
 
 }
 
 func (h *Heimdall) getCluster(c *cluster.Cluster) (any, error) {
 
+	// Track DB connection for get cluster operation
+	defer getClusterMethod.RecordLatency(time.Now())
+	getClusterMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		getClusterMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -142,25 +165,32 @@ func (h *Heimdall) getCluster(c *cluster.Cluster) (any, error) {
 	if err := row.Scan(&r.SystemID, &r.Status, &r.Name, &r.Version, &r.Description, &clusterContext,
 		&r.User, &r.CreatedAt, &r.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrUnknownCommandID
+			return nil, ErrUnknownClusterID
 		} else {
 			return nil, err
 		}
 	}
 
 	if err := clusterParseContextAndTags(r, clusterContext, sess); err != nil {
+		getClusterMethod.LogAndCountError(err, "cluster_parse_context_and_tags")
 		return nil, err
 	}
 
+	getClusterMethod.CountSuccess()
 	return r, nil
 
 }
 
 func (h *Heimdall) getClusterStatus(c *cluster.Cluster) (any, error) {
 
+	// Track DB connection for cluster status operation
+	defer getClusterStatusMethod.RecordLatency(time.Now())
+	getClusterStatusMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		getClusterStatusMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -181,15 +211,20 @@ func (h *Heimdall) getClusterStatus(c *cluster.Cluster) (any, error) {
 		}
 	}
 
+	getClusterStatusMethod.CountSuccess()
 	return r, nil
 
 }
 
 func (h *Heimdall) updateClusterStatus(c *cluster.Cluster) (any, error) {
 
+	defer updateClusterStatusMethod.RecordLatency(time.Now())
+	updateClusterStatusMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		updateClusterStatusMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -203,15 +238,21 @@ func (h *Heimdall) updateClusterStatus(c *cluster.Cluster) (any, error) {
 		return nil, ErrUnknownClusterID
 	}
 
+	updateClusterStatusMethod.CountSuccess()
 	return h.getClusterStatus(c)
 
 }
 
 func (h *Heimdall) getClusters(f *database.Filter) (any, error) {
 
+	// Track DB connection for clusters list operation
+	defer getClustersMethod.RecordLatency(time.Now())
+	getClustersMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		getClustersMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -247,6 +288,7 @@ func (h *Heimdall) getClusters(f *database.Filter) (any, error) {
 
 	}
 
+	getClustersMethod.CountSuccess()
 	return &resultset{
 		Data: result,
 	}, nil

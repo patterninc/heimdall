@@ -3,8 +3,10 @@ package database
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/babourine/x/pkg/set"
+	"github.com/hladush/go-telemetry/pkg/telemetry"
 	_ "github.com/lib/pq"
 )
 
@@ -13,7 +15,8 @@ const (
 )
 
 var (
-	ctx = context.Background()
+	ctx              = context.Background()
+	newSessionMethod = telemetry.NewMethod("db_connection", "new_session")
 )
 
 type Database struct {
@@ -28,22 +31,42 @@ type Session struct {
 
 func (d *Database) NewSession(withTransaction bool) (*Session, error) {
 
+	// Track session creation metrics
+	transactionLabel := "false"
+	if withTransaction {
+		transactionLabel = "true"
+	}
+
+	defer newSessionMethod.RecordLatency(time.Now(), "with_transaction", transactionLabel)
+	newSessionMethod.CountRequest("with_transaction", transactionLabel)
+
 	var err error
 
 	s := &Session{}
 
+	// Track database connection creation
+	connectionStart := time.Now()
+	newSessionMethod.CountRequest("with_transaction", transactionLabel)
+
 	// open connection
 	if s.db, err = sql.Open(dbDriverName, d.ConnectionString); err != nil {
+		newSessionMethod.LogAndCountError(err, "with_transaction", transactionLabel)
 		return nil, err
 	}
+
+	newSessionMethod.RecordLatency(connectionStart, "with_transaction", transactionLabel)
+	newSessionMethod.CountSuccess("with_transaction", transactionLabel)
 
 	// start transaction
 	if withTransaction {
 		if s.trx, err = s.db.BeginTx(ctx, nil); err != nil {
+			s.db.Close() // Close the connection before returning error
+			newSessionMethod.LogAndCountError(err, "with_transaction", transactionLabel)
 			return nil, err
 		}
 	}
 
+	newSessionMethod.CountSuccess("with_transaction", transactionLabel)
 	return s, nil
 
 }

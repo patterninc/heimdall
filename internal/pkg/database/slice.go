@@ -1,16 +1,32 @@
 package database
 
+import (
+	"time"
+
+	"github.com/hladush/go-telemetry/pkg/telemetry"
+)
+
+var (
+	getSliceMethod = telemetry.NewMethod("db_connection", "get_slice")
+)
+
 func GetSlice(db *Database, query string) (any, error) {
+
+	// Track DB connection for slice query operation
+	defer getSliceMethod.RecordLatency(time.Now())
+	getSliceMethod.CountRequest()
 
 	// open connection
 	sess, err := db.NewSession(false)
 	if err != nil {
+		getSliceMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
 
 	rows, err := sess.Query(query)
 	if err != nil {
+		getSliceMethod.LogAndCountError(err, "query")
 		return nil, err
 	}
 	defer rows.Close()
@@ -21,6 +37,7 @@ func GetSlice(db *Database, query string) (any, error) {
 
 		var item any
 		if err := rows.Scan(&item); err != nil {
+			getSliceMethod.LogAndCountError(err, "scan")
 			return nil, err
 		}
 
@@ -28,6 +45,7 @@ func GetSlice(db *Database, query string) (any, error) {
 
 	}
 
+	getSliceMethod.CountSuccess()
 	return result, nil
 
 }

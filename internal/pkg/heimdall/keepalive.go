@@ -3,10 +3,16 @@ package heimdall
 import (
 	_ "embed"
 	"time"
+
+	"github.com/hladush/go-telemetry/pkg/telemetry"
 )
 
 const (
 	defaultJanitorKeepalive = 5 // seconds
+)
+
+var (
+	jobKeepaliveMethod = telemetry.NewMethod("db_connection", "job_keepalive")
 )
 
 //go:embed queries/job/active_keepalive.sql
@@ -22,9 +28,14 @@ func (h *Heimdall) jobKeepalive(done <-chan struct{}, jobID int64, agentName str
 	ticker := time.NewTicker(time.Duration(keepaliveSeconds) * time.Second)
 	defer ticker.Stop()
 
+	// Track DB connection for job keepalive
+	defer jobKeepaliveMethod.RecordLatency(time.Now())
+	jobKeepaliveMethod.CountRequest()
+
 	// set the db session
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		jobKeepaliveMethod.LogAndCountError(err, "new_session")
 		sess = nil
 	}
 	defer sess.Close()
@@ -39,6 +50,7 @@ func (h *Heimdall) jobKeepalive(done <-chan struct{}, jobID int64, agentName str
 			}
 		case _, stillOpen := <-done:
 			if !stillOpen {
+				jobKeepaliveMethod.CountSuccess()
 				return
 			}
 		}

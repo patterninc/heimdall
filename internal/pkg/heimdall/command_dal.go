@@ -5,7 +5,9 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/hladush/go-telemetry/pkg/telemetry"
 	_ "github.com/lib/pq"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
@@ -79,7 +81,12 @@ var (
 )
 
 var (
-	ErrUnknownCommandID = fmt.Errorf(`unknown command_id`)
+	ErrUnknownCommandID       = fmt.Errorf(`unknown command_id`)
+	upsertCommandMethod       = telemetry.NewMethod("db_connection", "upsert_command")
+	getCommandMethod          = telemetry.NewMethod("db_connection", "get_command")
+	getCommandStatusMethod    = telemetry.NewMethod("db_connection", "get_command_status")
+	updateCommandStatusMethod = telemetry.NewMethod("db_connection", "update_command_status")
+	getCommandsMethod         = telemetry.NewMethod("db_connection", "get_commands")
 )
 
 func (h *Heimdall) submitCommand(c *command.Command) (any, error) {
@@ -94,9 +101,14 @@ func (h *Heimdall) submitCommand(c *command.Command) (any, error) {
 
 func (h *Heimdall) commandUpsert(c *command.Command) error {
 
+	// Track DB connection for command upsert operation
+	defer upsertCommandMethod.RecordLatency(time.Now())
+	upsertCommandMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(true)
 	if err != nil {
+		upsertCommandMethod.LogAndCountError(err, "new_session")
 		return err
 	}
 	defer sess.Close()
@@ -141,15 +153,26 @@ func (h *Heimdall) commandUpsert(c *command.Command) error {
 		}
 	}
 
-	return sess.Commit()
+	if err := sess.Commit(); err != nil {
+		upsertCommandMethod.LogAndCountError(err, "commit")
+		return err
+	}
+
+	upsertCommandMethod.CountSuccess()
+	return nil
 
 }
 
 func (h *Heimdall) getCommand(c *command.Command) (any, error) {
 
+	// Track DB connection for get command operation
+	defer getCommandMethod.RecordLatency(time.Now())
+	getCommandMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		getCommandMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -178,18 +201,25 @@ func (h *Heimdall) getCommand(c *command.Command) (any, error) {
 	}
 
 	if err := commandParseContextAndTags(r, commandContext, sess); err != nil {
+		getCommandMethod.LogAndCountError(err, "command_parse_context_and_tags")
 		return nil, err
 	}
 
+	getCommandMethod.CountSuccess()
 	return r, nil
 
 }
 
 func (h *Heimdall) getCommandStatus(c *command.Command) (any, error) {
 
+	// Track DB connection for command status operation
+	defer getCommandStatusMethod.RecordLatency(time.Now())
+	getCommandStatusMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		getCommandStatusMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -210,15 +240,21 @@ func (h *Heimdall) getCommandStatus(c *command.Command) (any, error) {
 		}
 	}
 
+	getCommandStatusMethod.CountSuccess()
 	return r, nil
 
 }
 
 func (h *Heimdall) updateCommandStatus(c *command.Command) (any, error) {
 
+	// Track DB connection for command status update operation
+	defer updateCommandStatusMethod.RecordLatency(time.Now())
+	updateCommandStatusMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		updateCommandStatusMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -232,15 +268,21 @@ func (h *Heimdall) updateCommandStatus(c *command.Command) (any, error) {
 		return nil, ErrUnknownCommandID
 	}
 
+	updateCommandStatusMethod.CountSuccess()
 	return h.getCommandStatus(c)
 
 }
 
 func (h *Heimdall) getCommands(f *database.Filter) (any, error) {
 
+	// Track DB connection for commands list operation
+	defer getCommandsMethod.RecordLatency(time.Now())
+	getCommandsMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		getCommandsMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -276,6 +318,7 @@ func (h *Heimdall) getCommands(f *database.Filter) (any, error) {
 
 	}
 
+	getCommandsMethod.CountSuccess()
 	return &resultset{
 		Data: result,
 	}, nil
