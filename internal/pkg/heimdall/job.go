@@ -38,8 +38,12 @@ const (
 
 var (
 	ErrCommandClusterPairNotFound = fmt.Errorf(`command-cluster pair is not found`)
+	ErrJobCancelFailed            = fmt.Errorf(`async job unrecognized or already in final state`)
 	runJobMethod                  = telemetry.NewMethod("runJob", "heimdall")
 )
+
+//go:embed queries/job/status_cancel_update.sql
+var queryJobCancelUpdate string
 
 type commandOnCluster struct {
 	command *command.Command
@@ -114,6 +118,7 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 
 	// Create cancellable context for the job
 	pluginCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	// Start plugin execution in goroutine
 	go func() {
@@ -122,28 +127,30 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 		jobDone <- err
 	}()
 
-	// Start cancellation monitoring in goroutine
-	go func() {
-		ticker := time.NewTicker(10 * time.Second)
-		defer ticker.Stop()
+	// Start cancellation monitoring for async jobs
+	if !j.IsSync {
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
 
-		for {
-			select {
-			// plugin finished, stop monitoring
-			case <-cancelMonitorDone:
-				return
-			case <-ticker.C:
-				// If job is in cancelling state, trigger context cancellation
-				result, err := h.getJobStatus(ctx, &jobRequest{ID: j.ID})
-				if err == nil {
-					if job, ok := result.(*job.Job); ok && job.Status == jobStatus.Cancelling {
-						cancel()
-						return
+			for {
+				select {
+				// plugin finished, stop monitoring
+				case <-cancelMonitorDone:
+					return
+				case <-ticker.C:
+					// If job is in cancelling state, trigger context cancellation
+					result, err := h.getJobStatus(ctx, &jobRequest{ID: j.ID})
+					if err == nil {
+						if job, ok := result.(*job.Job); ok && job.Status == jobStatus.Cancelling {
+							cancel()
+							return
+						}
 					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	// Wait for job execution to complete
 	jobErr := <-jobDone
@@ -206,35 +213,26 @@ func (h *Heimdall) storeResults(runtime *plugin.Runtime, j *job.Job) error {
 
 func (h *Heimdall) cancelJob(ctx context.Context, req *jobRequest) (any, error) {
 
-	// validate that job exists and get its current status
-	currentJob, err := h.getJob(ctx, req)
+	sess, err := h.Database.NewSession(false)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+
+	// Attempt to cancel
+	rowsAffected, err := sess.Exec(queryJobCancelUpdate, req.ID, req.User)
 	if err != nil {
 		return nil, err
 	}
 
-	// make sure we have a job object
-	job, ok := currentJob.(*job.Job)
-	if !ok {
-		return nil, fmt.Errorf("expected *job.Job, got %T", currentJob)
+	if rowsAffected == 0 {
+		return nil, ErrJobCancelFailed
 	}
 
-	// check current job status
-	switch job.Status {
-	// already cancelled/cancelling - return success (idempotent)
-	case jobStatus.Cancelling, jobStatus.Cancelled:
-		return job, nil
-	case jobStatus.Running, jobStatus.Accepted:
-		// can be cancelled - proceed with cancellation
-		job.Status = jobStatus.Cancelling
-		job.UpdatedAt = int(time.Now().Unix())
-		if err := h.updateAsyncJobStatus(job, nil); err != nil {
-			return nil, err
-		}
-		return job, nil
-	default:
-		// job is in a final state (succeeded, failed, etc.) - cannot be cancelled
-		return nil, fmt.Errorf("job cannot be cancelled: current status is %v", job.Status)
-	}
+	// return job status
+	return &job.Job{
+		Status: jobStatus.Cancelling,
+	}, nil
 }
 
 func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
@@ -273,7 +271,7 @@ func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
 	filenamePath := fmt.Sprintf(jobFileFormat, sourceDirectory, jobID, filename)
 	if strings.HasPrefix(filenamePath, s3Prefix) {
 		readFileFunc = func(path string) ([]byte, error) {
-			return aws.ReadFromS3(context.Background(), path)
+			return aws.ReadFromS3(r.Context(), path)
 		}
 	}
 

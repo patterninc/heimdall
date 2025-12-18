@@ -89,6 +89,7 @@ var (
 type jobRequest struct {
 	ID   string `yaml:"id,omitempty" json:"id,omitempty"`
 	File string `yaml:"file,omitempty" json:"file,omitempty"`
+	User string `yaml:"user,omitempty" json:"user,omitempty"`
 }
 
 func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, error) {
@@ -101,7 +102,7 @@ func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, er
 	defer sess.Close()
 
 	// insert job row
-	jobID, err := sess.InsertRow(queryJobInsert, clusterID, commandID, j.Status, j.ID, j.Name, j.Version, j.Description, j.Context.String(), j.Error, j.User, j.IsSync, j.StoreResultSync)
+	jobID, err := sess.InsertRow(queryJobInsert, clusterID, commandID, j.Status, j.ID, j.Name, j.Version, j.Description, j.Context.String(), j.Error, j.User, j.IsSync, j.StoreResultSync, j.CancelledBy)
 	if err != nil {
 		return 0, err
 	}
@@ -181,7 +182,7 @@ func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
 	var jobContext string
 
 	if err := row.Scan(&r.SystemID, &r.Status, &r.Name, &r.Version, &r.Description, &jobContext, &r.Error, &r.User, &r.IsSync,
-		&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.CluserID, &r.ClusterName, &r.StoreResultSync); err != nil {
+		&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.CluserID, &r.ClusterName, &r.StoreResultSync, &r.CancelledBy); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrUnknownJobID
 		} else {
@@ -225,7 +226,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 		r := &job.Job{}
 
 		if err := rows.Scan(&r.SystemID, &r.ID, &r.Status, &r.Name, &r.Version, &r.Description, &jobContext, &r.Error, &r.User, &r.IsSync,
-			&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.CluserID, &r.ClusterName, &r.StoreResultSync); err != nil {
+			&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.CluserID, &r.ClusterName, &r.StoreResultSync, &r.CancelledBy); err != nil {
 			return nil, err
 		}
 
