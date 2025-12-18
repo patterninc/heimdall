@@ -51,7 +51,7 @@ func (h *Heimdall) getAsyncJobs(limit int) ([]*job.Job, error) {
 
 		jobContext, j := ``, &job.Job{}
 
-		if err := rows.Scan(&j.SystemID, &j.CommandID, &j.CluserID, &j.Status, &j.ID, &j.Name,
+		if err := rows.Scan(&j.SystemID, &j.CommandID, &j.ClusterID, &j.Status, &j.ID, &j.Name,
 			&j.Version, &j.Description, &jobContext, &j.User, &j.IsSync, &j.CreatedAt, &j.UpdatedAt, &j.StoreResultSync); err != nil {
 			return nil, err
 		}
@@ -109,9 +109,9 @@ func (h *Heimdall) runAsyncJob(ctx context.Context, j *job.Job) error {
 	}
 
 	// do we have hte cluster?
-	cluster, found := h.Clusters[j.CluserID]
+	cluster, found := h.Clusters[j.ClusterID]
 	if !found {
-		return h.updateAsyncJobStatus(j, fmt.Errorf(formatErrUnknownCluster, j.CluserID))
+		return h.updateAsyncJobStatus(j, fmt.Errorf(formatErrUnknownCluster, j.ClusterID))
 	}
 
 	return h.updateAsyncJobStatus(j, h.runJob(ctx, j, command, cluster))
