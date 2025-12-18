@@ -90,24 +90,24 @@ var (
 	ErrSparkApplicationFile = fmt.Errorf("failed to read SparkApplication application template file: check file path and permissions")
 )
 
-type sparkEksCommandContext struct {
+type commandContext struct {
 	JobsURI       string            `yaml:"jobs_uri,omitempty" json:"jobs_uri,omitempty"`
 	WrapperURI    string            `yaml:"wrapper_uri,omitempty" json:"wrapper_uri,omitempty"`
 	Properties    map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 	KubeNamespace string            `yaml:"kube_namespace,omitempty" json:"kube_namespace,omitempty"`
 }
 
-type sparkEksJobParameters struct {
+type jobParameters struct {
 	Properties map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 }
 
-type sparkEksJobContext struct {
-	Query        string                 `yaml:"query,omitempty" json:"query,omitempty"`
-	Parameters   *sparkEksJobParameters `yaml:"parameters,omitempty" json:"parameters,omitempty"`
-	ReturnResult bool                   `yaml:"return_result,omitempty" json:"return_result,omitempty"`
+type jobContext struct {
+	Query        string         `yaml:"query,omitempty" json:"query,omitempty"`
+	Parameters   *jobParameters `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	ReturnResult bool           `yaml:"return_result,omitempty" json:"return_result,omitempty"`
 }
 
-type sparkEksClusterContext struct {
+type clusterContext struct {
 	RoleARN                    *string           `yaml:"role_arn,omitempty" json:"role_arn,omitempty"`
 	Properties                 map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 	Image                      *string           `yaml:"image,omitempty" json:"image,omitempty"`
@@ -121,9 +121,9 @@ type executionContext struct {
 	runtime        *plugin.Runtime
 	job            *job.Job
 	cluster        *cluster.Cluster
-	commandContext *sparkEksCommandContext
-	jobContext     *sparkEksJobContext
-	clusterContext *sparkEksClusterContext
+	commandContext *commandContext
+	jobContext     *jobContext
+	clusterContext *clusterContext
 
 	sparkClient *sparkClientSet.Clientset
 	kubeClient  *kubernetes.Clientset
@@ -139,13 +139,13 @@ type executionContext struct {
 }
 
 // New creates a new Spark EKS plugin handler.
-func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
-	s := &sparkEksCommandContext{
+func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
+	s := &commandContext{
 		KubeNamespace: defaultNamespace,
 	}
 
-	if commandContext != nil {
-		if err := commandContext.Unmarshal(s); err != nil {
+	if commandCtx != nil {
+		if err := commandCtx.Unmarshal(s); err != nil {
 			return nil, err
 		}
 	}
@@ -154,7 +154,7 @@ func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
 }
 
 // handler executes the Spark EKS job submission and execution.
-func (s *sparkEksCommandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	// 1. Build execution context, create URIs, and upload query
 	execCtx, err := buildExecutionContextAndURI(ctx, r, j, c, s)
@@ -190,7 +190,7 @@ func (s *sparkEksCommandContext) handler(ctx context.Context, r *plugin.Runtime,
 }
 
 // buildExecutionContextAndURI prepares the context, merges configurations, and uploads the query.
-func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster, s *sparkEksCommandContext) (*executionContext, error) {
+func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster, s *commandContext) (*executionContext, error) {
 	execCtx := &executionContext{
 		runtime:        r,
 		job:            j,
@@ -199,7 +199,7 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 	}
 
 	// Parse job context
-	jobContext := &sparkEksJobContext{}
+	jobContext := &jobContext{}
 	if j.Context != nil {
 		if err := j.Context.Unmarshal(jobContext); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal job context: %w", err)
@@ -208,7 +208,7 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 	execCtx.jobContext = jobContext
 
 	// Parse cluster context
-	clusterContext := &sparkEksClusterContext{}
+	clusterContext := &clusterContext{}
 	if c.Context != nil {
 		if err := c.Context.Unmarshal(clusterContext); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal cluster context: %w", err)
@@ -218,7 +218,7 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 
 	// Initialize and merge properties from command -> job
 	if execCtx.jobContext.Parameters == nil {
-		execCtx.jobContext.Parameters = &sparkEksJobParameters{
+		execCtx.jobContext.Parameters = &jobParameters{
 			Properties: make(map[string]string),
 		}
 	}
@@ -390,7 +390,7 @@ func printState(writer io.Writer, state v1beta2.ApplicationStateType) {
 }
 
 // getSparkSubmitParameters returns Spark submit parameters as a string.
-func getSparkSubmitParameters(context *sparkEksJobContext) *string {
+func getSparkSubmitParameters(context *jobContext) *string {
 	if context.Parameters == nil || len(context.Parameters.Properties) == 0 {
 		return nil
 	}

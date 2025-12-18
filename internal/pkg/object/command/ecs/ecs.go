@@ -23,7 +23,7 @@ import (
 )
 
 // ECS command context structure
-type ecsCommandContext struct {
+type commandContext struct {
 	TaskDefinitionTemplate string                    `yaml:"task_definition_template,omitempty" json:"task_definition_template,omitempty"`
 	TaskCount              int                       `yaml:"task_count,omitempty" json:"task_count,omitempty"`
 	CPU                    int                       `yaml:"cpu,omitempty" json:"cpu,omitempty"`
@@ -35,7 +35,7 @@ type ecsCommandContext struct {
 }
 
 // ECS cluster context structure
-type ecsClusterContext struct {
+type clusterContext struct {
 	MaxCPU           int       `yaml:"max_cpu,omitempty" json:"max_cpu,omitempty"`
 	MaxMemory        int       `yaml:"max_memory,omitempty" json:"max_memory,omitempty"`
 	MaxTaskCount     int       `yaml:"max_task_count,omitempty" json:"max_task_count,omitempty"`
@@ -86,7 +86,7 @@ type executionContext struct {
 	Memory                int                       `json:"memory"`
 	TaskDefinitionWrapper *taskDefinitionWrapper    `json:"task_definition_wrapper"`
 	ContainerOverrides    []types.ContainerOverride `json:"container_overrides"`
-	ClusterConfig         *ecsClusterContext        `json:"cluster_config"`
+	ClusterConfig         *clusterContext           `json:"cluster_config"`
 
 	PollingInterval duration.Duration `json:"polling_interval"`
 	Timeout         duration.Duration `json:"timeout"`
@@ -120,17 +120,17 @@ var (
 	methodMetrics      = telemetry.NewMethod("ecs", "ecs plugin")
 )
 
-func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
+func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 
-	e := &ecsCommandContext{
+	e := &commandContext{
 		PollingInterval: defaultPollingInterval,
 		Timeout:         defaultTaskTimeout,
 		MaxFailCount:    defaultMaxFailCount,
 		TaskCount:       defaultTaskCount,
 	}
 
-	if commandContext != nil {
-		if err := commandContext.Unmarshal(e); err != nil {
+	if commandCtx != nil {
+		if err := commandCtx.Unmarshal(e); err != nil {
 			return nil, err
 		}
 	}
@@ -140,7 +140,7 @@ func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
 }
 
 // handler implements the main ECS plugin logic
-func (e *ecsCommandContext) handler(ctx context.Context, r *plugin.Runtime, job *job.Job, cluster *cluster.Cluster) error {
+func (e *commandContext) handler(ctx context.Context, r *plugin.Runtime, job *job.Job, cluster *cluster.Cluster) error {
 
 	// Build execution context with resolved configuration and loaded template
 	execCtx, err := buildExecutionContext(ctx, e, job, cluster, r)
@@ -346,7 +346,7 @@ func (execCtx *executionContext) pollForCompletion(ctx context.Context) error {
 
 }
 
-func buildExecutionContext(ctx context.Context, commandCtx *ecsCommandContext, j *job.Job, c *cluster.Cluster, runtime *plugin.Runtime) (*executionContext, error) {
+func buildExecutionContext(ctx context.Context, commandCtx *commandContext, j *job.Job, c *cluster.Cluster, runtime *plugin.Runtime) (*executionContext, error) {
 
 	execCtx := &executionContext{
 		tasks:   make(map[string]*taskTracker),
@@ -367,7 +367,7 @@ func buildExecutionContext(ctx context.Context, commandCtx *ecsCommandContext, j
 	}
 
 	// Add cluster config (no overlapping values)
-	clusterContext := &ecsClusterContext{}
+	clusterContext := &clusterContext{}
 	if c.Context != nil {
 		if err := c.Context.Unmarshal(clusterContext); err != nil {
 			return nil, err

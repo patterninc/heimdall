@@ -32,7 +32,7 @@ type sparkSubmitParameters struct {
 }
 
 // spark represents the Spark command context
-type sparkCommandContext struct {
+type commandContext struct {
 	QueriesURI string            `yaml:"queries_uri,omitempty" json:"queries_uri,omitempty"`
 	ResultsURI string            `yaml:"results_uri,omitempty" json:"results_uri,omitempty"`
 	LogsURI    *string           `yaml:"logs_uri,omitempty" json:"logs_uri,omitempty"`
@@ -41,7 +41,7 @@ type sparkCommandContext struct {
 }
 
 // sparkJobContext represents the context for a spark job
-type sparkJobContext struct {
+type jobContext struct {
 	Query        string                 `yaml:"query,omitempty" json:"query,omitempty"`
 	Arguments    []string               `yaml:"arguments,omitempty" json:"arguments,omitempty"`
 	Parameters   *sparkSubmitParameters `yaml:"parameters,omitempty" json:"parameters,omitempty"`
@@ -49,7 +49,7 @@ type sparkJobContext struct {
 }
 
 // sparkClusterContext represents the context for a spark cluster
-type sparkClusterContext struct {
+type clusterContext struct {
 	ExecutionRoleArn *string           `yaml:"execution_role_arn,omitempty" json:"execution_role_arn,omitempty"`
 	EMRReleaseLabel  *string           `yaml:"emr_release_label,omitempty" json:"emr_release_label,omitempty"`
 	RoleARN          *string           `yaml:"role_arn,omitempty" json:"role_arn,omitempty"`
@@ -76,12 +76,12 @@ var (
 )
 
 // New creates a new Spark plugin handler.
-func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
+func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 
-	s := &sparkCommandContext{}
+	s := &commandContext{}
 
-	if commandContext != nil {
-		if err := commandContext.Unmarshal(s); err != nil {
+	if commandCtx != nil {
+		if err := commandCtx.Unmarshal(s); err != nil {
 			return nil, err
 		}
 	}
@@ -91,10 +91,10 @@ func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
 }
 
 // Handler for the Spark job submission.
-func (s *sparkCommandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
+func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
 
 	// let's unmarshal job context
-	jobContext := &sparkJobContext{}
+	jobContext := &jobContext{}
 	if j.Context != nil {
 		if err := j.Context.Unmarshal(jobContext); err != nil {
 			return err
@@ -102,7 +102,7 @@ func (s *sparkCommandContext) handler(ctx context.Context, r *plugin.Runtime, j 
 	}
 
 	// let's unmarshal cluster context
-	clusterContext := &sparkClusterContext{}
+	clusterContext := &clusterContext{}
 	if c.Context != nil {
 		if err := c.Context.Unmarshal(clusterContext); err != nil {
 			return err
@@ -261,7 +261,7 @@ timeoutLoop:
 
 }
 
-func (s *sparkCommandContext) setJobDriver(jobContext *sparkJobContext, jobDriver *types.JobDriver, queryURI string, resultURI string) {
+func (s *commandContext) setJobDriver(jobContext *jobContext, jobDriver *types.JobDriver, queryURI string, resultURI string) {
 	jobParameters := getSparkSubmitParameters(jobContext)
 	if jobContext.Arguments != nil {
 		jobDriver.SparkSubmitJobDriver = &types.SparkSubmitJobDriver{
@@ -308,7 +308,7 @@ func getClusterID(ctx context.Context, svc *emrcontainers.Client, clusterName st
 
 }
 
-func getSparkSubmitParameters(context *sparkJobContext) *string {
+func getSparkSubmitParameters(context *jobContext) *string {
 	properties := context.Parameters.Properties
 	conf := make([]string, 0, len(properties))
 

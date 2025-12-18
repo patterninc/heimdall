@@ -28,13 +28,13 @@ var (
 	ErrInvalidKeyType         = fmt.Errorf(`invalida key type`)
 )
 
-type snowflakeCommandContext struct{}
+type commandContext struct{}
 
-type snowflakeJobContext struct {
+type jobContext struct {
 	Query string `yaml:"query,omitempty" json:"query,omitempty"`
 }
 
-type snowflakeClusterContext struct {
+type clusterContext struct {
 	Account    string `yaml:"account,omitempty" json:"account,omitempty"`
 	User       string `yaml:"user,omitempty" json:"user,omitempty"`
 	Database   string `yaml:"database,omitempty" json:"database,omitempty"`
@@ -67,13 +67,13 @@ func parsePrivateKey(privateKeyBytes []byte) (*rsa.PrivateKey, error) {
 }
 
 func New(_ *heimdallContext.Context) (plugin.Handler, error) {
-	s := &snowflakeCommandContext{}
+	s := &commandContext{}
 	return s.handler, nil
 }
 
-func (s *snowflakeCommandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
-	clusterContext := &snowflakeClusterContext{}
+	clusterContext := &clusterContext{}
 	if c.Context != nil {
 		if err := c.Context.Unmarshal(clusterContext); err != nil {
 			return err
@@ -81,7 +81,7 @@ func (s *snowflakeCommandContext) handler(ctx context.Context, r *plugin.Runtime
 	}
 
 	// let's unmarshal job context
-	jobContext := &snowflakeJobContext{}
+	jobContext := &jobContext{}
 	if err := j.Context.Unmarshal(jobContext); err != nil {
 		return err
 	}

@@ -16,7 +16,7 @@ import (
 	"github.com/patterninc/heimdall/pkg/result/column"
 )
 
-type clickhouseCommandContext struct {
+type commandContext struct {
 	Username string `yaml:"username,omitempty" json:"username,omitempty"`
 	Password string `yaml:"password,omitempty" json:"password,omitempty"`
 }
@@ -45,11 +45,11 @@ var (
 )
 
 // New creates a new clickhouse plugin handler
-func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
-	t := &clickhouseCommandContext{}
+func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
+	t := &commandContext{}
 
-	if commandContext != nil {
-		if err := commandContext.Unmarshal(t); err != nil {
+	if commandCtx != nil {
+		if err := commandCtx.Unmarshal(t); err != nil {
 			return nil, err
 		}
 	}
@@ -57,7 +57,7 @@ func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
 	return t.handler, nil
 }
 
-func (cmd *clickhouseCommandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (cmd *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	jobContext, err := cmd.createJobContext(ctx, j, c)
 	if err != nil {
@@ -81,7 +81,7 @@ func (cmd *clickhouseCommandContext) handler(ctx context.Context, r *plugin.Runt
 	return nil
 }
 
-func (cmd *clickhouseCommandContext) createJobContext(ctx context.Context, j *job.Job, c *cluster.Cluster) (*jobContext, error) {
+func (cmd *commandContext) createJobContext(ctx context.Context, j *job.Job, c *cluster.Cluster) (*jobContext, error) {
 	// get cluster context
 	clusterCtx := &clusterContext{}
 	if c.Context != nil {

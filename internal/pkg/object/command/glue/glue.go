@@ -11,20 +11,20 @@ import (
 	"github.com/patterninc/heimdall/pkg/result"
 )
 
-type glueCommandContext struct {
+type commandContext struct {
 	CatalogID string `yaml:"catalog_id,omitempty" json:"catalog_id,omitempty"`
 }
 
-type glueJobContext struct {
+type jobContext struct {
 	TableName string `yaml:"table_name,omitempty" json:"table_name,omitempty"`
 }
 
-func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
+func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 
-	g := &glueCommandContext{}
+	g := &commandContext{}
 
-	if commandContext != nil {
-		if err := commandContext.Unmarshal(g); err != nil {
+	if commandCtx != nil {
+		if err := commandCtx.Unmarshal(g); err != nil {
 			return nil, err
 		}
 	}
@@ -33,10 +33,10 @@ func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
 
 }
 
-func (g *glueCommandContext) handler(ctx context.Context, _ *plugin.Runtime, j *job.Job, _ *cluster.Cluster) (err error) {
+func (g *commandContext) handler(ctx context.Context, _ *plugin.Runtime, j *job.Job, _ *cluster.Cluster) (err error) {
 
 	// let's unmarshal job context
-	jc := &glueJobContext{}
+	jc := &jobContext{}
 	if j.Context != nil {
 		if err = j.Context.Unmarshal(jc); err != nil {
 			return

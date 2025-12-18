@@ -25,8 +25,8 @@ func TestUpdateS3ToS3aURI(t *testing.T) {
 }
 
 func TestGetSparkSubmitParameters(t *testing.T) {
-	ctx := &sparkEksJobContext{
-		Parameters: &sparkEksJobParameters{
+	ctx := &jobContext{
+		Parameters: &jobParameters{
 			Properties: map[string]string{
 				"spark.executor.memory": "4g",
 				"spark.driver.cores":    "2",
@@ -40,8 +40,8 @@ func TestGetSparkSubmitParameters(t *testing.T) {
 }
 
 func TestGetSparkSubmitParameters_Empty(t *testing.T) {
-	ctx := &sparkEksJobContext{
-		Parameters: &sparkEksJobParameters{
+	ctx := &jobContext{
+		Parameters: &jobParameters{
 			Properties: map[string]string{},
 		},
 	}
@@ -52,7 +52,7 @@ func TestGetSparkSubmitParameters_Empty(t *testing.T) {
 }
 
 func TestGetSparkSubmitParameters_NilParameters(t *testing.T) {
-	ctx := &sparkEksJobContext{
+	ctx := &jobContext{
 		Parameters: nil,
 	}
 	params := getSparkSubmitParameters(ctx)
