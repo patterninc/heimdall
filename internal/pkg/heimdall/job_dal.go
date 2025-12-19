@@ -6,7 +6,9 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/hladush/go-telemetry/pkg/telemetry"
 	_ "github.com/lib/pq"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
@@ -51,7 +53,11 @@ var queryJobStatusSelect string
 var queryJobStatusesSelect string
 
 var (
-	ErrUnknownJobID = fmt.Errorf(`unknown job_id`)
+	ErrUnknownJobID    = fmt.Errorf(`unknown job_id`)
+	insertJobMethod    = telemetry.NewMethod("db_connection", "insert_job")
+	getJobMethod       = telemetry.NewMethod("db_connection", "get_job")
+	getJobsMethod      = telemetry.NewMethod("db_connection", "get_jobs")
+	getJobStatusMethod = telemetry.NewMethod("db_connection", "get_job_status")
 )
 
 var (
@@ -94,9 +100,14 @@ type jobRequest struct {
 
 func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, error) {
 
+	// Track DB connection for job insert operation
+	defer insertJobMethod.RecordLatency(time.Now())
+	insertJobMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(true)
 	if err != nil {
+		insertJobMethod.LogAndCountError(err, "new_session")
 		return 0, err
 	}
 	defer sess.Close()
@@ -151,18 +162,25 @@ func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, er
 	}
 
 	if err := sess.Commit(); err != nil {
+		insertJobMethod.LogAndCountError(err, "commit")
 		return 0, err
 	}
 
+	insertJobMethod.CountSuccess()
 	return jobID, nil
 
 }
 
 func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
 
+	// Track DB connection for job get operation
+	defer getJobMethod.RecordLatency(time.Now())
+	getJobMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		getJobMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -191,29 +209,38 @@ func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
 	}
 
 	if err := jobParseContextAndTags(r, jobContext, sess); err != nil {
+		getJobMethod.LogAndCountError(err, "job_parse_context_and_tags")
 		return nil, err
 	}
 
+	getJobMethod.CountSuccess()
 	return r, nil
 
 }
 
 func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error) {
 
+	// Track DB connection for jobs list operation
+	defer getJobsMethod.RecordLatency(time.Now())
+	getJobsMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		getJobsMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
 
 	query, args, err := f.Render(queryJobsSelect, jobsFilterConfig)
 	if err != nil {
+		getJobsMethod.LogAndCountError(err, "query")
 		return nil, err
 	}
 
 	rows, err := sess.Query(query, args...)
 	if err != nil {
+		getJobsMethod.LogAndCountError(err, "query")
 		return nil, err
 	}
 	defer rows.Close()
@@ -227,10 +254,12 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 
 		if err := rows.Scan(&r.SystemID, &r.ID, &r.Status, &r.Name, &r.Version, &r.Description, &jobContext, &r.Error, &r.User, &r.IsSync,
 			&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CancelledBy); err != nil {
+			getJobsMethod.LogAndCountError(err, "scan")
 			return nil, err
 		}
 
 		if err := jobParseContextAndTags(r, jobContext, sess); err != nil {
+			getJobsMethod.LogAndCountError(err, "job_parse_context_and_tags")
 			return nil, err
 		}
 
@@ -238,6 +267,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 
 	}
 
+	getJobsMethod.CountSuccess()
 	return &resultset{
 		Data: result,
 	}, nil
@@ -246,9 +276,14 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 
 func (h *Heimdall) getJobStatus(ctx context.Context, j *jobRequest) (any, error) {
 
+	// Track DB connection for job status operation
+	defer getJobStatusMethod.RecordLatency(time.Now())
+	getJobStatusMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		getJobStatusMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -263,12 +298,15 @@ func (h *Heimdall) getJobStatus(ctx context.Context, j *jobRequest) (any, error)
 
 	if err := row.Scan(&r.Status, &r.Error, &r.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
+			getJobStatusMethod.LogAndCountError(ErrUnknownJobID, "query")
 			return nil, ErrUnknownJobID
 		} else {
+			getJobStatusMethod.LogAndCountError(err, "query")
 			return nil, err
 		}
 	}
 
+	getJobStatusMethod.CountSuccess()
 	return r, nil
 
 }

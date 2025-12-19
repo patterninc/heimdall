@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Get the user from the incoming headers - handle case sensitivity
   let user = request.headers.get('X-Heimdall-User')
   const version = request.headers.get('X-Heimdall-Version')

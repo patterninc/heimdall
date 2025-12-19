@@ -4,7 +4,9 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"time"
 
+	"github.com/hladush/go-telemetry/pkg/telemetry"
 	"github.com/patterninc/heimdall/internal/pkg/database"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/object/job/status"
@@ -13,6 +15,12 @@ import (
 const (
 	formatErrUnknownCommand = "unknown command: %s"
 	formatErrUnknownCluster = "unknown cluster: %s"
+)
+
+var (
+	getAsyncJobsMethod         = telemetry.NewMethod("db_connection", "get_async_jobs")
+	runAsyncJobMethod          = telemetry.NewMethod("db_connection", "run_async_job")
+	updateAsyncJobStatusMethod = telemetry.NewMethod("db_connection", "update_async_job_status")
 )
 
 //go:embed queries/job/active_select.sql
@@ -29,9 +37,14 @@ var queryActiveJobDelete string
 
 func (h *Heimdall) getAsyncJobs(limit int) ([]*job.Job, error) {
 
+	// Track DB connection for async jobs retrieval
+	defer getAsyncJobsMethod.RecordLatency(time.Now())
+	getAsyncJobsMethod.CountRequest()
+
 	// open connection
 	sess, err := h.Database.NewSession(true)
 	if err != nil {
+		getAsyncJobsMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
@@ -82,18 +95,25 @@ func (h *Heimdall) getAsyncJobs(limit int) ([]*job.Job, error) {
 
 	// commit transaction
 	if err := sess.Commit(); err != nil {
+		getAsyncJobsMethod.LogAndCountError(err, "commit")
 		return nil, err
 	}
 
+	getAsyncJobsMethod.CountSuccess()
 	return result, nil
 
 }
 
 func (h *Heimdall) runAsyncJob(ctx context.Context, j *job.Job) error {
 
-	// let's update job status to RUNNING...
+	// Track DB connection for async job execution
+	defer runAsyncJobMethod.RecordLatency(time.Now())
+	runAsyncJobMethod.CountRequest()
+
+	// let's updte job status that we're running it...
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		runAsyncJobMethod.LogAndCountError(err, "new_session")
 		return h.updateAsyncJobStatus(j, err)
 	}
 	defer sess.Close()
@@ -114,17 +134,23 @@ func (h *Heimdall) runAsyncJob(ctx context.Context, j *job.Job) error {
 		return h.updateAsyncJobStatus(j, fmt.Errorf(formatErrUnknownCluster, j.ClusterID))
 	}
 
+	runAsyncJobMethod.CountSuccess()
 	return h.updateAsyncJobStatus(j, h.runJob(ctx, j, command, cluster))
 
 }
 
 func (h *Heimdall) updateAsyncJobStatus(j *job.Job, jobError error) error {
 
+	// Track DB connection for async job status update
+	defer updateAsyncJobStatusMethod.RecordLatency(time.Now())
+	updateAsyncJobStatusMethod.CountRequest()
+
 	// now we update that status in the database
 	sess, err := h.Database.NewSession(true)
 	if err != nil {
-		// TODO: implement proper logging
+		updateAsyncJobStatusMethod.LogAndCountError(err, "new_session")
 		fmt.Println(`session error:`, err)
+		return jobError // Return early if session creation fails
 	}
 	defer sess.Close()
 
@@ -143,6 +169,7 @@ func (h *Heimdall) updateAsyncJobStatus(j *job.Job, jobError error) error {
 		fmt.Println(`session commit error:`, err)
 	}
 
+	updateAsyncJobStatusMethod.CountSuccess()
 	return jobError
 
 }

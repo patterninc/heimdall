@@ -40,6 +40,7 @@ var (
 	ErrCommandClusterPairNotFound = fmt.Errorf(`command-cluster pair is not found`)
 	ErrJobCancelFailed            = fmt.Errorf(`async job unrecognized or already in final state`)
 	runJobMethod                  = telemetry.NewMethod("runJob", "heimdall")
+	cancelJobMethod               = telemetry.NewMethod("db_connection", "cancel_job")
 )
 
 //go:embed queries/job/status_cancel_update.sql
@@ -213,8 +214,12 @@ func (h *Heimdall) storeResults(runtime *plugin.Runtime, j *job.Job) error {
 
 func (h *Heimdall) cancelJob(ctx context.Context, req *jobRequest) (any, error) {
 
+	defer cancelJobMethod.RecordLatency(time.Now())
+	cancelJobMethod.CountRequest()
+
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
+		cancelJobMethod.LogAndCountError(err, "new_session")
 		return nil, err
 	}
 	defer sess.Close()
