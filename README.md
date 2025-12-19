@@ -88,16 +88,17 @@ GET /api/v1/job/<job_id>/stderr
 
 Heimdall supports a growing set of pluggable command types:
 
-| Plugin      | Description                            | Execution Mode |
-| ----------- | -------------------------------------- | -------------- |
-| `ping`      | [Basic plugin used for testing](https://github.com/patterninc/heimdall/blob/main/plugins/ping/README.md)          | Sync or Async  |
-| `shell`     | [Shell command execution](https://github.com/patterninc/heimdall/blob/main/plugins/shell/README.md)                | Sync or Async  |
-| `glue`      | [Pulling Iceberg table metadata](https://github.com/patterninc/heimdall/blob/main/plugins/glue/README.md)         | Sync or Async  |
-| `dynamo`    | [DynamoDB read operation](https://github.com/patterninc/heimdall/blob/main/plugins/dynamo/README.md)                | Sync or Async  |
-| `snowflake` | [Query execution in Snowflake](https://github.com/patterninc/heimdall/blob/main/plugins/snowflake/README.md)           | Async          |
-| `spark`     | [SparkSQL query execution on EMR on EKS](https://github.com/patterninc/heimdall/blob/main/plugins/spark/README.md) | Async          |
-| `trino`     | [Query execution in Trino](https://github.com/patterninc/heimdall/blob/main/plugins/trino/README.md) | Async          |
-| `clickhouse`| [Query execution in Clickhouse](https://github.com/patterninc/heimdall/blob/main/plugins/clickhouse/README.md) | Sync          |
+| Plugin        | Description                            | Execution Mode |
+| -----------   | -------------------------------------- | -------------- |
+| `ping`        | [Basic plugin used for testing](https://github.com/patterninc/heimdall/blob/main/plugins/ping/README.md)          | Sync or Async  |
+| `shell`       | [Shell command execution](https://github.com/patterninc/heimdall/blob/main/plugins/shell/README.md)                | Sync or Async  |
+| `glue`        | [Pulling Iceberg table metadata](https://github.com/patterninc/heimdall/blob/main/plugins/glue/README.md)         | Sync or Async  |
+| `dynamo`      | [DynamoDB read operation](https://github.com/patterninc/heimdall/blob/main/plugins/dynamo/README.md)                | Sync or Async  |
+| `snowflake`   | [Query execution in Snowflake](https://github.com/patterninc/heimdall/blob/main/plugins/snowflake/README.md)           | Async          |
+| `spark`       | [SparkSQL query execution on EMR on EKS](https://github.com/patterninc/heimdall/blob/main/plugins/spark/README.md) | Async          |
+| `trino`       | [Query execution in Trino](https://github.com/patterninc/heimdall/blob/main/plugins/trino/README.md) | Async          |
+| `clickhouse`  | [Query execution in Clickhouse](https://github.com/patterninc/heimdall/blob/main/plugins/clickhouse/README.md) | Sync          |
+| `ecs fargate` | [Task Deployment in ECS Fargate](https://github.com/patterninc/heimdall/blob/main/plugins/ecs/README.md) | Async |
 
 ---
 
@@ -163,6 +164,7 @@ It centralizes execution logic, logging, and auditing—all accessible via API o
 | `POST /api/v1/job`                | Submit a job                   |
 | `GET /api/v1/job/<id>`            | Get job details                |
 | `GET /api/v1/job/<id>/status`     | Check job status               |
+| `POST /api/v1/job/<id>/cancel`    | Cancel an async job            |
 | `GET /api/v1/job/<id>/stdout`     | Get stdout for a completed job |
 | `GET /api/v1/job/<id>/stderr`     | Get stderr for a completed job |
 | `GET /api/v1/job/<id>/result`     | Get job's result               |

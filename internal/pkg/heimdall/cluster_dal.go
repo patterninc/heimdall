@@ -1,6 +1,7 @@
 package heimdall
 
 import (
+	"context"
 	"database/sql"
 	_ "embed"
 	"encoding/json"
@@ -77,13 +78,13 @@ var (
 	getClustersMethod         = telemetry.NewMethod("db_connection", "get_clusters")
 )
 
-func (h *Heimdall) submitCluster(c *cluster.Cluster) (any, error) {
+func (h *Heimdall) submitCluster(ctx context.Context, c *cluster.Cluster) (any, error) {
 
 	if err := h.clusterUpsert(c); err != nil {
 		return nil, err
 	}
 
-	return h.getCluster(&cluster.Cluster{Object: object.Object{ID: c.ID}})
+	return h.getCluster(ctx, &cluster.Cluster{Object: object.Object{ID: c.ID}})
 
 }
 
@@ -134,7 +135,7 @@ func (h *Heimdall) clusterUpsert(c *cluster.Cluster) error {
 
 }
 
-func (h *Heimdall) getCluster(c *cluster.Cluster) (any, error) {
+func (h *Heimdall) getCluster(ctx context.Context, c *cluster.Cluster) (any, error) {
 
 	// Track DB connection for get cluster operation
 	defer getClusterMethod.RecordLatency(time.Now())
@@ -181,7 +182,7 @@ func (h *Heimdall) getCluster(c *cluster.Cluster) (any, error) {
 
 }
 
-func (h *Heimdall) getClusterStatus(c *cluster.Cluster) (any, error) {
+func (h *Heimdall) getClusterStatus(ctx context.Context, c *cluster.Cluster) (any, error) {
 
 	// Track DB connection for cluster status operation
 	defer getClusterStatusMethod.RecordLatency(time.Now())
@@ -216,7 +217,7 @@ func (h *Heimdall) getClusterStatus(c *cluster.Cluster) (any, error) {
 
 }
 
-func (h *Heimdall) updateClusterStatus(c *cluster.Cluster) (any, error) {
+func (h *Heimdall) updateClusterStatus(ctx context.Context, c *cluster.Cluster) (any, error) {
 
 	defer updateClusterStatusMethod.RecordLatency(time.Now())
 	updateClusterStatusMethod.CountRequest()
@@ -239,11 +240,11 @@ func (h *Heimdall) updateClusterStatus(c *cluster.Cluster) (any, error) {
 	}
 
 	updateClusterStatusMethod.CountSuccess()
-	return h.getClusterStatus(c)
+	return h.getClusterStatus(ctx, c)
 
 }
 
-func (h *Heimdall) getClusters(f *database.Filter) (any, error) {
+func (h *Heimdall) getClusters(ctx context.Context, f *database.Filter) (any, error) {
 
 	// Track DB connection for clusters list operation
 	defer getClustersMethod.RecordLatency(time.Now())
@@ -295,7 +296,7 @@ func (h *Heimdall) getClusters(f *database.Filter) (any, error) {
 
 }
 
-func (h *Heimdall) getClusterStatuses(_ *database.Filter) (any, error) {
+func (h *Heimdall) getClusterStatuses(ctx context.Context, _ *database.Filter) (any, error) {
 
 	return database.GetSlice(h.Database, queryClusterStatusesSelect)
 

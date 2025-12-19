@@ -1,6 +1,7 @@
 package sparkeks
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -24,8 +25,8 @@ func TestUpdateS3ToS3aURI(t *testing.T) {
 }
 
 func TestGetSparkSubmitParameters(t *testing.T) {
-	ctx := &sparkEksJobContext{
-		Parameters: &sparkEksJobParameters{
+	ctx := &jobContext{
+		Parameters: &jobParameters{
 			Properties: map[string]string{
 				"spark.executor.memory": "4g",
 				"spark.driver.cores":    "2",
@@ -39,8 +40,8 @@ func TestGetSparkSubmitParameters(t *testing.T) {
 }
 
 func TestGetSparkSubmitParameters_Empty(t *testing.T) {
-	ctx := &sparkEksJobContext{
-		Parameters: &sparkEksJobParameters{
+	ctx := &jobContext{
+		Parameters: &jobParameters{
 			Properties: map[string]string{},
 		},
 	}
@@ -51,7 +52,7 @@ func TestGetSparkSubmitParameters_Empty(t *testing.T) {
 }
 
 func TestGetSparkSubmitParameters_NilParameters(t *testing.T) {
-	ctx := &sparkEksJobContext{
+	ctx := &jobContext{
 		Parameters: nil,
 	}
 	params := getSparkSubmitParameters(ctx)
@@ -61,7 +62,7 @@ func TestGetSparkSubmitParameters_NilParameters(t *testing.T) {
 }
 
 func TestGetS3FileURI_InvalidFormat(t *testing.T) {
-	_, err := getS3FileURI(aws.Config{}, "invalid-uri", "avro")
+	_, err := getS3FileURI(context.Background(), aws.Config{}, "invalid-uri", "avro")
 	if err == nil {
 		t.Error("Expected error for invalid S3 URI format")
 	}
@@ -70,7 +71,7 @@ func TestGetS3FileURI_InvalidFormat(t *testing.T) {
 func TestGetS3FileURI_ValidFormat(t *testing.T) {
 	// This test only checks parsing, not actual AWS interaction
 	uri := "s3://bucket/path/"
-	_, err := getS3FileURI(aws.Config{}, uri, "avro")
+	_, err := getS3FileURI(context.Background(), aws.Config{}, uri, "avro")
 	// Should not error on parsing, but will error on AWS call (which is fine for unit test context)
 	if err == nil || !strings.Contains(err.Error(), "failed to list S3 objects") {
 		t.Logf("Expected AWS list objects error, got: %v", err)

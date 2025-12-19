@@ -7,7 +7,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/hladush/go-telemetry/pkg/telemetry"
-	hdctx "github.com/patterninc/heimdall/pkg/context"
+	heimdallContext "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/object/job/status"
@@ -45,11 +45,11 @@ var (
 )
 
 // New creates a new clickhouse plugin handler
-func New(ctx *hdctx.Context) (plugin.Handler, error) {
+func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 	t := &commandContext{}
 
-	if ctx != nil {
-		if err := ctx.Unmarshal(t); err != nil {
+	if commandCtx != nil {
+		if err := commandCtx.Unmarshal(t); err != nil {
 			return nil, err
 		}
 	}
@@ -57,10 +57,9 @@ func New(ctx *hdctx.Context) (plugin.Handler, error) {
 	return t.handler, nil
 }
 
-func (cmd *commandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
-	ctx := context.Background()
+func (cmd *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
-	jobContext, err := cmd.createJobContext(j, c)
+	jobContext, err := cmd.createJobContext(ctx, j, c)
 	if err != nil {
 		handleMethod.LogAndCountError(err, "create_job_context")
 		return err
@@ -82,7 +81,7 @@ func (cmd *commandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Clu
 	return nil
 }
 
-func (cmd *commandContext) createJobContext(j *job.Job, c *cluster.Cluster) (*jobContext, error) {
+func (cmd *commandContext) createJobContext(ctx context.Context, j *job.Job, c *cluster.Cluster) (*jobContext, error) {
 	// get cluster context
 	clusterCtx := &clusterContext{}
 	if c.Context != nil {

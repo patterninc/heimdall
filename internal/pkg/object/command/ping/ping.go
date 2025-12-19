@@ -1,9 +1,10 @@
 package ping
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/patterninc/heimdall/pkg/context"
+	heimdallContext "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
@@ -14,16 +15,16 @@ const (
 	messageFormat = `Hello, %s!`
 )
 
-type pingCommandContext struct{}
+type commandContext struct{}
 
-func New(_ *context.Context) (plugin.Handler, error) {
+func New(_ *heimdallContext.Context) (plugin.Handler, error) {
 
-	p := &pingCommandContext{}
+	p := &commandContext{}
 	return p.handler, nil
 
 }
 
-func (p *pingCommandContext) handler(_ *plugin.Runtime, j *job.Job, _ *cluster.Cluster) (err error) {
+func (p *commandContext) handler(ctx context.Context, _ *plugin.Runtime, j *job.Job, _ *cluster.Cluster) (err error) {
 
 	j.Result, err = result.FromMessage(fmt.Sprintf(messageFormat, j.User))
 	return

@@ -19,8 +19,9 @@ type Job struct {
 	ClusterCriteria *set.Set[string] `yaml:"cluster_criteria,omitempty" json:"cluster_criteria,omitempty"`
 	CommandID       string           `yaml:"command_id,omitempty" json:"command_id,omitempty"`
 	CommandName     string           `yaml:"command_name,omitempty" json:"command_name,omitempty"`
-	CluserID        string           `yaml:"cluster_id,omitempty" json:"cluster_id,omitempty"`
+	ClusterID       string           `yaml:"cluster_id,omitempty" json:"cluster_id,omitempty"`
 	ClusterName     string           `yaml:"cluster_name,omitempty" json:"cluster_name,omitempty"`
+	CancelledBy     string           `yaml:"cancelled_by,omitempty" json:"cancelled_by,omitempty"`
 	Result          *result.Result   `yaml:"result,omitempty" json:"result,omitempty"`
 }
 

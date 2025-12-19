@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -10,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 )
 
-func PullLogs(writer *os.File, logGroup, logStream string, chunkSize int, memoryLimit int64) error {
+func PullLogs(ctx context.Context, writer *os.File, logGroup, logStream string, chunkSize int, memoryLimit int64) error {
 
 	// initialize AWS session
 	cfg, err := config.LoadDefaultConfig(ctx)

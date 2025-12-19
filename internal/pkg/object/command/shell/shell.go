@@ -1,12 +1,13 @@
 package shell
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path"
 
-	"github.com/patterninc/heimdall/pkg/context"
+	heimdallContext "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
@@ -18,27 +19,27 @@ const (
 	contextFilename = `context.json`
 )
 
-type shellCommandContext struct {
+type commandContext struct {
 	Command []string `yaml:"command,omitempty" json:"command,omitempty"`
 }
 
-type shellJobContext struct {
+type jobContext struct {
 	Arguments []string `yaml:"arguments,omitempty" json:"arguments,omitempty"`
 }
 
 type runtimeContext struct {
-	Job     *job.Job             `yaml:"job,omitempty" json:"job,omitempty"`
-	Command *shellCommandContext `yaml:"command,omitempty" json:"command,omitempty"`
-	Cluster *cluster.Cluster     `yaml:"cluster,omitempty" json:"cluster,omitempty"`
-	Runtime *plugin.Runtime      `yaml:"runtime,omitempty" json:"runtime,omitempty"`
+	Job     *job.Job         `yaml:"job,omitempty" json:"job,omitempty"`
+	Command *commandContext  `yaml:"command,omitempty" json:"command,omitempty"`
+	Cluster *cluster.Cluster `yaml:"cluster,omitempty" json:"cluster,omitempty"`
+	Runtime *plugin.Runtime  `yaml:"runtime,omitempty" json:"runtime,omitempty"`
 }
 
-func New(commandContext *context.Context) (plugin.Handler, error) {
+func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 
-	s := &shellCommandContext{}
+	s := &commandContext{}
 
-	if commandContext != nil {
-		if err := commandContext.Unmarshal(s); err != nil {
+	if commandCtx != nil {
+		if err := commandCtx.Unmarshal(s); err != nil {
 			return nil, err
 		}
 	}
@@ -47,10 +48,10 @@ func New(commandContext *context.Context) (plugin.Handler, error) {
 
 }
 
-func (s *shellCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	// let's unmarshal job context
-	jc := &shellJobContext{}
+	jc := &jobContext{}
 	if j.Context != nil {
 		if err := j.Context.Unmarshal(jc); err != nil {
 			return err
@@ -82,7 +83,7 @@ func (s *shellCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.
 	commandWithArguments = append(commandWithArguments, jc.Arguments...)
 
 	// configure command
-	cmd := exec.Command(commandWithArguments[0], commandWithArguments[1:]...)
+	cmd := exec.CommandContext(ctx, commandWithArguments[0], commandWithArguments[1:]...)
 
 	cmd.Stdout = r.Stdout
 	cmd.Stderr = r.Stderr

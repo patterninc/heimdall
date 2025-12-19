@@ -36,6 +36,7 @@ export type JobType = {
   command_name: string
   cluster_id: string
   cluster_name: string
+  cancelled_by: string
   error?: string
   context?: {
     properties: {
