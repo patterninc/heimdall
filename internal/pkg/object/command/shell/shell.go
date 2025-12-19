@@ -2,6 +2,7 @@ package shell
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path"
@@ -19,7 +20,8 @@ const (
 )
 
 type shellCommandContext struct {
-	Command []string `yaml:"command,omitempty" json:"command,omitempty"`
+	Command       []string `yaml:"command,omitempty" json:"command,omitempty"`
+	SkipArguments bool     `yaml:"skip_arguments,omitempty" json:"skip_arguments,omitempty"`
 }
 
 type shellJobContext struct {
@@ -76,10 +78,14 @@ func (s *shellCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.
 		return err
 	}
 
+	fmt.Println("working directory: ", r.WorkingDirectory)
+
 	// construct command slice
 	commandWithArguments := make([]string, 0, len(s.Command)+len(jc.Arguments))
 	commandWithArguments = append(commandWithArguments, s.Command...)
-	commandWithArguments = append(commandWithArguments, jc.Arguments...)
+	if !s.SkipArguments {
+		commandWithArguments = append(commandWithArguments, jc.Arguments...)
+	}
 
 	// configure command
 	cmd := exec.Command(commandWithArguments[0], commandWithArguments[1:]...)
