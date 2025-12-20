@@ -22,3 +22,4 @@ create table if not exists jobs
 alter table jobs add column if not exists store_result_sync boolean not null default false;
 alter table jobs add column if not exists cancelled_by varchar(64) null;
 update jobs set cancelled_by = '' where cancelled_by is null;
+alter table jobs add column if not exists cancellation_ctx jsonb null;

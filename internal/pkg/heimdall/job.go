@@ -124,7 +124,8 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 	// Start plugin execution in goroutine
 	go func() {
 		defer close(cancelMonitorDone) // signal monitoring to stop
-		err := h.commandHandlers[command.ID](pluginCtx, runtime, j, cluster)
+		handlers := h.commandHandlers[command.ID]
+		err := handlers.Handler(pluginCtx, runtime, j, cluster)
 		jobDone <- err
 	}()
 

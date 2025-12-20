@@ -55,7 +55,7 @@ type Heimdall struct {
 	Janitor          *janitor.Janitor     `yaml:"janitor,omitempty" json:"janitor,omitempty"`
 	Version          string               `yaml:"-" json:"-"`
 	agentName        string
-	commandHandlers  map[string]plugin.Handler
+	commandHandlers  map[string]*plugin.Handlers
 }
 
 func (h *Heimdall) Init() error {
@@ -96,7 +96,7 @@ func (h *Heimdall) Init() error {
 		rbacsByName[rbacName] = r
 	}
 
-	h.commandHandlers = make(map[string]plugin.Handler)
+	h.commandHandlers = make(map[string]*plugin.Handlers)
 
 	// process commands / add default values if missing, write commands to db
 	for _, c := range h.Commands {
@@ -112,11 +112,12 @@ func (h *Heimdall) Init() error {
 			return fmt.Errorf(formatErrUnknownPlugin, c.Plugin)
 		}
 
-		handler, err := pluginNew(c.Context)
+		handlers, err := pluginNew(c.Context)
 		if err != nil {
 			return err
 		}
-		h.commandHandlers[c.ID] = handler
+
+		h.commandHandlers[c.ID] = handlers
 
 		// let's record command in the database
 		if err := h.commandUpsert(c); err != nil {
@@ -151,7 +152,7 @@ func (h *Heimdall) Init() error {
 	}
 
 	// start janitor
-	if err := h.Janitor.Start(h.Database); err != nil {
+	if err := h.Janitor.Start(h.Database, h.commandHandlers, h.Clusters); err != nil {
 		return err
 	}
 
