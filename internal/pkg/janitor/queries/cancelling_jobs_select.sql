@@ -5,17 +5,15 @@ select
     cm.command_id,
     cl.cluster_id
 from
-    active_jobs aj
-    join jobs j on j.system_job_id = aj.system_job_id
+    jobs j
     join commands cm on cm.system_command_id = j.job_command_id
     join clusters cl on cl.system_cluster_id = j.job_cluster_id
 where
-    aj.last_heartbeat > 0 and
-    extract(epoch from now())::int - $1 > aj.last_heartbeat
+    j.job_status_id = 7  -- CANCELLING
 order by
     j.system_job_id
 for update
     skip locked
-limit
-    $2
+limit $1
 ;
+

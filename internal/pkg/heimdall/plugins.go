@@ -1,6 +1,7 @@
 package heimdall
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"plugin"
@@ -16,9 +17,9 @@ const (
 	pluginExtensionLength = len(pluginExtension)
 )
 
-func (h *Heimdall) loadPlugins() (map[string]func(*context.Context) (hp.Handler, error), error) {
+func (h *Heimdall) loadPlugins() (map[string]func(*context.Context) (*hp.Handlers, error), error) {
 
-	plugins := make(map[string]func(*context.Context) (hp.Handler, error))
+	plugins := make(map[string]func(*context.Context) (*hp.Handlers, error))
 
 	files, err := os.ReadDir(h.PluginsDirectory)
 	if err != nil {
@@ -35,11 +36,12 @@ func (h *Heimdall) loadPlugins() (map[string]func(*context.Context) (hp.Handler,
 			if err != nil {
 				return nil, err
 			}
-			// is it our plugin?
-			newPluginFunc, ok := newFunc.(func(*context.Context) (hp.Handler, error))
-			if ok {
-				plugins[stripExtension(file.Name())] = newPluginFunc
+			// plugins must return *Handlers
+			newPluginFunc, ok := newFunc.(func(*context.Context) (*hp.Handlers, error))
+			if !ok {
+				return nil, fmt.Errorf("plugin %s must return *plugin.Handlers", stripExtension(file.Name()))
 			}
+			plugins[stripExtension(file.Name())] = newPluginFunc
 		}
 	}
 
