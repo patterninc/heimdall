@@ -52,6 +52,8 @@ You must define both a **command** and a **cluster**. The command represents the
     - data:prod
 ```
 
+> The `role` field is optional. If not specified, Snowflake will use the default role assigned to the user.
+
 > The `private_key` field must point to a valid **PKCS#8** PEM-formatted file accessible from the execution environment.
 
 ---
