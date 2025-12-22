@@ -39,6 +39,7 @@ type clusterContext struct {
 	User       string `yaml:"user,omitempty" json:"user,omitempty"`
 	Database   string `yaml:"database,omitempty" json:"database,omitempty"`
 	Warehouse  string `yaml:"warehouse,omitempty" json:"warehouse,omitempty"`
+	Role       string `yaml:"role,omitempty" json:"role,omitempty"`
 	PrivateKey string `yaml:"private_key,omitempty" json:"private_key,omitempty"`
 }
 
@@ -103,6 +104,7 @@ func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 		User:          clusterContext.User,
 		Database:      clusterContext.Database,
 		Warehouse:     clusterContext.Warehouse,
+		Role:          clusterContext.Role,
 		Authenticator: sf.AuthTypeJwt,
 		PrivateKey:    privateKey,
 		Application:   r.UserAgent,

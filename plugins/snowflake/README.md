@@ -45,6 +45,7 @@ You must define both a **command** and a **cluster**. The command represents the
     user: my-snowflake-user
     database: MY_DB
     warehouse: MY_WAREHOUSE
+    role: MY_ROLE
     private_key: /etc/keys/snowflake-private-key.p8
   tags:
     - type:snowflake
