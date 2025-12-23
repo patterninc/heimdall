@@ -27,6 +27,8 @@ You must define both a **command** and a **cluster**. The command represents the
   plugin: snowflake
   version: 0.0.1
   description: Query user metrics from Snowflake
+  context:
+    role: DATA_ENGINEER
   tags:
     - type:snowflake
   cluster_tags:
@@ -34,6 +36,9 @@ You must define both a **command** and a **cluster**. The command represents the
 ```
 
 ### 🔸 Cluster Configuration
+
+The cluster configuration represents **identity** (who/where), not **permissions** (what they can do).
+Role is intentionally excluded to prevent configuration duplication across clusters.
 
 ```yaml
 - name: snowflake-prod-cluster
@@ -45,14 +50,11 @@ You must define both a **command** and a **cluster**. The command represents the
     user: my-snowflake-user
     database: MY_DB
     warehouse: MY_WAREHOUSE
-    role: MY_ROLE
     private_key: /etc/keys/snowflake-private-key.p8
   tags:
     - type:snowflake
     - data:prod
 ```
-
-> The `role` field is optional. If not specified, Snowflake will use the default role assigned to the user.
 
 > The `private_key` field must point to a valid **PKCS#8** PEM-formatted file accessible from the execution environment.
 
@@ -77,6 +79,18 @@ Jobs must include a single SQL statement via the `context.query` field.
 🔹 The plugin will execute this query using the Snowflake configuration defined in the matched cluster.
 
 > Avoid semicolon-separated or batch queries—only **a single statement per job** is supported at this time.
+
+---
+
+## 🎭 Role Configuration
+
+The Snowflake role determines what permissions the connection has. Role is **decoupled from cluster configuration** and defined at the **command level** for security:
+- Prevent configuration duplication across clusters
+- **Prevent per-job role escalation** - users cannot override roles in job submissions
+
+### ⚠️ Default Behavior
+
+If no role is specified in the command context, Snowflake uses the **user's default role**.
 
 ---
 
