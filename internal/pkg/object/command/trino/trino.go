@@ -1,13 +1,12 @@
 package trino
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/hladush/go-telemetry/pkg/telemetry"
-	heimdallContext "github.com/patterninc/heimdall/pkg/context"
+	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
@@ -37,14 +36,14 @@ type jobContext struct {
 }
 
 // New creates a new trino plugin handler
-func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
+func New(ctx *context.Context) (plugin.Handler, error) {
 
 	t := &commandContext{
 		PollInterval: defaultPollInterval,
 	}
 
-	if commandCtx != nil {
-		if err := commandCtx.Unmarshal(t); err != nil {
+	if ctx != nil {
+		if err := ctx.Unmarshal(t); err != nil {
 			return nil, err
 		}
 	}
@@ -53,7 +52,7 @@ func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 
 }
 
-func (t *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (t *commandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	// get job context
 	jobCtx := &jobContext{}
@@ -69,7 +68,7 @@ func (t *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 		// this code will be enabled in prod after some testing
 	}
 	// let's submit our query to trino
-	req, err := newRequest(ctx, r, j, c, jobCtx)
+	req, err := newRequest(r, j, c, jobCtx)
 	if err != nil {
 		return err
 	}
@@ -77,7 +76,7 @@ func (t *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 	// now let's keep pooling until we get the full result...
 	for req.nextUri != `` {
 		time.Sleep(time.Duration(t.PollInterval) * time.Millisecond)
-		if err := req.poll(ctx); err != nil {
+		if err := req.poll(); err != nil {
 			return err
 		}
 	}
@@ -113,7 +112,7 @@ func canQueryBeExecuted(query, user, id string, c *cluster.Cluster) bool {
 			return false
 		}
 	}
-
+	
 	canBeExecutedMethod.CountSuccess()
 	return true
 }

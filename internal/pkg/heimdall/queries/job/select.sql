@@ -14,8 +14,7 @@ select
     cm.command_name,
     cl.cluster_id,
     cl.cluster_name,
-    j.store_result_sync,
-    j.cancelled_by
+    j.store_result_sync
 from
     jobs j
     left join commands cm on cm.system_command_id = j.job_command_id

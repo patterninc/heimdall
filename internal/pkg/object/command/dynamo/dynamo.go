@@ -1,7 +1,7 @@
 package dynamo
 
 import (
-	"context"
+	ct "context"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
-	heimdallContext "github.com/patterninc/heimdall/pkg/context"
+	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
@@ -17,36 +17,37 @@ import (
 )
 
 // dynamoJobContext represents the context for a dynamo job
-type jobContext struct {
+type dynamoJobContext struct {
 	Query string `yaml:"query,omitempty" json:"query,omitempty"`
 	Limit int    `yaml:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // dynamoClusterContext represents the context for a dynamo endpoint
-type clusterContext struct {
+type dynamoClusterContext struct {
 	RoleARN *string `yaml:"role_arn,omitempty" json:"role_arn,omitempty"`
 }
 
 // dynamoCommandContext represents the dynamo command context
-type commandContext struct{}
+type dynamoCommandContext struct{}
 
 var (
+	ctx               = ct.Background()
 	assumeRoleSession = aws.String("AssumeRoleSession")
 )
 
 // New creates a new dynamo plugin handler.
-func New(_ *heimdallContext.Context) (plugin.Handler, error) {
+func New(_ *context.Context) (plugin.Handler, error) {
 
-	s := &commandContext{}
+	s := &dynamoCommandContext{}
 	return s.handler, nil
 
 }
 
 // Handler for the Spark job submission.
-func (d *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
+func (d *dynamoCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
 
 	// let's unmarshal job context
-	jobContext := &jobContext{}
+	jobContext := &dynamoJobContext{}
 	if j.Context != nil {
 		if err := j.Context.Unmarshal(jobContext); err != nil {
 			return err
@@ -54,7 +55,7 @@ func (d *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 	}
 
 	// let's unmarshal cluster context
-	clusterContext := &clusterContext{}
+	clusterContext := &dynamoClusterContext{}
 	if c.Context != nil {
 		if err := c.Context.Unmarshal(clusterContext); err != nil {
 			return err

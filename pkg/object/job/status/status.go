@@ -11,14 +11,12 @@ import (
 type Status status.Status
 
 const (
-	New        Status = 1
-	Accepted   Status = 2
-	Running    Status = 3
-	Failed     Status = 4
-	Killed     Status = 5
-	Succeeded  Status = 6
-	Cancelling Status = 7
-	Cancelled  Status = 8
+	New       Status = 1
+	Accepted  Status = 2
+	Running   Status = 3
+	Failed    Status = 4
+	Killed    Status = 5
+	Succeeded Status = 6
 )
 
 const (
@@ -27,14 +25,12 @@ const (
 
 var (
 	statusMapping = map[string]status.Status{
-		`new`:        status.Status(New),
-		`accepted`:   status.Status(Accepted),
-		`running`:    status.Status(Running),
-		`failed`:     status.Status(Failed),
-		`killed`:     status.Status(Killed),
-		`succeeded`:  status.Status(Succeeded),
-		`cancelling`: status.Status(Cancelling),
-		`cancelled`:  status.Status(Cancelled),
+		`new`:       status.Status(New),
+		`accepted`:  status.Status(Accepted),
+		`running`:   status.Status(Running),
+		`failed`:    status.Status(Failed),
+		`killed`:    status.Status(Killed),
+		`succeeded`: status.Status(Succeeded),
 	}
 )
 

@@ -1,7 +1,6 @@
 package snowflake
 
 import (
-	"context"
 	"crypto/rsa"
 	"crypto/x509"
 	"database/sql"
@@ -11,7 +10,7 @@ import (
 
 	sf "github.com/snowflakedb/gosnowflake"
 
-	heimdallContext "github.com/patterninc/heimdall/pkg/context"
+	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
@@ -28,13 +27,13 @@ var (
 	ErrInvalidKeyType         = fmt.Errorf(`invalida key type`)
 )
 
-type commandContext struct{}
+type snowflakeCommandContext struct{}
 
-type jobContext struct {
+type snowflakeJobContext struct {
 	Query string `yaml:"query,omitempty" json:"query,omitempty"`
 }
 
-type clusterContext struct {
+type snowflakeClusterContext struct {
 	Account    string `yaml:"account,omitempty" json:"account,omitempty"`
 	User       string `yaml:"user,omitempty" json:"user,omitempty"`
 	Database   string `yaml:"database,omitempty" json:"database,omitempty"`
@@ -66,14 +65,14 @@ func parsePrivateKey(privateKeyBytes []byte) (*rsa.PrivateKey, error) {
 
 }
 
-func New(_ *heimdallContext.Context) (plugin.Handler, error) {
-	s := &commandContext{}
+func New(_ *context.Context) (plugin.Handler, error) {
+	s := &snowflakeCommandContext{}
 	return s.handler, nil
 }
 
-func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (s *snowflakeCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
-	clusterContext := &clusterContext{}
+	clusterContext := &snowflakeClusterContext{}
 	if c.Context != nil {
 		if err := c.Context.Unmarshal(clusterContext); err != nil {
 			return err
@@ -81,7 +80,7 @@ func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 	}
 
 	// let's unmarshal job context
-	jobContext := &jobContext{}
+	jobContext := &snowflakeJobContext{}
 	if err := j.Context.Unmarshal(jobContext); err != nil {
 		return err
 	}
@@ -118,7 +117,7 @@ func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 	}
 	defer db.Close()
 
-	rows, err := db.QueryContext(ctx, jobContext.Query)
+	rows, err := db.Query(jobContext.Query)
 	if err != nil {
 		return err
 	}

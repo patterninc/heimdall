@@ -1,7 +1,7 @@
 package ecs
 
 import (
-	"context"
+	ct "context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,7 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/hladush/go-telemetry/pkg/telemetry"
 	heimdallAws "github.com/patterninc/heimdall/internal/pkg/aws"
-	heimdallContext "github.com/patterninc/heimdall/pkg/context"
+	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/duration"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
@@ -23,7 +23,7 @@ import (
 )
 
 // ECS command context structure
-type commandContext struct {
+type ecsCommandContext struct {
 	TaskDefinitionTemplate string                    `yaml:"task_definition_template,omitempty" json:"task_definition_template,omitempty"`
 	TaskCount              int                       `yaml:"task_count,omitempty" json:"task_count,omitempty"`
 	CPU                    int                       `yaml:"cpu,omitempty" json:"cpu,omitempty"`
@@ -35,7 +35,7 @@ type commandContext struct {
 }
 
 // ECS cluster context structure
-type clusterContext struct {
+type ecsClusterContext struct {
 	MaxCPU           int       `yaml:"max_cpu,omitempty" json:"max_cpu,omitempty"`
 	MaxMemory        int       `yaml:"max_memory,omitempty" json:"max_memory,omitempty"`
 	MaxTaskCount     int       `yaml:"max_task_count,omitempty" json:"max_task_count,omitempty"`
@@ -86,7 +86,7 @@ type executionContext struct {
 	Memory                int                       `json:"memory"`
 	TaskDefinitionWrapper *taskDefinitionWrapper    `json:"task_definition_wrapper"`
 	ContainerOverrides    []types.ContainerOverride `json:"container_overrides"`
-	ClusterConfig         *clusterContext           `json:"cluster_config"`
+	ClusterConfig         *ecsClusterContext        `json:"cluster_config"`
 
 	PollingInterval duration.Duration `json:"polling_interval"`
 	Timeout         duration.Duration `json:"timeout"`
@@ -116,21 +116,22 @@ const (
 )
 
 var (
+	ctx                = ct.Background()
 	errMissingTemplate = fmt.Errorf("task definition template is required")
 	methodMetrics      = telemetry.NewMethod("ecs", "ecs plugin")
 )
 
-func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
+func New(commandContext *context.Context) (plugin.Handler, error) {
 
-	e := &commandContext{
+	e := &ecsCommandContext{
 		PollingInterval: defaultPollingInterval,
 		Timeout:         defaultTaskTimeout,
 		MaxFailCount:    defaultMaxFailCount,
 		TaskCount:       defaultTaskCount,
 	}
 
-	if commandCtx != nil {
-		if err := commandCtx.Unmarshal(e); err != nil {
+	if commandContext != nil {
+		if err := commandContext.Unmarshal(e); err != nil {
 			return nil, err
 		}
 	}
@@ -140,31 +141,31 @@ func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 }
 
 // handler implements the main ECS plugin logic
-func (e *commandContext) handler(ctx context.Context, r *plugin.Runtime, job *job.Job, cluster *cluster.Cluster) error {
+func (e *ecsCommandContext) handler(r *plugin.Runtime, job *job.Job, cluster *cluster.Cluster) error {
 
 	// Build execution context with resolved configuration and loaded template
-	execCtx, err := buildExecutionContext(ctx, e, job, cluster, r)
+	execCtx, err := buildExecutionContext(e, job, cluster, r)
 	if err != nil {
 		return err
 	}
 
 	// register task definition
-	if err := execCtx.registerTaskDefinition(ctx); err != nil {
+	if err := execCtx.registerTaskDefinition(); err != nil {
 		return err
 	}
 
 	// Start tasks
-	if err := execCtx.startTasks(ctx, job.ID); err != nil {
+	if err := execCtx.startTasks(job.ID); err != nil {
 		return err
 	}
 
 	// Poll for completion
-	if err := execCtx.pollForCompletion(ctx); err != nil {
+	if err := execCtx.pollForCompletion(); err != nil {
 		return err
 	}
 
 	// Try to retrieve logs, but don't fail the job if it fails
-	if err := execCtx.retrieveLogs(ctx); err != nil {
+	if err := execCtx.retrieveLogs(); err != nil {
 		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Failed to retrieve logs: %v\n", err))
 	}
 
@@ -179,7 +180,7 @@ func (e *commandContext) handler(ctx context.Context, r *plugin.Runtime, job *jo
 }
 
 // prepare and register task definition with ECS
-func (execCtx *executionContext) registerTaskDefinition(ctx context.Context) error {
+func (execCtx *executionContext) registerTaskDefinition() error {
 	registerInput := &ecs.RegisterTaskDefinitionInput{
 		Family:                  aws.String(aws.ToString(execCtx.TaskDefinitionWrapper.TaskDefinition.Family)),
 		RequiresCompatibilities: []types.Compatibility{types.CompatibilityFargate},
@@ -203,10 +204,10 @@ func (execCtx *executionContext) registerTaskDefinition(ctx context.Context) err
 }
 
 // startTasks launches all tasks and returns a map of task trackers
-func (execCtx *executionContext) startTasks(ctx context.Context, jobID string) error {
+func (execCtx *executionContext) startTasks(jobID string) error {
 
 	for i := 0; i < execCtx.TaskCount; i++ {
-		taskARN, err := runTask(ctx, execCtx, fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, i), i)
+		taskARN, err := runTask(execCtx, fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, i), i)
 		if err != nil {
 			return err
 		}
@@ -222,7 +223,7 @@ func (execCtx *executionContext) startTasks(ctx context.Context, jobID string) e
 }
 
 // monitor tasks until completion, faliure, or timeout
-func (execCtx *executionContext) pollForCompletion(ctx context.Context) error {
+func (execCtx *executionContext) pollForCompletion() error {
 
 	startTime := time.Now()
 	stopTime := startTime.Add(time.Duration(execCtx.Timeout))
@@ -286,7 +287,7 @@ func (execCtx *executionContext) pollForCompletion(ctx context.Context) error {
 
 				// Stop all other running tasks
 				reason := fmt.Sprintf(errMaxFailCount, tracker.ActiveARN, tracker.Retries, execCtx.MaxFailCount)
-				if err := stopAllTasks(ctx, execCtx, reason); err != nil {
+				if err := stopAllTasks(execCtx, reason); err != nil {
 					return err
 				}
 
@@ -295,7 +296,7 @@ func (execCtx *executionContext) pollForCompletion(ctx context.Context) error {
 				break
 			}
 
-			newTaskARN, err := runTask(ctx, execCtx, tracker.Name, tracker.TaskNum)
+			newTaskARN, err := runTask(execCtx, tracker.Name, tracker.TaskNum)
 			if err != nil {
 				return err
 			}
@@ -329,7 +330,7 @@ func (execCtx *executionContext) pollForCompletion(ctx context.Context) error {
 
 			// Stop all remaining tasks
 			reason := fmt.Sprintf(errPollingTimeout, incompleteARNs, execCtx.Timeout)
-			if err := stopAllTasks(ctx, execCtx, reason); err != nil {
+			if err := stopAllTasks(execCtx, reason); err != nil {
 				return err
 			}
 
@@ -337,7 +338,7 @@ func (execCtx *executionContext) pollForCompletion(ctx context.Context) error {
 			break
 		}
 
-		// sleep for polling interval
+		// Sleep until next poll time
 		time.Sleep(time.Duration(execCtx.PollingInterval))
 	}
 
@@ -346,7 +347,7 @@ func (execCtx *executionContext) pollForCompletion(ctx context.Context) error {
 
 }
 
-func buildExecutionContext(ctx context.Context, commandCtx *commandContext, j *job.Job, c *cluster.Cluster, runtime *plugin.Runtime) (*executionContext, error) {
+func buildExecutionContext(commandCtx *ecsCommandContext, j *job.Job, c *cluster.Cluster, runtime *plugin.Runtime) (*executionContext, error) {
 
 	execCtx := &executionContext{
 		tasks:   make(map[string]*taskTracker),
@@ -354,7 +355,7 @@ func buildExecutionContext(ctx context.Context, commandCtx *commandContext, j *j
 	}
 
 	// Create a context from commandCtx and unmarshal onto execCtx (defaults)
-	commandContext := heimdallContext.New(commandCtx)
+	commandContext := context.New(commandCtx)
 	if err := commandContext.Unmarshal(execCtx); err != nil {
 		return nil, err
 	}
@@ -367,7 +368,7 @@ func buildExecutionContext(ctx context.Context, commandCtx *commandContext, j *j
 	}
 
 	// Add cluster config (no overlapping values)
-	clusterContext := &clusterContext{}
+	clusterContext := &ecsClusterContext{}
 	if c.Context != nil {
 		if err := c.Context.Unmarshal(clusterContext); err != nil {
 			return nil, err
@@ -463,7 +464,7 @@ func buildContainerOverrides(execCtx *executionContext) error {
 }
 
 // stopAllTasks stops all non-completed tasks with the given reason
-func stopAllTasks(ctx context.Context, execCtx *executionContext, reason string) error {
+func stopAllTasks(execCtx *executionContext, reason string) error {
 	// AWS ECS has a 1024 character limit on the reason field
 	if len(reason) > 1024 {
 		reason = reason[:1021] + "..."
@@ -536,7 +537,7 @@ func loadTaskDefinitionTemplate(templatePath string) (*taskDefinitionWrapper, er
 }
 
 // runTask runs a single task and returns the task ARN
-func runTask(ctx context.Context, execCtx *executionContext, startedBy string, taskNum int) (string, error) {
+func runTask(execCtx *executionContext, startedBy string, taskNum int) (string, error) {
 
 	// Create a copy of the overrides and add TASK_NAME and TASK_NUM env variables
 	finalOverrides := append([]types.ContainerOverride{}, execCtx.ContainerOverrides...)
@@ -602,7 +603,7 @@ func isTaskSuccessful(task types.Task, execCtx *executionContext) bool {
 }
 
 // We pull logs from cloudwatch for all containers in a single task that represents the job outcome
-func (execCtx *executionContext) retrieveLogs(ctx context.Context) error {
+func (execCtx *executionContext) retrieveLogs() error {
 
 	var selectedTask *taskTracker
 	var writer *os.File
@@ -654,7 +655,7 @@ func (execCtx *executionContext) retrieveLogs(ctx context.Context) error {
 		case types.LogDriverAwslogs:
 			logGroup := logInfo.options["awslogs-group"]
 			logStream := fmt.Sprintf("%s/%s/%s", logInfo.options["awslogs-stream-prefix"], logInfo.containerName, taskID)
-			if err := heimdallAws.PullLogs(ctx, writer, logGroup, logStream, maxLogChunkSize, maxLogMemoryBytes); err != nil {
+			if err := heimdallAws.PullLogs(writer, logGroup, logStream, maxLogChunkSize, maxLogMemoryBytes); err != nil {
 				return err
 			}
 		default:

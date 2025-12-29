@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -98,9 +97,7 @@ func copyDir(src, dst string) error {
 	// if we have local filesystem, crete directory as appropriate
 	writeFileFunc := os.WriteFile
 	if strings.HasPrefix(dst, s3Prefix) {
-		writeFileFunc = func(name string, data []byte, perm os.FileMode) error {
-			return aws.WriteToS3(context.Background(), name, data, perm)
-		}
+		writeFileFunc = aws.WriteToS3
 	} else {
 		if _, err := os.Stat(dst); os.IsNotExist(err) {
 			os.MkdirAll(dst, jobDirectoryPermissions)

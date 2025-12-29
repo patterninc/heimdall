@@ -73,6 +73,7 @@ const (
 )
 
 var (
+	ctx           = context.Background()
 	rxS3          = regexp.MustCompile(`^s3://([^/]+)/(.*)$`)
 	runtimeStates = []v1beta2.ApplicationStateType{
 		v1beta2.ApplicationStateCompleted,
@@ -90,24 +91,24 @@ var (
 	ErrSparkApplicationFile = fmt.Errorf("failed to read SparkApplication application template file: check file path and permissions")
 )
 
-type commandContext struct {
+type sparkEksCommandContext struct {
 	JobsURI       string            `yaml:"jobs_uri,omitempty" json:"jobs_uri,omitempty"`
 	WrapperURI    string            `yaml:"wrapper_uri,omitempty" json:"wrapper_uri,omitempty"`
 	Properties    map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 	KubeNamespace string            `yaml:"kube_namespace,omitempty" json:"kube_namespace,omitempty"`
 }
 
-type jobParameters struct {
+type sparkEksJobParameters struct {
 	Properties map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 }
 
-type jobContext struct {
-	Query        string         `yaml:"query,omitempty" json:"query,omitempty"`
-	Parameters   *jobParameters `yaml:"parameters,omitempty" json:"parameters,omitempty"`
-	ReturnResult bool           `yaml:"return_result,omitempty" json:"return_result,omitempty"`
+type sparkEksJobContext struct {
+	Query        string                 `yaml:"query,omitempty" json:"query,omitempty"`
+	Parameters   *sparkEksJobParameters `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	ReturnResult bool                   `yaml:"return_result,omitempty" json:"return_result,omitempty"`
 }
 
-type clusterContext struct {
+type sparkEksClusterContext struct {
 	RoleARN                    *string           `yaml:"role_arn,omitempty" json:"role_arn,omitempty"`
 	Properties                 map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 	Image                      *string           `yaml:"image,omitempty" json:"image,omitempty"`
@@ -121,9 +122,9 @@ type executionContext struct {
 	runtime        *plugin.Runtime
 	job            *job.Job
 	cluster        *cluster.Cluster
-	commandContext *commandContext
-	jobContext     *jobContext
-	clusterContext *clusterContext
+	commandContext *sparkEksCommandContext
+	jobContext     *sparkEksJobContext
+	clusterContext *sparkEksClusterContext
 
 	sparkClient *sparkClientSet.Clientset
 	kubeClient  *kubernetes.Clientset
@@ -139,13 +140,13 @@ type executionContext struct {
 }
 
 // New creates a new Spark EKS plugin handler.
-func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
-	s := &commandContext{
+func New(commandContext *heimdallContext.Context) (plugin.Handler, error) {
+	s := &sparkEksCommandContext{
 		KubeNamespace: defaultNamespace,
 	}
 
-	if commandCtx != nil {
-		if err := commandCtx.Unmarshal(s); err != nil {
+	if commandContext != nil {
+		if err := commandContext.Unmarshal(s); err != nil {
 			return nil, err
 		}
 	}
@@ -154,24 +155,23 @@ func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 }
 
 // handler executes the Spark EKS job submission and execution.
-func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
-
+func (s *sparkEksCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 	// 1. Build execution context, create URIs, and upload query
-	execCtx, err := buildExecutionContextAndURI(ctx, r, j, c, s)
+	execCtx, err := buildExecutionContextAndURI(r, j, c, s)
 	if err != nil {
 		return fmt.Errorf("failed to build execution context: %w", err)
 	}
 
 	// 2. Submit the Spark Application to the cluster
-	if err := execCtx.submitSparkApp(ctx); err != nil {
+	if err := execCtx.submitSparkApp(); err != nil {
 		return err
 	}
 
 	// 3. Monitor the job until completion and collect logs
-	monitorErr := execCtx.monitorJobAndCollectLogs(ctx)
+	monitorErr := execCtx.monitorJobAndCollectLogs()
 
 	// 4. Cleanup any resources that are still pending
-	if err := execCtx.cleanupSparkApp(ctx); err != nil {
+	if err := execCtx.cleanupSparkApp(); err != nil {
 		// Log cleanup error but don't override the main monitoring error
 		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Warning: failed to cleanup application %s: %v\n", execCtx.submittedApp.Name, err))
 	}
@@ -182,7 +182,7 @@ func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 	}
 
 	// 5. Get and store results if required
-	if err := execCtx.getAndStoreResults(ctx); err != nil {
+	if err := execCtx.getAndStoreResults(); err != nil {
 		return err
 	}
 
@@ -190,7 +190,7 @@ func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 }
 
 // buildExecutionContextAndURI prepares the context, merges configurations, and uploads the query.
-func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster, s *commandContext) (*executionContext, error) {
+func buildExecutionContextAndURI(r *plugin.Runtime, j *job.Job, c *cluster.Cluster, s *sparkEksCommandContext) (*executionContext, error) {
 	execCtx := &executionContext{
 		runtime:        r,
 		job:            j,
@@ -199,7 +199,7 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 	}
 
 	// Parse job context
-	jobContext := &jobContext{}
+	jobContext := &sparkEksJobContext{}
 	if j.Context != nil {
 		if err := j.Context.Unmarshal(jobContext); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal job context: %w", err)
@@ -208,7 +208,7 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 	execCtx.jobContext = jobContext
 
 	// Parse cluster context
-	clusterContext := &clusterContext{}
+	clusterContext := &sparkEksClusterContext{}
 	if c.Context != nil {
 		if err := c.Context.Unmarshal(clusterContext); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal cluster context: %w", err)
@@ -218,7 +218,7 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 
 	// Initialize and merge properties from command -> job
 	if execCtx.jobContext.Parameters == nil {
-		execCtx.jobContext.Parameters = &jobParameters{
+		execCtx.jobContext.Parameters = &sparkEksJobParameters{
 			Properties: make(map[string]string),
 		}
 	}
@@ -248,12 +248,12 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 	execCtx.logURI = fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, logsPath)
 
 	// Upload query to S3
-	if err := uploadFileToS3(ctx, execCtx.awsConfig, execCtx.queryURI, execCtx.jobContext.Query); err != nil {
+	if err := uploadFileToS3(execCtx.awsConfig, execCtx.queryURI, execCtx.jobContext.Query); err != nil {
 		return nil, fmt.Errorf("failed to upload query to S3: %w", err)
 	}
 
 	// create empty log s3 directory to avoid spark event log dir errors
-	if err := uploadFileToS3(ctx, execCtx.awsConfig, fmt.Sprintf("%s/.keepdir", execCtx.logURI), ""); err != nil {
+	if err := uploadFileToS3(execCtx.awsConfig, fmt.Sprintf("%s/.keepdir", execCtx.logURI), ""); err != nil {
 		return nil, fmt.Errorf("failed to create log directory in S3: %w", err)
 	}
 
@@ -261,9 +261,9 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 }
 
 // submitSparkApp creates clients, generates the spec, and submits it to Kubernetes.
-func (e *executionContext) submitSparkApp(ctx context.Context) error {
+func (e *executionContext) submitSparkApp() error {
 	// Create Kubernetes and Spark Operator clients
-	if err := createSparkClients(ctx, e); err != nil {
+	if err := createSparkClients(e); err != nil {
 		return fmt.Errorf("failed to create Spark Operator client: %w", err)
 	}
 
@@ -297,7 +297,7 @@ func (e *executionContext) submitSparkApp(ctx context.Context) error {
 }
 
 // cleanupSparkApp removes the SparkApplication from the cluster if it still exists.
-func (e *executionContext) cleanupSparkApp(ctx context.Context) error {
+func (e *executionContext) cleanupSparkApp() error {
 	if e.submittedApp == nil {
 		return nil
 	}
@@ -316,12 +316,12 @@ func (e *executionContext) cleanupSparkApp(ctx context.Context) error {
 }
 
 // getAndStoreResults fetches the job output from S3 and stores it.
-func (e *executionContext) getAndStoreResults(ctx context.Context) error {
+func (e *executionContext) getAndStoreResults() error {
 	if !e.jobContext.ReturnResult {
 		return nil
 	}
 
-	returnResultFileURI, err := getS3FileURI(ctx, e.awsConfig, e.resultURI, avroFileExtension)
+	returnResultFileURI, err := getS3FileURI(e.awsConfig, e.resultURI, avroFileExtension)
 	if err != nil {
 		e.runtime.Stdout.WriteString(fmt.Sprintf("failed to find .avro file in results directory %s: %s", e.resultURI, err))
 		return fmt.Errorf("failed to find .avro file in results directory %s: %w", e.resultURI, err)
@@ -335,7 +335,7 @@ func (e *executionContext) getAndStoreResults(ctx context.Context) error {
 }
 
 // uploadFileToS3 uploads content to S3.
-func uploadFileToS3(ctx context.Context, awsConfig aws.Config, fileURI, content string) error {
+func uploadFileToS3(awsConfig aws.Config, fileURI, content string) error {
 	s3Parts := rxS3.FindAllStringSubmatch(fileURI, -1)
 	if len(s3Parts) == 0 || len(s3Parts[0]) < 3 {
 		return fmt.Errorf("unexpected S3 URI format: %s", fileURI)
@@ -358,7 +358,7 @@ func updateS3ToS3aURI(uri string) string {
 }
 
 // getS3FileURI finds a file in an S3 directory that matches the given extension.
-func getS3FileURI(ctx context.Context, awsConfig aws.Config, directoryURI, matchingExtension string) (string, error) {
+func getS3FileURI(awsConfig aws.Config, directoryURI, matchingExtension string) (string, error) {
 	s3Parts := rxS3.FindAllStringSubmatch(directoryURI, -1)
 	if len(s3Parts) == 0 || len(s3Parts[0]) < 3 {
 		return "", fmt.Errorf("invalid S3 URI format: %s", directoryURI)
@@ -390,7 +390,7 @@ func printState(writer io.Writer, state v1beta2.ApplicationStateType) {
 }
 
 // getSparkSubmitParameters returns Spark submit parameters as a string.
-func getSparkSubmitParameters(context *jobContext) *string {
+func getSparkSubmitParameters(context *sparkEksJobContext) *string {
 	if context.Parameters == nil || len(context.Parameters.Properties) == 0 {
 		return nil
 	}
@@ -403,7 +403,7 @@ func getSparkSubmitParameters(context *jobContext) *string {
 }
 
 // getSparkApplicationPods returns the list of pods associated with a Spark application.
-func getSparkApplicationPods(ctx context.Context, kubeClient *kubernetes.Clientset, appName, namespace string) ([]corev1.Pod, error) {
+func getSparkApplicationPods(kubeClient *kubernetes.Clientset, appName, namespace string) ([]corev1.Pod, error) {
 	labelSelector := fmt.Sprintf("%s=%s", sparkAppLabelSelectorFormat, appName)
 	podList, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
@@ -437,7 +437,7 @@ func writeDriverLogsToStderr(execCtx *executionContext, pod corev1.Pod, logConte
 }
 
 // getAndUploadPodContainerLogs fetches logs from a specific container in a pod and uploads them to S3.
-func getAndUploadPodContainerLogs(ctx context.Context, execCtx *executionContext, pod corev1.Pod, container corev1.Container, previous bool, logType string, writeToStderr bool) {
+func getAndUploadPodContainerLogs(execCtx *executionContext, pod corev1.Pod, container corev1.Container, previous bool, logType string, writeToStderr bool) {
 	logOptions := &corev1.PodLogOptions{Container: container.Name, Previous: previous}
 	req := execCtx.kubeClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, logOptions)
 	logs, err := req.Stream(ctx)
@@ -457,31 +457,31 @@ func getAndUploadPodContainerLogs(ctx context.Context, execCtx *executionContext
 		}
 
 		logURI := fmt.Sprintf("%s/%s-%s", execCtx.logURI, pod.Name, logType)
-		if err := uploadFileToS3(ctx, execCtx.awsConfig, logURI, string(logContent)); err != nil {
+		if err := uploadFileToS3(execCtx.awsConfig, logURI, string(logContent)); err != nil {
 			execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Pod %s, container %s: %s upload error: %v\n", pod.Name, container.Name, logType, err))
 		}
 	}
 }
 
 // getSparkApplicationPodLogs fetches logs from pods and uploads them to S3.
-func getSparkApplicationPodLogs(ctx context.Context, execCtx *executionContext, pods []corev1.Pod, writeToStderr bool) error {
+func getSparkApplicationPodLogs(execCtx *executionContext, pods []corev1.Pod, writeToStderr bool) error {
 	for _, pod := range pods {
 		if !isPodInValidPhase(pod) {
 			continue
 		}
 		for _, container := range pod.Spec.Containers {
 			// Get current logs and upload
-			getAndUploadPodContainerLogs(ctx, execCtx, pod, container, false, stdoutLogSuffix, writeToStderr)
+			getAndUploadPodContainerLogs(execCtx, pod, container, false, stdoutLogSuffix, writeToStderr)
 			// Get logs from previous (failed) runs and upload
-			getAndUploadPodContainerLogs(ctx, execCtx, pod, container, true, stderrLogSuffix, false)
+			getAndUploadPodContainerLogs(execCtx, pod, container, true, stderrLogSuffix, false)
 		}
 	}
 	return nil
 }
 
 // createSparkClients creates Kubernetes and Spark clients for the EKS cluster.
-func createSparkClients(ctx context.Context, execCtx *executionContext) error {
-	kubeconfigPath, err := updateKubeConfig(ctx, execCtx)
+func createSparkClients(execCtx *executionContext) error {
+	kubeconfigPath, err := updateKubeConfig(execCtx)
 	if err != nil {
 		return fmt.Errorf("failed to update kubeconfig: %w", err)
 	}
@@ -513,7 +513,7 @@ func createSparkClients(ctx context.Context, execCtx *executionContext) error {
 	return nil
 }
 
-func updateKubeConfig(ctx context.Context, execCtx *executionContext) (string, error) {
+func updateKubeConfig(execCtx *executionContext) (string, error) {
 	region := os.Getenv(awsRegionEnvVar)
 	if execCtx.clusterContext.Region != nil {
 		region = *execCtx.clusterContext.Region
@@ -762,7 +762,7 @@ func loadTemplate(execCtx *executionContext) (*v1beta2.SparkApplication, error) 
 }
 
 // monitorJobAndCollectLogs monitors the Spark job until completion and collects logs.
-func (e *executionContext) monitorJobAndCollectLogs(ctx context.Context) error {
+func (e *executionContext) monitorJobAndCollectLogs() error {
 	appName, namespace := e.submittedApp.Name, e.submittedApp.Namespace
 	e.runtime.Stdout.WriteString(fmt.Sprintf("Monitoring Spark application: %s\n", appName))
 
@@ -774,7 +774,7 @@ func (e *executionContext) monitorJobAndCollectLogs(ctx context.Context) error {
 	for {
 		if monitorCtx.Err() != nil {
 			if finalSparkApp != nil {
-				collectSparkApplicationLogs(ctx, e, finalSparkApp, true)
+				collectSparkApplicationLogs(e, finalSparkApp, true)
 			}
 			if monitorCtx.Err() == context.DeadlineExceeded {
 				return fmt.Errorf("spark job timed out after %v", jobTimeout)
@@ -788,7 +788,7 @@ func (e *executionContext) monitorJobAndCollectLogs(ctx context.Context) error {
 		if err != nil {
 			e.runtime.Stderr.WriteString(fmt.Sprintf("Spark application %s/%s not found or deleted externally: %v\n", namespace, appName, err))
 			if finalSparkApp != nil {
-				collectSparkApplicationLogs(ctx, e, finalSparkApp, true)
+				collectSparkApplicationLogs(e, finalSparkApp, true)
 			}
 			return fmt.Errorf("spark application %s/%s not found: %w", namespace, appName, err)
 		}
@@ -802,17 +802,17 @@ func (e *executionContext) monitorJobAndCollectLogs(ctx context.Context) error {
 		}
 
 		if state == v1beta2.ApplicationStateRunning {
-			collectSparkApplicationLogs(ctx, e, sparkApp, false)
+			collectSparkApplicationLogs(e, sparkApp, false)
 			continue
 		}
 
 		switch state {
 		case v1beta2.ApplicationStateCompleted:
-			collectSparkApplicationLogs(ctx, e, sparkApp, false)
+			collectSparkApplicationLogs(e, sparkApp, false)
 			e.runtime.Stdout.WriteString("Spark job completed successfully\n")
 			return nil
 		case v1beta2.ApplicationStateFailed:
-			collectSparkApplicationLogs(ctx, e, sparkApp, true)
+			collectSparkApplicationLogs(e, sparkApp, true)
 			errorMessage := sparkApp.Status.AppState.ErrorMessage
 			if errorMessage == "" {
 				errorMessage = unknownErrorMsg
@@ -820,7 +820,7 @@ func (e *executionContext) monitorJobAndCollectLogs(ctx context.Context) error {
 			e.runtime.Stderr.WriteString(fmt.Sprintf("Spark job failed: %s\n", errorMessage))
 			return fmt.Errorf("spark job failed: %s", errorMessage)
 		case v1beta2.ApplicationStateFailedSubmission, v1beta2.ApplicationStateUnknown:
-			collectSparkApplicationLogs(ctx, e, finalSparkApp, true)
+			collectSparkApplicationLogs(e, finalSparkApp, true)
 			msg := sparkJobSubmissionFailedMsg
 			if state == v1beta2.ApplicationStateUnknown {
 				msg = sparkAppUnknownStateMsg
@@ -831,17 +831,17 @@ func (e *executionContext) monitorJobAndCollectLogs(ctx context.Context) error {
 }
 
 // collectSparkApplicationLogs collects logs from Spark application pods.
-func collectSparkApplicationLogs(ctx context.Context, execCtx *executionContext, sparkApp *v1beta2.SparkApplication, writeToStderr bool) {
+func collectSparkApplicationLogs(execCtx *executionContext, sparkApp *v1beta2.SparkApplication, writeToStderr bool) {
 	if sparkApp == nil {
 		return
 	}
-	pods, err := getSparkApplicationPods(ctx, execCtx.kubeClient, sparkApp.Name, sparkApp.Namespace)
+	pods, err := getSparkApplicationPods(execCtx.kubeClient, sparkApp.Name, sparkApp.Namespace)
 	if err != nil {
 		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Warning: failed to get Spark application pods: %v\n", err))
 		return
 	}
 
-	if err := getSparkApplicationPodLogs(ctx, execCtx, pods, writeToStderr); err != nil {
+	if err := getSparkApplicationPodLogs(execCtx, pods, writeToStderr); err != nil {
 		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Warning: failed to collect pod logs: %v\n", err))
 	}
 }

@@ -1,7 +1,6 @@
 package heimdall
 
 import (
-	"context"
 	"database/sql"
 	_ "embed"
 	"encoding/json"
@@ -95,7 +94,6 @@ var (
 type jobRequest struct {
 	ID   string `yaml:"id,omitempty" json:"id,omitempty"`
 	File string `yaml:"file,omitempty" json:"file,omitempty"`
-	User string `yaml:"user,omitempty" json:"user,omitempty"`
 }
 
 func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, error) {
@@ -113,7 +111,7 @@ func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, er
 	defer sess.Close()
 
 	// insert job row
-	jobID, err := sess.InsertRow(queryJobInsert, clusterID, commandID, j.Status, j.ID, j.Name, j.Version, j.Description, j.Context.String(), j.Error, j.User, j.IsSync, j.StoreResultSync, j.CancelledBy)
+	jobID, err := sess.InsertRow(queryJobInsert, clusterID, commandID, j.Status, j.ID, j.Name, j.Version, j.Description, j.Context.String(), j.Error, j.User, j.IsSync, j.StoreResultSync)
 	if err != nil {
 		return 0, err
 	}
@@ -171,7 +169,7 @@ func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, er
 
 }
 
-func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
+func (h *Heimdall) getJob(j *jobRequest) (any, error) {
 
 	// Track DB connection for job get operation
 	defer getJobMethod.RecordLatency(time.Now())
@@ -200,7 +198,7 @@ func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
 	var jobContext string
 
 	if err := row.Scan(&r.SystemID, &r.Status, &r.Name, &r.Version, &r.Description, &jobContext, &r.Error, &r.User, &r.IsSync,
-		&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CancelledBy); err != nil {
+		&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.CluserID, &r.ClusterName, &r.StoreResultSync); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrUnknownJobID
 		} else {
@@ -218,7 +216,7 @@ func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
 
 }
 
-func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error) {
+func (h *Heimdall) getJobs(f *database.Filter) (any, error) {
 
 	// Track DB connection for jobs list operation
 	defer getJobsMethod.RecordLatency(time.Now())
@@ -253,7 +251,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 		r := &job.Job{}
 
 		if err := rows.Scan(&r.SystemID, &r.ID, &r.Status, &r.Name, &r.Version, &r.Description, &jobContext, &r.Error, &r.User, &r.IsSync,
-			&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CancelledBy); err != nil {
+			&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.CluserID, &r.ClusterName, &r.StoreResultSync); err != nil {
 			getJobsMethod.LogAndCountError(err, "scan")
 			return nil, err
 		}
@@ -274,7 +272,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 
 }
 
-func (h *Heimdall) getJobStatus(ctx context.Context, j *jobRequest) (any, error) {
+func (h *Heimdall) getJobStatus(j *jobRequest) (any, error) {
 
 	// Track DB connection for job status operation
 	defer getJobStatusMethod.RecordLatency(time.Now())
@@ -339,7 +337,7 @@ func jobParseContextAndTags(j *job.Job, jobContext string, sess *database.Sessio
 
 }
 
-func (h *Heimdall) getJobStatuses(ctx context.Context, _ *database.Filter) (any, error) {
+func (h *Heimdall) getJobStatuses(_ *database.Filter) (any, error) {
 
 	return database.GetSlice(h.Database, queryJobStatusesSelect)
 

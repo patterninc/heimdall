@@ -1,7 +1,6 @@
 package pool
 
 import (
-	"context"
 	"fmt"
 	"time"
 )
@@ -17,7 +16,7 @@ type Pool[T any] struct {
 	queue chan T
 }
 
-func (p *Pool[T]) Start(worker func(context.Context, T) error, getWork func(int) ([]T, error)) error {
+func (p *Pool[T]) Start(worker func(T) error, getWork func(int) ([]T, error)) error {
 
 	// do we have the size set?
 	if p.Size <= 0 {
@@ -54,9 +53,7 @@ func (p *Pool[T]) Start(worker func(context.Context, T) error, getWork func(int)
 				}
 
 				// do the work....
-				err := worker(context.Background(), w)
-
-				if err != nil {
+				if err := worker(w); err != nil {
 					// TODO: implement proper error logging
 					fmt.Println(`worker:`, err)
 				}
@@ -109,4 +106,5 @@ func (p *Pool[T]) Start(worker func(context.Context, T) error, getWork func(int)
 	}(tokens)
 
 	return nil
+
 }

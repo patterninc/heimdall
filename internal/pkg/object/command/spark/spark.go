@@ -1,7 +1,7 @@
 package spark
 
 import (
-	"context"
+	ct "context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -19,7 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/babourine/x/pkg/set"
 
-	heimdallContext "github.com/patterninc/heimdall/pkg/context"
+	"github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
@@ -32,7 +32,7 @@ type sparkSubmitParameters struct {
 }
 
 // spark represents the Spark command context
-type commandContext struct {
+type sparkCommandContext struct {
 	QueriesURI string            `yaml:"queries_uri,omitempty" json:"queries_uri,omitempty"`
 	ResultsURI string            `yaml:"results_uri,omitempty" json:"results_uri,omitempty"`
 	LogsURI    *string           `yaml:"logs_uri,omitempty" json:"logs_uri,omitempty"`
@@ -41,7 +41,7 @@ type commandContext struct {
 }
 
 // sparkJobContext represents the context for a spark job
-type jobContext struct {
+type sparkJobContext struct {
 	Query        string                 `yaml:"query,omitempty" json:"query,omitempty"`
 	Arguments    []string               `yaml:"arguments,omitempty" json:"arguments,omitempty"`
 	Parameters   *sparkSubmitParameters `yaml:"parameters,omitempty" json:"parameters,omitempty"`
@@ -49,7 +49,7 @@ type jobContext struct {
 }
 
 // sparkClusterContext represents the context for a spark cluster
-type clusterContext struct {
+type sparkClusterContext struct {
 	ExecutionRoleArn *string           `yaml:"execution_role_arn,omitempty" json:"execution_role_arn,omitempty"`
 	EMRReleaseLabel  *string           `yaml:"emr_release_label,omitempty" json:"emr_release_label,omitempty"`
 	RoleARN          *string           `yaml:"role_arn,omitempty" json:"role_arn,omitempty"`
@@ -64,6 +64,7 @@ const (
 )
 
 var (
+	ctx               = ct.Background()
 	sparkDefaults     = aws.String(`spark-defaults`)
 	assumeRoleSession = aws.String("AssumeRoleSession")
 	runtimeStates     = set.New([]types.JobRunState{types.JobRunStateCompleted, types.JobRunStateFailed, types.JobRunStateCancelled})
@@ -76,12 +77,12 @@ var (
 )
 
 // New creates a new Spark plugin handler.
-func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
+func New(commandContext *context.Context) (plugin.Handler, error) {
 
-	s := &commandContext{}
+	s := &sparkCommandContext{}
 
-	if commandCtx != nil {
-		if err := commandCtx.Unmarshal(s); err != nil {
+	if commandContext != nil {
+		if err := commandContext.Unmarshal(s); err != nil {
 			return nil, err
 		}
 	}
@@ -91,10 +92,10 @@ func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 }
 
 // Handler for the Spark job submission.
-func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
+func (s *sparkCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
 
 	// let's unmarshal job context
-	jobContext := &jobContext{}
+	jobContext := &sparkJobContext{}
 	if j.Context != nil {
 		if err := j.Context.Unmarshal(jobContext); err != nil {
 			return err
@@ -102,7 +103,7 @@ func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 	}
 
 	// let's unmarshal cluster context
-	clusterContext := &clusterContext{}
+	clusterContext := &sparkClusterContext{}
 	if c.Context != nil {
 		if err := c.Context.Unmarshal(clusterContext); err != nil {
 			return err
@@ -164,7 +165,7 @@ func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 	svc := emrcontainers.NewFromConfig(awsConfig, assumeRoleOptions)
 
 	// let's get the cluster ID
-	clusterID, err := getClusterID(ctx, svc, c.Name)
+	clusterID, err := getClusterID(svc, c.Name)
 	if err != nil {
 		return err
 	}
@@ -174,7 +175,7 @@ func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 
 	// upload query to s3 here...
 	queryURI := fmt.Sprintf("%s/%s/query.sql", s.QueriesURI, j.ID)
-	if err := uploadFileToS3(ctx, queryURI, jobContext.Query); err != nil {
+	if err := uploadFileToS3(queryURI, jobContext.Query); err != nil {
 		return err
 	}
 
@@ -261,7 +262,7 @@ timeoutLoop:
 
 }
 
-func (s *commandContext) setJobDriver(jobContext *jobContext, jobDriver *types.JobDriver, queryURI string, resultURI string) {
+func (s *sparkCommandContext) setJobDriver(jobContext *sparkJobContext, jobDriver *types.JobDriver, queryURI string, resultURI string) {
 	jobParameters := getSparkSubmitParameters(jobContext)
 	if jobContext.Arguments != nil {
 		jobDriver.SparkSubmitJobDriver = &types.SparkSubmitJobDriver{
@@ -287,7 +288,7 @@ func (s *commandContext) setJobDriver(jobContext *jobContext, jobDriver *types.J
 
 }
 
-func getClusterID(ctx context.Context, svc *emrcontainers.Client, clusterName string) (*string, error) {
+func getClusterID(svc *emrcontainers.Client, clusterName string) (*string, error) {
 
 	// let's get the cluster ID
 	outputListClusters, err := svc.ListVirtualClusters(ctx, &emrcontainers.ListVirtualClustersInput{
@@ -308,7 +309,7 @@ func getClusterID(ctx context.Context, svc *emrcontainers.Client, clusterName st
 
 }
 
-func getSparkSubmitParameters(context *jobContext) *string {
+func getSparkSubmitParameters(context *sparkJobContext) *string {
 	properties := context.Parameters.Properties
 	conf := make([]string, 0, len(properties))
 
@@ -326,7 +327,7 @@ func printState(stdout *os.File, state types.JobRunState) {
 	stdout.WriteString(fmt.Sprintf("%v - job is still running. latest status: %v\n", time.Now(), state))
 }
 
-func uploadFileToS3(ctx context.Context, fileURI, content string) error {
+func uploadFileToS3(fileURI, content string) error {
 
 	// get bucket name and prefix
 	s3Parts := rxS3.FindAllStringSubmatch(fileURI, -1)

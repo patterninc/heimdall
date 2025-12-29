@@ -11,8 +11,7 @@ insert into jobs
     job_error,
     username,
     is_sync,
-    store_result_sync,
-    cancelled_by
+    store_result_sync
 )
 select
     cm.system_command_id,
@@ -26,8 +25,7 @@ select
     $9, -- job_error
     $10, -- username
     $11, -- is_sync
-    $12, -- store_result_sync
-    $13 -- cancelled_by
+    $12 -- store_result_sync
 from
     clusters cl,
     commands cm

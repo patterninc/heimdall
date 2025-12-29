@@ -1,7 +1,6 @@
 package heimdall
 
 import (
-	"context"
 	"database/sql"
 	_ "embed"
 	"encoding/json"
@@ -90,13 +89,13 @@ var (
 	getCommandsMethod         = telemetry.NewMethod("db_connection", "get_commands")
 )
 
-func (h *Heimdall) submitCommand(ctx context.Context, c *command.Command) (any, error) {
+func (h *Heimdall) submitCommand(c *command.Command) (any, error) {
 
 	if err := h.commandUpsert(c); err != nil {
 		return nil, err
 	}
 
-	return h.getCommand(ctx, &command.Command{Object: object.Object{ID: c.ID}})
+	return h.getCommand(&command.Command{Object: object.Object{ID: c.ID}})
 
 }
 
@@ -164,7 +163,7 @@ func (h *Heimdall) commandUpsert(c *command.Command) error {
 
 }
 
-func (h *Heimdall) getCommand(ctx context.Context, c *command.Command) (any, error) {
+func (h *Heimdall) getCommand(c *command.Command) (any, error) {
 
 	// Track DB connection for get command operation
 	defer getCommandMethod.RecordLatency(time.Now())
@@ -211,7 +210,7 @@ func (h *Heimdall) getCommand(ctx context.Context, c *command.Command) (any, err
 
 }
 
-func (h *Heimdall) getCommandStatus(ctx context.Context, c *command.Command) (any, error) {
+func (h *Heimdall) getCommandStatus(c *command.Command) (any, error) {
 
 	// Track DB connection for command status operation
 	defer getCommandStatusMethod.RecordLatency(time.Now())
@@ -246,7 +245,7 @@ func (h *Heimdall) getCommandStatus(ctx context.Context, c *command.Command) (an
 
 }
 
-func (h *Heimdall) updateCommandStatus(ctx context.Context, c *command.Command) (any, error) {
+func (h *Heimdall) updateCommandStatus(c *command.Command) (any, error) {
 
 	// Track DB connection for command status update operation
 	defer updateCommandStatusMethod.RecordLatency(time.Now())
@@ -270,11 +269,11 @@ func (h *Heimdall) updateCommandStatus(ctx context.Context, c *command.Command) 
 	}
 
 	updateCommandStatusMethod.CountSuccess()
-	return h.getCommandStatus(ctx, c)
+	return h.getCommandStatus(c)
 
 }
 
-func (h *Heimdall) getCommands(ctx context.Context, f *database.Filter) (any, error) {
+func (h *Heimdall) getCommands(f *database.Filter) (any, error) {
 
 	// Track DB connection for commands list operation
 	defer getCommandsMethod.RecordLatency(time.Now())
@@ -326,7 +325,7 @@ func (h *Heimdall) getCommands(ctx context.Context, f *database.Filter) (any, er
 
 }
 
-func (h *Heimdall) getCommandStatuses(ctx context.Context, _ *database.Filter) (any, error) {
+func (h *Heimdall) getCommandStatuses(_ *database.Filter) (any, error) {
 
 	return database.GetSlice(h.Database, queryCommandStatusesSelect)
 

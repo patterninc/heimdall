@@ -15,12 +15,12 @@ import (
 	"github.com/patterninc/heimdall/internal/pkg/database"
 	"github.com/patterninc/heimdall/internal/pkg/janitor"
 	"github.com/patterninc/heimdall/internal/pkg/pool"
-	"github.com/patterninc/heimdall/internal/pkg/rbac"
 	"github.com/patterninc/heimdall/internal/pkg/server"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/command"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
+	"github.com/patterninc/heimdall/internal/pkg/rbac"
 	rbacI "github.com/patterninc/heimdall/pkg/rbac"
 )
 
@@ -173,7 +173,6 @@ func (h *Heimdall) Start() error {
 	// job(s) endpoints...
 	apiRouter.Methods(methodGET).PathPrefix(`/job/statuses`).HandlerFunc(payloadHandler(h.getJobStatuses))
 	apiRouter.Methods(methodGET).PathPrefix(`/job/{id}/status`).HandlerFunc(payloadHandler(h.getJobStatus))
-	apiRouter.Methods(methodPOST).PathPrefix(`/job/{id}/cancel`).HandlerFunc(payloadHandler(h.cancelJob))
 	apiRouter.Methods(methodGET).PathPrefix(`/job/{id}/{file}`).HandlerFunc(h.getJobFile)
 	apiRouter.Methods(methodGET).PathPrefix(`/job/{id}`).HandlerFunc(payloadHandler(h.getJob))
 	apiRouter.Methods(methodGET).PathPrefix(`/jobs`).HandlerFunc(payloadHandler(h.getJobs))
