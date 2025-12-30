@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -107,6 +108,7 @@ func (cmd *commandContext) createJobContext(ctx context.Context, j *job.Job, c *
 			Username: cmd.Username,
 			Password: cmd.Password,
 		},
+		ReadTimeout: 3600 * time.Second,
 	})
 	if err != nil {
 		createExcMethod.CountError("open_connection")
