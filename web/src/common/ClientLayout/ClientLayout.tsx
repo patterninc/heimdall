@@ -33,9 +33,16 @@ const LeftNavContainer = dynamic(
   { ssr: false },
 )
 
+const PatternToastContainer = dynamic(
+  () => import('@patterninc/react-ui').then((mod) => mod.PatternToastContainer),
+  {
+    ssr: false,
+  },
+)
 const ClientLayout = ({ children }: { children: ReactNode }) => {
   return (
     <ReactQueryProvider>
+      <PatternToastContainer />
       <div className='App'>
         <BreadcrumbProvidercontainer>
           <AutoRefreshProvidercontainer>
