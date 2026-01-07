@@ -30,6 +30,7 @@ export type JobType = {
   created_at: number
   updated_at: number
   status: string
+  is_sync: boolean
   command_criteria: string[]
   cluster_criteria: string[]
   command_id: string

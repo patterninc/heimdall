@@ -2,6 +2,7 @@
 
 import {
   Alert,
+  Ellipsis,
   PageFooter,
   PageHeader,
   SectionHeader,
@@ -14,6 +15,8 @@ import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
 import { cancelJob } from '@/app/api/jobs/jobs'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
+
+const CANCELABLE_STATUSES = ['NEW', 'ACCEPTED', 'RUNNING']
 
 const JobDetailsHeader = ({
   jobData,
@@ -42,10 +45,17 @@ const JobDetailsHeader = ({
       })
     },
   })
+
+  // Only async jobs in active states can be cancelled
   const isCancelable = useMemo(
-    () => jobData?.status === 'RUNNING',
-    [jobData?.status],
+    () =>
+      CANCELABLE_STATUSES.includes(jobData?.status ?? '') &&
+      jobData?.is_sync !== true,
+    [jobData?.status, jobData?.is_sync],
   )
+
+  const isCancelling = jobData?.status === 'CANCELLING'
+
   return (
     <div className='w-full'>
       <PageHeader
@@ -128,14 +138,26 @@ const JobDetailsHeader = ({
       <PageFooter
         rightSection={[
           {
-            as: 'button',
-            onClick: () => {
-              if (jobData?.id) cancelMutation.mutate(jobData.id)
+            as: 'confirmation',
+            confirmation: {
+              header: 'Cancel Job',
+              body: 'Are you sure you want to cancel this job?',
+              confirmCallout: () => {
+                if (jobData?.id) cancelMutation.mutate(jobData.id)
+              },
+              type: 'red',
             },
-            disabled: !isCancelable,
-            children: cancelMutation.isPending ? 'Cancelling...' : 'Cancel Job',
+            children: isCancelling ? (
+              <span>
+                Cancelling job
+                <Ellipsis />
+              </span>
+            ) : (
+              'Cancel Job'
+            ),
             styleType: 'primary-red',
             type: 'button',
+            disabled: !isCancelable || isCancelling,
           },
         ]}
       />
