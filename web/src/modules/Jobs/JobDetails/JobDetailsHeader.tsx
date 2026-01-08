@@ -28,7 +28,7 @@ const JobDetailsHeader = ({
       if (response.status === 'CANCELLING') {
         toast({
           type: 'info',
-          message: `Job is being cancelled...`,
+          message: `Job is being canceled...`,
         })
         queryClient.invalidateQueries({ queryKey: ['job', jobData?.id] })
       } else {
