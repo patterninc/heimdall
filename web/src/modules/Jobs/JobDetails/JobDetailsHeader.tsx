@@ -149,7 +149,7 @@ const JobDetailsHeader = ({
             },
             children: isCancelling ? (
               <span>
-                Cancelling job
+                Canceling job
                 <Ellipsis />
               </span>
             ) : (
