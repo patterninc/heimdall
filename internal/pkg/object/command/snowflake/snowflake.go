@@ -25,10 +25,14 @@ const (
 
 var (
 	ErrFailedToDecodePEMBlock = fmt.Errorf(`failed to decode PEM block`)
-	ErrInvalidKeyType         = fmt.Errorf(`invalida key type`)
+	ErrInvalidKeyType         = fmt.Errorf(`invalid key type`)
 )
 
-type commandContext struct{}
+// commandContext represents command-level configuration from the YAML config file.
+// Role is defined here for security - users cannot override
+type commandContext struct {
+	Role string `yaml:"role,omitempty" json:"role,omitempty"`
+}
 
 type jobContext struct {
 	Query string `yaml:"query,omitempty" json:"query,omitempty"`
@@ -66,8 +70,16 @@ func parsePrivateKey(privateKeyBytes []byte) (*rsa.PrivateKey, error) {
 
 }
 
-func New(_ *heimdallContext.Context) (plugin.Handler, error) {
+func New(cmdCtx *heimdallContext.Context) (plugin.Handler, error) {
 	s := &commandContext{}
+
+	// Parse command context from YAML config (contains role configuration)
+	if cmdCtx != nil {
+		if err := cmdCtx.Unmarshal(s); err != nil {
+			return nil, err
+		}
+	}
+
 	return s.handler, nil
 }
 
@@ -98,11 +110,13 @@ func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 		return err
 	}
 
+	// s.Role from command context; empty string = Snowflake uses user's default role
 	dsn, err := sf.DSN(&sf.Config{
 		Account:       clusterContext.Account,
 		User:          clusterContext.User,
 		Database:      clusterContext.Database,
 		Warehouse:     clusterContext.Warehouse,
+		Role:          s.Role,
 		Authenticator: sf.AuthTypeJwt,
 		PrivateKey:    privateKey,
 		Application:   r.UserAgent,
