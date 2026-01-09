@@ -1,7 +1,6 @@
 package heimdall
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"plugin"
@@ -36,12 +35,28 @@ func (h *Heimdall) loadPlugins() (map[string]func(*context.Context) (*hp.Handler
 			if err != nil {
 				return nil, err
 			}
-			// plugins must return *Handlers
+			// try new signature first: func(*context.Context) (*hp.Handlers, error)
 			newPluginFunc, ok := newFunc.(func(*context.Context) (*hp.Handlers, error))
-			if !ok {
-				return nil, fmt.Errorf("plugin %s must return *plugin.Handlers", stripExtension(file.Name()))
+			if ok {
+				plugins[stripExtension(file.Name())] = newPluginFunc
+				continue
 			}
-			plugins[stripExtension(file.Name())] = newPluginFunc
+
+			// make backward compatible with old signature: func(*context.Context) (hp.Handler, error)
+			oldPluginFunc, ok := newFunc.(func(*context.Context) (hp.Handler, error))
+			if ok {
+				plugins[stripExtension(file.Name())] = func(ctx *context.Context) (*hp.Handlers, error) {
+					handler, err := oldPluginFunc(ctx)
+					if err != nil {
+						return nil, err
+					}
+					return &hp.Handlers{
+						Handler:        handler,
+						CleanupHandler: nil,
+					}, nil
+				}
+			}
+
 		}
 	}
 

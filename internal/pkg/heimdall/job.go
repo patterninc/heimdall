@@ -117,7 +117,7 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 	jobDone := make(chan error, 1)
 	cancelMonitorDone := make(chan struct{})
 
-	// Create cancellable context for the job
+	// Create cancelable context for the job
 	pluginCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -141,10 +141,10 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 				case <-cancelMonitorDone:
 					return
 				case <-ticker.C:
-					// If job is in cancelling state, trigger context cancellation
+					// If job is in canceling state, trigger context cancellation
 					result, err := h.getJobStatus(ctx, &jobRequest{ID: j.ID})
 					if err == nil {
-						if job, ok := result.(*job.Job); ok && job.Status == jobStatus.Cancelling {
+						if job, ok := result.(*job.Job); ok && job.Status == jobStatus.Canceling {
 							cancel()
 							return
 						}
@@ -157,14 +157,14 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 	// Wait for job execution to complete
 	jobErr := <-jobDone
 
-	// Check if context was cancelled and mark status appropriately
+	// Check if context was canceled and mark status appropriately
 	if pluginCtx.Err() != nil {
-		j.Status = jobStatus.Cancelling // janitor will update to cancelled when resources are cleaned up
+		j.Status = jobStatus.Canceling // janitor will update to canceled when resources are cleaned up
 		runJobMethod.LogAndCountError(pluginCtx.Err(), command.Name, cluster.Name)
 		return nil
 	}
 
-	// Handle plugin execution result (only if not cancelled)
+	// Handle plugin execution result (only if not canceled)
 	if jobErr != nil {
 		j.Status = jobStatus.Failed
 		j.Error = jobErr.Error()
@@ -237,7 +237,7 @@ func (h *Heimdall) cancelJob(ctx context.Context, req *jobRequest) (any, error) 
 
 	// return job status
 	return &job.Job{
-		Status: jobStatus.Cancelling,
+		Status: jobStatus.Canceling,
 	}, nil
 }
 

@@ -22,6 +22,7 @@ with a as
         join clusters cl on cl.system_cluster_id = jj.job_cluster_id
     where
         aj.agent_name is null
+        and jj.job_status_id != 7  -- Not canceling. Jobs can be canceled before being assigned to an agent.
     order by
         aj.system_job_id
     for update

@@ -20,6 +20,13 @@ create table if not exists jobs
 );
 
 alter table jobs add column if not exists store_result_sync boolean not null default false;
-alter table jobs add column if not exists cancelled_by varchar(64) null;
-update jobs set cancelled_by = '' where cancelled_by is null;
-alter table jobs add column if not exists cancellation_ctx jsonb null;
+alter table jobs add column if not exists canceled_by varchar(64) null;
+
+-- Originally had "cancelled_by" column and "cancelling" status, but we aren't british. Whoops.
+do $$ begin
+    if exists (select 1 from information_schema.columns where table_name = 'jobs' and column_name = 'cancelled_by') then
+        update jobs set canceled_by = cancelled_by where canceled_by is null and cancelled_by is not null;
+        alter table jobs drop column cancelled_by;
+    end if;
+end $$;
+update jobs set canceled_by = '' where canceled_by is null;

@@ -20,6 +20,7 @@ const (
 	defaultReadHeaderTimeout = 2  // seconds
 	defaultJanitorKeepalive  = 5  // seconds
 	defaultStaleJob          = 45 // seconds
+	defaultCleanInterval     = 60 // seconds
 )
 
 var (
@@ -46,8 +47,9 @@ func main() {
 			ReadHeaderTimeout: defaultReadHeaderTimeout,
 		},
 		Janitor: &janitor.Janitor{
-			Keepalive: defaultJanitorKeepalive,
-			StaleJob:  defaultStaleJob,
+			Keepalive:     defaultJanitorKeepalive,
+			StaleJob:      defaultStaleJob,
+			CleanInterval: defaultCleanInterval,
 		},
 	}
 
