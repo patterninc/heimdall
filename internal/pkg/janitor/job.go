@@ -3,224 +3,169 @@ package janitor
 import (
 	"context"
 	_ "embed"
-	"encoding/json"
-	"fmt"
-	"sync"
+	"time"
 
+	"github.com/go-faster/errors"
 	"github.com/hladush/go-telemetry/pkg/telemetry"
 	"github.com/patterninc/heimdall/internal/pkg/database"
 	"github.com/patterninc/heimdall/pkg/object/job"
+	jobStatus "github.com/patterninc/heimdall/pkg/object/job/status"
 )
 
 var (
-	cleanUpStaleJobsMethod      = telemetry.NewMethod("db_connection", "cleanup_stale_jobs")
-	cleanUpCancellingJobsMethod = telemetry.NewMethod("db_connection", "cleanup_cancelling_jobs")
-	cleanupMethod               = telemetry.NewMethod("db_connection", "cleanup_jobs")
-	ctx                         = context.Background()
+	cleanupJobsMethod       = telemetry.NewMethod("db_connection", "cleanup_jobs")
+	queryAndSendJobsMethod  = telemetry.NewMethod("db_connection", "query_and_send_jobs")
+	cleanupWorkerJobsMethod = telemetry.NewMethod("janitor", "cleanup_worker_jobs")
+	ctx                     = context.Background()
 )
 
-//go:embed queries/stale_jobs_select.sql
-var queryStaleJobsSelect string
+//go:embed queries/stale_and_canceling_jobs_select.sql
+var queryStaleAndCancelingJobsSelect string
 
-//go:embed queries/stale_jobs_delete.sql
-var queryStaleJobsDelete string
+//go:embed queries/active_jobs_delete.sql
+var queryActiveJobsDelete string
 
-//go:embed queries/cancelling_jobs_select.sql
-var queryCancellingJobsSelect string
+//go:embed queries/jobs_set_canceled.sql
+var queryJobsSetCanceled string
 
-//go:embed queries/job_set_cancelled.sql
-var queryJobSetCancelled string
+//go:embed queries/jobs_set_failed.sql
+var queryJobsSetFailed string
 
-// clean up jobs in parallel and return their system IDs for updating
-func (j *Janitor) cleanupJobs(jobs []*job.Job) []any {
+func (j *Janitor) cleanup(jb *job.Job) error {
 
-	var wg sync.WaitGroup
-	jobIDsChan := make(chan int64, len(jobs))
+	cleanupJobsMethod.CountRequest()
 
+	// Call cleanup handler
+	handler := j.commandHandlers[jb.CommandID]
+	if handler.CleanupHandler != nil {
+		cluster := j.clusters[jb.ClusterID]
+		if err := handler.CleanupHandler(ctx, jb, cluster); err != nil {
+			cleanupJobsMethod.CountError("cleanup_handler")
+			return errors.Wrap(err, "cleanup_handler")
+		}
+	} else {
+		// count requests for jobs that don't have a cleanup handler
+		cleanupJobsMethod.CountRequest("no_cleanup_handler")
+	}
+
+	return nil
+
+}
+
+func (j *Janitor) queryAndSendJobs(jobChan chan<- *job.Job) error {
+
+	// track session creation
+	defer queryAndSendJobsMethod.RecordLatency(time.Now())
+	queryAndSendJobsMethod.CountRequest()
+
+	sess, err := j.db.NewSession(true)
+	if err != nil {
+		queryAndSendJobsMethod.CountError("new_session")
+		return errors.Wrap(err, "new_session")
+	}
+	defer sess.Close()
+
+	// query all stale and canceling jobs and return job ids and statuses
+	rows, err := sess.Query(queryStaleAndCancelingJobsSelect, j.StaleJob, defaultJobLimit)
+	if err != nil {
+		queryAndSendJobsMethod.CountError("query_stale_and_canceling_jobs_select")
+		return errors.Wrap(err, "query_stale_and_canceling_jobs_select")
+	}
+	defer rows.Close()
+
+	// collect all jobs
+	jobs := make([]*job.Job, 0)
+	allSystemIDs := make([]any, 0)
+	cancelingSystemIDs := make([]any, 0)
+	otherSystemIDs := make([]any, 0)
+
+	// organize jobs by status
+	for rows.Next() {
+		jb := &job.Job{}
+		if err := rows.Scan(&jb.SystemID, &jb.ID, &jb.Status, &jb.CommandID, &jb.ClusterID); err != nil {
+			queryAndSendJobsMethod.CountError("scan")
+			continue
+		}
+
+		jobs = append(jobs, jb)
+		allSystemIDs = append(allSystemIDs, jb.SystemID)
+
+		// separate by status for bulk updates
+		if jb.Status == jobStatus.Canceling {
+			cancelingSystemIDs = append(cancelingSystemIDs, jb.SystemID)
+		} else {
+			// accepted or running (stale jobs)
+			otherSystemIDs = append(otherSystemIDs, jb.SystemID)
+		}
+	}
+
+	// if no jobs found, return early
+	if len(jobs) == 0 {
+		return nil
+	}
+
+	// bulk delete all active jobs from this set of jobs
+	if len(allSystemIDs) > 0 {
+		query, args, err := database.PrepareSliceQuery(queryActiveJobsDelete, "$%d", allSystemIDs)
+		if err != nil {
+			queryAndSendJobsMethod.CountError("prepare_active_jobs_delete")
+			return errors.Wrap(err, "prepare_active_jobs_delete")
+		}
+		if _, err := sess.Exec(query, args...); err != nil {
+			queryAndSendJobsMethod.CountError("delete_active_jobs")
+			return errors.Wrap(err, "delete_active_jobs")
+		}
+	}
+
+	// bulk update all canceling jobs to canceled
+	if len(cancelingSystemIDs) > 0 {
+		query, args, err := database.PrepareSliceQuery(queryJobsSetCanceled, "$%d", cancelingSystemIDs)
+		if err != nil {
+			queryAndSendJobsMethod.CountError("prepare_jobs_set_canceled")
+			return errors.Wrap(err, "prepare_jobs_set_canceled")
+		}
+		if _, err := sess.Exec(query, args...); err != nil {
+			queryAndSendJobsMethod.CountError("update_jobs_set_canceled")
+			return errors.Wrap(err, "update_jobs_set_canceled")
+		}
+	}
+
+	// bulk update all other jobs to failed
+	if len(otherSystemIDs) > 0 {
+		query, args, err := database.PrepareSliceQuery(queryJobsSetFailed, "$%d", otherSystemIDs)
+		if err != nil {
+			queryAndSendJobsMethod.CountError("prepare_jobs_set_failed")
+			return errors.Wrap(err, "prepare_jobs_set_failed")
+		}
+		if _, err := sess.Exec(query, args...); err != nil {
+			queryAndSendJobsMethod.CountError("update_jobs_set_failed")
+			return errors.Wrap(err, "update_jobs_set_failed")
+		}
+	}
+
+	// commit transaction to release locks and persist changes
+	if err := sess.Commit(); err != nil {
+		queryAndSendJobsMethod.CountError("commit")
+		return errors.Wrap(err, "commit")
+	}
+
+	// send jobs to cleanup job channel
 	for _, jb := range jobs {
-		wg.Add(1)
-		go func(job *job.Job) {
-			defer wg.Done()
-
-			// look up handlers directly by command ID
-			handlers := j.commandHandlers[job.CommandID]
-			if handlers != nil && handlers.CleanupHandler != nil {
-				// look up cluster from map
-				cl, found := j.clusters[job.ClusterID]
-				if found {
-					// attempt to clean up job resources (log errors but continue)
-					if err := handlers.CleanupHandler(ctx, job, cl); err != nil {
-						cleanupMethod.LogAndCountError(fmt.Errorf("cleanup failed for job %s: %w", job.ID, err), "cleanup")
-					}
-				} else {
-					cleanupMethod.LogAndCountError(fmt.Errorf("unknown cluster_id: %s for job %s", job.ClusterID, job.ID), "cluster_lookup")
-				}
-			}
-
-			// collect job ID (regardless of cleanup success)
-			jobIDsChan <- job.SystemID
-		}(jb)
+		jobChan <- jb
 	}
 
-	// wait for all cleanup operations to complete
-	wg.Wait()
-	close(jobIDsChan)
+	return nil
 
-	// collect all job IDs from channel
-	jobIDs := make([]any, 0, len(jobs))
-	for id := range jobIDsChan {
-		jobIDs = append(jobIDs, id)
-	}
-
-	return jobIDs
 }
 
-func (j *Janitor) cleanupStaleJobs() error {
+func (j *Janitor) cleanupWorker(jobChan <-chan *job.Job) {
 
-	// use transaction for FOR UPDATE SKIP LOCKED row locking
-	sess, err := j.db.NewSession(true)
-	if err != nil {
-		cleanUpStaleJobsMethod.LogAndCountError(err, "new_session")
-		return err
-	}
-	defer sess.Close()
-
-	// query stale jobs
-	rows, err := sess.Query(queryStaleJobsSelect, j.StaleJob, defaultJobLimit)
-	if err != nil {
-		cleanUpStaleJobsMethod.LogAndCountError(err, "query")
-		return err
-	}
-	defer rows.Close()
-
-	// collect all jobs
-	jobs := make([]*job.Job, 0, defaultJobLimit)
-	for rows.Next() {
-		var cancellationCtxJSON []byte
-		jb := &job.Job{}
-
-		if err := rows.Scan(&jb.SystemID, &jb.ID, &cancellationCtxJSON, &jb.CommandID, &jb.ClusterID); err != nil {
-			cleanUpStaleJobsMethod.LogAndCountError(err, "scan")
-			continue
+	// process jobs from channel
+	for jb := range jobChan {
+		if err := j.cleanup(jb); err != nil {
+			cleanupWorkerJobsMethod.LogAndCountError(err, "cleanup")
+			continue // don't fail if cleanup fails
 		}
-
-		// parse cancellation context (JSONB from PostgreSQL)
-		if len(cancellationCtxJSON) > 0 {
-			if err := json.Unmarshal(cancellationCtxJSON, &jb.CancellationCtx); err != nil {
-				cleanUpStaleJobsMethod.LogAndCountError(err, "parse_cancellation_ctx")
-				// continue anyway
-			}
-		}
-
-		jobs = append(jobs, jb)
 	}
 
-	// no jobs found, commit and return early
-	if len(jobs) == 0 {
-		if err := sess.Commit(); err != nil {
-			cleanUpStaleJobsMethod.LogAndCountError(err, "commit")
-			return err
-		}
-		cleanUpStaleJobsMethod.CountSuccess()
-		return nil
-	}
-
-	// clean up jobs and get their IDs
-	jobIDs := j.cleanupJobs(jobs)
-
-	// delete stale jobs from active_jobs
-	deleteStaleJobs, jobSystemIDs, err := database.PrepareSliceQuery(queryStaleJobsDelete, `$%d`, jobIDs)
-	if err != nil {
-		cleanUpStaleJobsMethod.LogAndCountError(err, "prepare_slice_query")
-		return err
-	}
-
-	if _, err := sess.Exec(deleteStaleJobs, jobSystemIDs...); err != nil {
-		cleanUpStaleJobsMethod.LogAndCountError(err, "exec")
-		return err
-	}
-
-	// commit transaction to release locks
-	if err := sess.Commit(); err != nil {
-		cleanUpStaleJobsMethod.LogAndCountError(err, "commit")
-		return err
-	}
-
-	cleanUpStaleJobsMethod.CountSuccess()
-	return nil
-}
-
-func (j *Janitor) cleanupCancellingJobs() error {
-
-	// Start a new session
-	sess, err := j.db.NewSession(true)
-	if err != nil {
-		cleanUpCancellingJobsMethod.LogAndCountError(err, "new_session")
-		return err
-	}
-	defer sess.Close()
-
-	// query cancelling jobs
-	rows, err := sess.Query(queryCancellingJobsSelect, defaultJobLimit)
-	if err != nil {
-		cleanUpCancellingJobsMethod.LogAndCountError(err, "query")
-		return err
-	}
-	defer rows.Close()
-
-	// collect all jobs
-	jobs := make([]*job.Job, 0, defaultJobLimit)
-	for rows.Next() {
-		var cancellationCtxJSON []byte
-		jb := &job.Job{}
-
-		if err := rows.Scan(&jb.SystemID, &jb.ID, &cancellationCtxJSON, &jb.CommandID, &jb.ClusterID); err != nil {
-			cleanUpCancellingJobsMethod.LogAndCountError(err, "scan")
-			continue
-		}
-
-		// parse cancellation context
-		if len(cancellationCtxJSON) > 0 {
-			if err := json.Unmarshal(cancellationCtxJSON, &jb.CancellationCtx); err != nil {
-				cleanUpCancellingJobsMethod.LogAndCountError(err, "parse_cancellation_ctx")
-				// continue anyway
-			}
-		}
-
-		jobs = append(jobs, jb)
-	}
-
-	// no jobs found, commit and return early
-	if len(jobs) == 0 {
-		if err := sess.Commit(); err != nil {
-			cleanUpCancellingJobsMethod.LogAndCountError(err, "commit")
-			return err
-		}
-		cleanUpCancellingJobsMethod.CountSuccess()
-		return nil
-	}
-
-	// clean up jobs and get their IDs
-	jobIDs := j.cleanupJobs(jobs)
-
-	// update status to cancelled
-	updateQuery, jobSystemIDs, err := database.PrepareSliceQuery(queryJobSetCancelled, `$%d`, jobIDs)
-	if err != nil {
-		cleanUpCancellingJobsMethod.LogAndCountError(err, "prepare_slice_query")
-		return err
-	}
-
-	if _, err := sess.Exec(updateQuery, jobSystemIDs...); err != nil {
-		cleanUpCancellingJobsMethod.LogAndCountError(err, "exec")
-		return err
-	}
-
-	// commit transaction to release locks
-	if err := sess.Commit(); err != nil {
-		cleanUpCancellingJobsMethod.LogAndCountError(err, "commit")
-		return err
-	}
-
-	cleanUpCancellingJobsMethod.CountSuccess()
-	return nil
 }
