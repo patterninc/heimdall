@@ -7,6 +7,13 @@ import (
 )
 
 // New creates a new trino plugin handler
-func New(commandContext *context.Context) (plugin.Handler, error) {
-	return trino.New(commandContext)
+func New(commandContext *context.Context) (*plugin.Handlers, error) {
+	handler, err := trino.New(commandContext)
+	if err != nil {
+		return nil, err
+	}
+	return &plugin.Handlers{
+		Handler:        handler,
+		CleanupHandler: nil,
+	}, nil
 }

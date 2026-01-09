@@ -7,6 +7,13 @@ import (
 )
 
 // New creates a new dynamo plugin handler.
-func New(_ *context.Context) (plugin.Handler, error) {
-	return dynamo.New(nil)
+func New(_ *context.Context) (*plugin.Handlers, error) {
+	handler, err := dynamo.New(nil)
+	if err != nil {
+		return nil, err
+	}
+	return &plugin.Handlers{
+		Handler:        handler,
+		CleanupHandler: nil,
+	}, nil
 }

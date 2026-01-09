@@ -6,6 +6,15 @@ import (
 	"github.com/patterninc/heimdall/pkg/plugin"
 )
 
-func New(_ *context.Context) (plugin.Handler, error) {
-	return ping.New(nil)
+func New(_ *context.Context) (*plugin.Handlers, error) {
+
+	handler, err := ping.New(nil)
+	if err != nil {
+		return nil, err
+	}
+	return &plugin.Handlers{
+		Handler:        handler,
+		CleanupHandler: nil,
+	}, nil
+
 }

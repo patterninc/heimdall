@@ -7,6 +7,13 @@ import (
 )
 
 // New creates a new Spark EKS plugin handler.
-func New(commandContext *context.Context) (plugin.Handler, error) {
-	return sparkeks.New(commandContext)
+func New(commandContext *context.Context) (*plugin.Handlers, error) {
+	handler, err := sparkeks.New(commandContext)
+	if err != nil {
+		return nil, err
+	}
+	return &plugin.Handlers{
+		Handler:        handler,
+		CleanupHandler: nil,
+	}, nil
 }
