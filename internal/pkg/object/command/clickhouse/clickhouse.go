@@ -185,6 +185,6 @@ func collectResults(rows driver.Rows) (*result.Result, error) {
 }
 
 func (cmd *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
-	// No cleanup needed. CLickhouse queries should always by synchronous.
+	// No cleanup needed. CLickhouse queries should always be synchronous.
 	return nil
 }

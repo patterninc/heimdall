@@ -59,13 +59,11 @@ func (j *Janitor) worker() bool {
 
 	// call Cleanup for each job in parallel
 	var wg sync.WaitGroup
-	cleanupErrors := make([]error, len(jobs))
 	for i, jb := range jobs {
 		wg.Add(1)
 		go func(idx int, job *job.Job) {
 			defer wg.Done()
 			if err := j.cleanup(job); err != nil {
-				cleanupErrors[idx] = err
 				cleanupJobsMethod.LogAndCountError(err, "cleanup")
 			}
 		}(i, jb)
