@@ -122,7 +122,7 @@ var (
 	handlerMethod      = telemetry.NewMethod("ecs", "handler")
 )
 
-func New(commandCtx *heimdallContext.Context) (plugin.Handler, plugin.CleanupHandler, error) {
+func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 
 	e := &commandContext{
 		PollingInterval: defaultPollingInterval,
@@ -133,16 +133,16 @@ func New(commandCtx *heimdallContext.Context) (plugin.Handler, plugin.CleanupHan
 
 	if commandCtx != nil {
 		if err := commandCtx.Unmarshal(e); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
-	return e.handler, e.cleanup, nil
+	return e, nil
 
 }
 
-// handler implements the main ECS plugin logic
-func (e *commandContext) handler(ctx context.Context, r *plugin.Runtime, job *job.Job, cluster *cluster.Cluster) error {
+// Execute implements the plugin.Handler interface and contains the main ECS plugin logic
+func (e *commandContext) Execute(ctx context.Context, r *plugin.Runtime, job *job.Job, cluster *cluster.Cluster) error {
 
 	// Build execution context with resolved configuration and loaded template
 	execCtx, err := buildExecutionContext(ctx, e, job, cluster, r)
@@ -670,7 +670,7 @@ func (execCtx *executionContext) retrieveLogs(ctx context.Context) error {
 }
 
 // cleanup stops all ECS tasks that were started by the given job
-func (e *commandContext) cleanup(ctx context.Context, j *job.Job, c *cluster.Cluster) error {
+func (e *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
 
 	// Resolve cluster context to get cluster name
 	clusterContext := &clusterContext{}
@@ -688,7 +688,7 @@ func (e *commandContext) cleanup(ctx context.Context, j *job.Job, c *cluster.Clu
 	// List all tasks started by this job
 	var allTaskARNs []string
 	for taskNum := 0; taskNum < e.TaskCount; taskNum++ {
-		startedByValue := fmt.Sprintf("%s%s-%d", startedByPrefix, j.ID, taskNum)
+		startedByValue := fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, taskNum)
 
 		listTasksOutput, err := ecsClient.ListTasks(ctx, &ecs.ListTasksInput{
 			Cluster:   aws.String(clusterContext.ClusterName),

@@ -7,13 +7,6 @@ import (
 )
 
 // New creates a new ECS plugin handler.
-func New(commandContext *context.Context) (*plugin.Handlers, error) {
-	handler, cleanupHandler, err := ecs.New(commandContext)
-	if err != nil {
-		return nil, err
-	}
-	return &plugin.Handlers{
-		Handler:        handler,
-		CleanupHandler: cleanupHandler,
-	}, nil
+func New(commandContext *context.Context) (plugin.Handler, error) {
+	return ecs.New(commandContext)
 }

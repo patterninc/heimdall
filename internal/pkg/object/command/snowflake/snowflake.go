@@ -68,10 +68,11 @@ func parsePrivateKey(privateKeyBytes []byte) (*rsa.PrivateKey, error) {
 
 func New(_ *heimdallContext.Context) (plugin.Handler, error) {
 	s := &commandContext{}
-	return s.handler, nil
+	return s, nil
 }
 
-func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+// Execute implements the plugin.Handler interface
+func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	clusterContext := &clusterContext{}
 	if c.Context != nil {
@@ -129,4 +130,9 @@ func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 
 	return nil
 
+}
+
+func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
+	// TODO: Implement cleanup if needed
+	return nil
 }

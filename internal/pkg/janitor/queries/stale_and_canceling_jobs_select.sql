@@ -14,7 +14,7 @@ where
         -- Stale jobs: must be in active_jobs and have heartbeat timeout
         (aj.system_job_id is not null and aj.last_heartbeat > 0 and extract(epoch from now())::int - $1 > aj.last_heartbeat)
         or
-        -- Canceling jobs: status is CANCELING (may or may not be in active_jobs)
+        -- Canceling jobs: status is CANCELING
         j.job_status_id = 7
     )
 order by

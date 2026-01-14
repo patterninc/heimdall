@@ -86,12 +86,12 @@ func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 		}
 	}
 
-	return s.handler, nil
+	return s, nil
 
 }
 
-// Handler for the Spark job submission.
-func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
+// Execute implements the plugin.Handler interface for Spark job submission.
+func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
 
 	// let's unmarshal job context
 	jobContext := &jobContext{}
@@ -259,6 +259,11 @@ timeoutLoop:
 
 	return nil
 
+}
+
+func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
+	// TODO: Implement cleanup if needed
+	return nil
 }
 
 func (s *commandContext) setJobDriver(jobContext *jobContext, jobDriver *types.JobDriver, queryURI string, resultURI string) {

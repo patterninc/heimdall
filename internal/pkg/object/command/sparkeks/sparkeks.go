@@ -150,11 +150,11 @@ func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 		}
 	}
 
-	return s.handler, nil
+	return s, nil
 }
 
-// handler executes the Spark EKS job submission and execution.
-func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+// Execute implements the plugin.Handler interface for Spark EKS job submission and execution.
+func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	// 1. Build execution context, create URIs, and upload query
 	execCtx, err := buildExecutionContextAndURI(ctx, r, j, c, s)
@@ -186,6 +186,11 @@ func (s *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 		return err
 	}
 
+	return nil
+}
+
+func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
+	// TODO: Implement cleanup if needed
 	return nil
 }
 

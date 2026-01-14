@@ -55,7 +55,7 @@ type Heimdall struct {
 	Janitor          *janitor.Janitor     `yaml:"janitor,omitempty" json:"janitor,omitempty"`
 	Version          string               `yaml:"-" json:"-"`
 	agentName        string
-	commandHandlers  map[string]*plugin.Handlers
+	commandHandlers  map[string]plugin.Handler
 }
 
 func (h *Heimdall) Init() error {
@@ -96,7 +96,7 @@ func (h *Heimdall) Init() error {
 		rbacsByName[rbacName] = r
 	}
 
-	h.commandHandlers = make(map[string]*plugin.Handlers)
+	h.commandHandlers = make(map[string]plugin.Handler)
 
 	// process commands / add default values if missing, write commands to db
 	for _, c := range h.Commands {
@@ -112,12 +112,12 @@ func (h *Heimdall) Init() error {
 			return fmt.Errorf(formatErrUnknownPlugin, c.Plugin)
 		}
 
-		handlers, err := pluginNew(c.Context)
+		handler, err := pluginNew(c.Context)
 		if err != nil {
 			return err
 		}
 
-		h.commandHandlers[c.ID] = handlers
+		h.commandHandlers[c.ID] = handler
 
 		// let's record command in the database
 		if err := h.commandUpsert(c); err != nil {
@@ -193,7 +193,7 @@ func (h *Heimdall) Start() error {
 	apiRouter.Methods(methodGET).PathPrefix(`/clusters`).HandlerFunc(payloadHandler(h.getClusters))
 
 	// metrics endpoint - proxy to metrics service
-	router.Path(`/metrics`).HandlerFunc(metricsRouteHandler)
+	// router.Path(`/metrics`).HandlerFunc(metricsRouteHandler)
 
 	// catch all for APIs
 	apiRouter.PathPrefix(`/`).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
