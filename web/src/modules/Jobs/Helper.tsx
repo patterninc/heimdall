@@ -39,12 +39,14 @@ export type JobType = {
   cancelled_by: string
   error?: string
   context?: {
+    parameters: {
     properties: {
       'spark.driver.cores': string
       'spark.driver.memory': string
       'spark.executor.cores': string
       'spark.executor.instances': string
       'spark.executor.memory': string
+      }
     }
     query: string
     return_result?: boolean
