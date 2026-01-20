@@ -7,4 +7,7 @@ import (
 	"github.com/patterninc/heimdall/pkg/object/job"
 )
 
-type Handler func(context.Context, *Runtime, *job.Job, *cluster.Cluster) error
+type Handler interface {
+	Execute(context.Context, *Runtime, *job.Job, *cluster.Cluster) error
+	Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error
+}

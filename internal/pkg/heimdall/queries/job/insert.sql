@@ -12,7 +12,7 @@ insert into jobs
     username,
     is_sync,
     store_result_sync,
-    cancelled_by
+    canceled_by
 )
 select
     cm.system_command_id,
@@ -27,7 +27,7 @@ select
     $10, -- username
     $11, -- is_sync
     $12, -- store_result_sync
-    $13 -- cancelled_by
+    $13 -- canceled_by
 from
     clusters cl,
     commands cm

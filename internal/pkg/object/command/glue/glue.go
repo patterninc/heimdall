@@ -29,11 +29,12 @@ func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 		}
 	}
 
-	return g.handler, nil
+	return g, nil
 
 }
 
-func (g *commandContext) handler(ctx context.Context, _ *plugin.Runtime, j *job.Job, _ *cluster.Cluster) (err error) {
+// Execute implements the plugin.Handler interface
+func (g *commandContext) Execute(ctx context.Context, _ *plugin.Runtime, j *job.Job, _ *cluster.Cluster) (err error) {
 
 	// let's unmarshal job context
 	jc := &jobContext{}
@@ -53,4 +54,10 @@ func (g *commandContext) handler(ctx context.Context, _ *plugin.Runtime, j *job.
 	j.Result, err = result.FromMessage(string(metadata))
 	return
 
+}
+
+// Cleanup implements the plugin.Handler interface
+func (g *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
+	// TODO: Implement cleanup if needed
+	return nil
 }

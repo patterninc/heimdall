@@ -113,7 +113,7 @@ func (h *Heimdall) insertJob(j *job.Job, clusterID, commandID string) (int64, er
 	defer sess.Close()
 
 	// insert job row
-	jobID, err := sess.InsertRow(queryJobInsert, clusterID, commandID, j.Status, j.ID, j.Name, j.Version, j.Description, j.Context.String(), j.Error, j.User, j.IsSync, j.StoreResultSync, j.CancelledBy)
+	jobID, err := sess.InsertRow(queryJobInsert, clusterID, commandID, j.Status, j.ID, j.Name, j.Version, j.Description, j.Context.String(), j.Error, j.User, j.IsSync, j.StoreResultSync, j.CanceledBy)
 	if err != nil {
 		return 0, err
 	}
@@ -200,7 +200,7 @@ func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
 	var jobContext string
 
 	if err := row.Scan(&r.SystemID, &r.Status, &r.Name, &r.Version, &r.Description, &jobContext, &r.Error, &r.User, &r.IsSync,
-		&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CancelledBy); err != nil {
+		&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CanceledBy); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrUnknownJobID
 		} else {
@@ -253,7 +253,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 		r := &job.Job{}
 
 		if err := rows.Scan(&r.SystemID, &r.ID, &r.Status, &r.Name, &r.Version, &r.Description, &jobContext, &r.Error, &r.User, &r.IsSync,
-			&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CancelledBy); err != nil {
+			&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CanceledBy); err != nil {
 			getJobsMethod.LogAndCountError(err, "scan")
 			return nil, err
 		}

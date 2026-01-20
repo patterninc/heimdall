@@ -116,6 +116,7 @@ func (h *Heimdall) Init() error {
 		if err != nil {
 			return err
 		}
+
 		h.commandHandlers[c.ID] = handler
 
 		// let's record command in the database
@@ -151,7 +152,7 @@ func (h *Heimdall) Init() error {
 	}
 
 	// start janitor
-	if err := h.Janitor.Start(h.Database); err != nil {
+	if err := h.Janitor.Start(h.Database, h.commandHandlers, h.Clusters); err != nil {
 		return err
 	}
 

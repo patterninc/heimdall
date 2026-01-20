@@ -6,6 +6,6 @@ import (
 	"github.com/patterninc/heimdall/pkg/plugin"
 )
 
-func New(ctx *context.Context) (plugin.Handler, error) {
-	return snowflake.New(ctx)
+func New(_ *context.Context) (plugin.Handler, error) {
+	return snowflake.New(nil)
 }
