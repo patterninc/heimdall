@@ -59,6 +59,8 @@ const (
 	sparkEventLogDirProperty              = "spark.eventLog.dir"
 	sparkAppNameProperty                  = "spark.app.name"
 	sparkKubernetesSubmitInDriverProperty = "spark.kubernetes.submitInDriver"
+	sparkKubernetesDriverLabelPrefix      = "spark.kubernetes.driver.label."
+	sparkKubernetesExecutorLabelPrefix    = "spark.kubernetes.executor.label."
 	sparkDriverCoresKey                   = "spark.driver.cores"
 	sparkDriverMemoryKey                  = "spark.driver.memory"
 	sparkExecutorInstancesKey             = "spark.executor.instances"
@@ -609,7 +611,12 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 		sparkApp.Spec.SparkConf = make(map[string]string)
 	}
 
+	// Add default spark properties
 	sparkApp.Spec.SparkConf[sparkAppNameProperty] = execCtx.appName
+	sparkApp.Spec.SparkConf[sparkKubernetesDriverLabelPrefix+"heimdall-job-id"] = execCtx.job.ID
+	sparkApp.Spec.SparkConf[sparkKubernetesDriverLabelPrefix+"heimdall-user"] = execCtx.job.User
+	sparkApp.Spec.SparkConf[sparkKubernetesExecutorLabelPrefix+"heimdall-job-id"] = execCtx.job.ID
+	sparkApp.Spec.SparkConf[sparkKubernetesExecutorLabelPrefix+"heimdall-user"] = execCtx.job.User
 
 	if execCtx.logURI != "" {
 		logURI := updateS3ToS3aURI(execCtx.logURI)
