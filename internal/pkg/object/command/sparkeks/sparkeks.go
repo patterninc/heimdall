@@ -22,6 +22,7 @@ import (
 	"github.com/kubeflow/spark-operator/v2/api/v1beta2"
 	sparkClientSet "github.com/kubeflow/spark-operator/v2/pkg/client/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -58,6 +59,8 @@ const (
 	// Spark configuration related constants
 	sparkEventLogDirProperty              = "spark.eventLog.dir"
 	sparkAppNameProperty                  = "spark.app.name"
+	sparkKubernetesDriverLabelPrefix      = "spark.kubernetes.driver.label."
+	sparkKubernetesExecutorLabelPrefix    = "spark.kubernetes.executor.label."
 	sparkKubernetesSubmitInDriverProperty = "spark.kubernetes.submitInDriver"
 	sparkDriverCoresKey                   = "spark.driver.cores"
 	sparkDriverMemoryKey                  = "spark.driver.memory"
@@ -190,7 +193,61 @@ func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 }
 
 func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
-	// TODO: Implement cleanup if needed
+	// Build minimal execution context for cleanup.
+	//
+	// Note: janitor calls Cleanup with only jobID + cluster, so we must be able to
+	// derive identifiers deterministically. SparkApplication name uses:
+	//   spark-sql-job-<heimdall job id>
+	appName := fmt.Sprintf("%s-%s", applicationPrefix, jobID)
+	namespace := s.KubeNamespace
+	if namespace == "" {
+		namespace = defaultNamespace
+	}
+
+	// Parse cluster context (region/role arn, etc).
+	clusterContext := &clusterContext{}
+	if c != nil && c.Context != nil {
+		if err := c.Context.Unmarshal(clusterContext); err != nil {
+			return fmt.Errorf("failed to unmarshal cluster context: %w", err)
+		}
+	}
+
+	execCtx := &executionContext{
+		job:            &job.Job{},
+		cluster:        c,
+		commandContext: s,
+		clusterContext: clusterContext,
+		appName:        appName,
+	}
+	execCtx.job.ID = jobID
+
+	// Create clients so we can locate/delete the SparkApplication.
+	if err := createSparkClients(ctx, execCtx); err != nil {
+		return err
+	}
+
+	// Best-effort: delete SparkApplication (operator will terminate pods).
+	if err := deleteSparkApplication(ctx, execCtx.sparkClient, namespace, appName); err != nil {
+		return fmt.Errorf("failed to cleanup SparkApplication %s/%s: %w", namespace, appName, err)
+	}
+
+	return nil
+}
+
+func deleteSparkApplication(ctx context.Context, sparkClient *sparkClientSet.Clientset, namespace, name string) error {
+	sparkApps := sparkClient.SparkoperatorV1beta2().SparkApplications(namespace)
+	_, err := sparkApps.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	if err := sparkApps.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+
 	return nil
 }
 
@@ -307,17 +364,7 @@ func (e *executionContext) cleanupSparkApp(ctx context.Context) error {
 		return nil
 	}
 
-	name, namespace := e.submittedApp.Name, e.submittedApp.Namespace
-	_, getErr := e.sparkClient.SparkoperatorV1beta2().SparkApplications(namespace).Get(ctx, name, metav1.GetOptions{})
-	if getErr == nil {
-		// Application exists, proceed with deletion
-		cleanupErr := e.sparkClient.SparkoperatorV1beta2().SparkApplications(namespace).Delete(ctx, name, metav1.DeleteOptions{})
-		if cleanupErr != nil && !strings.Contains(cleanupErr.Error(), "not found") {
-			return cleanupErr // Return error if deletion fails for reasons other than "not found"
-		}
-		e.runtime.Stdout.WriteString(fmt.Sprintf("Cleaned up Spark application: %s/%s\n", namespace, name))
-	}
-	return nil // "not found" is a successful cleanup state
+	return deleteSparkApplication(ctx, e.sparkClient, e.submittedApp.Namespace, e.submittedApp.Name)
 }
 
 // getAndStoreResults fetches the job output from S3 and stores it.
@@ -501,7 +548,9 @@ func createSparkClients(ctx context.Context, execCtx *executionContext) error {
 	// Create Spark Operator client
 	sparkClient, err := sparkClientSet.NewForConfig(clientConfig)
 	if err != nil {
-		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Failed to create Spark Operator client: %v\n", err))
+		if execCtx.runtime != nil && execCtx.runtime.Stderr != nil {
+			execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Failed to create Spark Operator client: %v\n", err))
+		}
 		return ErrKubeConfig
 	}
 	execCtx.sparkClient = sparkClient
@@ -509,12 +558,16 @@ func createSparkClients(ctx context.Context, execCtx *executionContext) error {
 	// Create Kubernetes client
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
-		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Failed to create Kubernetes client: %v\n", err))
+		if execCtx.runtime != nil && execCtx.runtime.Stderr != nil {
+			execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Failed to create Kubernetes client: %v\n", err))
+		}
 		return ErrKubeConfig
 	}
 	execCtx.kubeClient = kubeClient
 
-	execCtx.runtime.Stdout.WriteString(fmt.Sprintf("Successfully created Spark Operator and Kubernetes clients for cluster: %s\n", execCtx.cluster.Name))
+	if execCtx.runtime != nil && execCtx.runtime.Stdout != nil {
+		execCtx.runtime.Stdout.WriteString(fmt.Sprintf("Successfully created Spark Operator and Kubernetes clients for cluster: %s\n", execCtx.cluster.Name))
+	}
 	return nil
 }
 
@@ -529,7 +582,17 @@ func updateKubeConfig(ctx context.Context, execCtx *executionContext) (string, e
 	}
 
 	// Create a temporary file for the kubeconfig
-	tmpfile, err := os.CreateTemp(execCtx.runtime.WorkingDirectory, "kubeconfig-")
+	baseDir := ""
+	if execCtx.runtime != nil {
+		// Invariant: during normal job execution, runtime is always set up by Heimdall
+		// (`runtime.Set()`), which guarantees WorkingDirectory is non-empty.
+		// Cleanup paths call into this helper with runtime == nil.
+		if execCtx.runtime.WorkingDirectory == "" {
+			return "", fmt.Errorf("sparkeks: runtime.WorkingDirectory is empty; runtime.Set() must run before creating kubeconfig")
+		}
+		baseDir = execCtx.runtime.WorkingDirectory
+	}
+	tmpfile, err := os.CreateTemp(baseDir, "kubeconfig-")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file for kubeconfig: %w", err)
 	}
@@ -614,7 +677,12 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 		sparkApp.Spec.SparkConf = make(map[string]string)
 	}
 
+	// Add default spark properties
 	sparkApp.Spec.SparkConf[sparkAppNameProperty] = execCtx.appName
+	sparkApp.Spec.SparkConf[sparkKubernetesDriverLabelPrefix+"heimdall-job-id"] = execCtx.job.ID
+	sparkApp.Spec.SparkConf[sparkKubernetesDriverLabelPrefix+"heimdall-user"] = execCtx.job.User
+	sparkApp.Spec.SparkConf[sparkKubernetesExecutorLabelPrefix+"heimdall-job-id"] = execCtx.job.ID
+	sparkApp.Spec.SparkConf[sparkKubernetesExecutorLabelPrefix+"heimdall-user"] = execCtx.job.User
 
 	if execCtx.logURI != "" {
 		logURI := updateS3ToS3aURI(execCtx.logURI)
