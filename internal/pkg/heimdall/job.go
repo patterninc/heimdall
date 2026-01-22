@@ -159,7 +159,11 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 
 	// Check if context was canceled and mark status appropriately
 	if pluginCtx.Err() != nil {
-		j.Status = jobStatus.Canceling // janitor will update to canceled when resources are cleaned up
+		if j.IsSync {
+			j.Status = jobStatus.Canceled // no need to send to janitor
+		} else {
+			j.Status = jobStatus.Canceling // janitor will update to canceled when resources are cleaned up
+		}
 		runJobMethod.LogAndCountError(pluginCtx.Err(), command.Name, cluster.Name)
 		return nil
 	}
