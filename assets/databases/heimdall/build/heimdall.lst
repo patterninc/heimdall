@@ -8,6 +8,7 @@ tables/command_cluster_tags.sql
 tables/clusters.sql
 tables/cluster_tags.sql
 tables/jobs.sql
+tables/jobs_status_system_job_id_idx.sql
 tables/job_tags.sql
 tables/job_statuses.sql
 tables/job_cluster_tags.sql
