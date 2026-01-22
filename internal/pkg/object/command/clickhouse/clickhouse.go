@@ -55,10 +55,11 @@ func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 		}
 	}
 
-	return t.handler, nil
+	return t, nil
 }
 
-func (cmd *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+// Execute implements the plugin.Handler interface
+func (cmd *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	jobContext, err := cmd.createJobContext(ctx, j, c)
 	if err != nil {
@@ -181,4 +182,9 @@ func collectResults(rows driver.Rows) (*result.Result, error) {
 		out.Data = append(out.Data, row)
 	}
 	return out, nil
+}
+
+func (cmd *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
+	// No cleanup needed. CLickhouse queries should always be synchronous.
+	return nil
 }

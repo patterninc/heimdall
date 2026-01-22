@@ -35,7 +35,6 @@ func (h *Heimdall) loadPlugins() (map[string]func(*context.Context) (hp.Handler,
 			if err != nil {
 				return nil, err
 			}
-			// is it our plugin?
 			newPluginFunc, ok := newFunc.(func(*context.Context) (hp.Handler, error))
 			if ok {
 				plugins[stripExtension(file.Name())] = newPluginFunc

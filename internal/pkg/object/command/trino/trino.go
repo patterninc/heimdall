@@ -49,11 +49,12 @@ func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 		}
 	}
 
-	return t.handler, nil
+	return t, nil
 
 }
 
-func (t *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+// Execute implements the plugin.Handler interface
+func (t *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	// get job context
 	jobCtx := &jobContext{}
@@ -92,6 +93,11 @@ func (t *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 
 	return nil
 
+}
+
+func (t *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
+	// TODO: Implement cleanup if needed
+	return nil
 }
 
 func canQueryBeExecuted(query, user, id string, c *cluster.Cluster) bool {

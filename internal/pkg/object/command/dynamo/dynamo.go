@@ -38,12 +38,12 @@ var (
 func New(_ *heimdallContext.Context) (plugin.Handler, error) {
 
 	s := &commandContext{}
-	return s.handler, nil
+	return s, nil
 
 }
 
-// Handler for the Spark job submission.
-func (d *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
+// Execute implements the plugin.Handler interface
+func (d *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) (err error) {
 
 	// let's unmarshal job context
 	jobContext := &jobContext{}
@@ -141,4 +141,9 @@ func (d *commandContext) handler(ctx context.Context, r *plugin.Runtime, j *job.
 
 	return nil
 
+}
+
+func (d *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
+	// TODO: Implement cleanup if needed
+	return nil
 }

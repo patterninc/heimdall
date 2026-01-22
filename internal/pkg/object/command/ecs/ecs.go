@@ -109,6 +109,7 @@ const (
 	startedByPrefix                      = "heimdall-job-"
 	errMaxFailCount                      = "task %s failed %d times (max: %d), giving up"
 	errPollingTimeout                    = "polling timed out for arns %v after %v"
+	errJobTerminated                     = "job marked as stale or canceled"
 	Timeout                FailureReason = "timeout"
 	Error                  FailureReason = "error"
 	maxLogChunkSize                      = 200                // Process 200 log entries at a time
@@ -117,7 +118,8 @@ const (
 
 var (
 	errMissingTemplate = fmt.Errorf("task definition template is required")
-	methodMetrics      = telemetry.NewMethod("ecs", "ecs plugin")
+	cleanupMethod      = telemetry.NewMethod("ecs", "cleanup")
+	handlerMethod      = telemetry.NewMethod("ecs", "handler")
 )
 
 func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
@@ -135,12 +137,12 @@ func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 		}
 	}
 
-	return e.handler, nil
+	return e, nil
 
 }
 
-// handler implements the main ECS plugin logic
-func (e *commandContext) handler(ctx context.Context, r *plugin.Runtime, job *job.Job, cluster *cluster.Cluster) error {
+// Execute implements the plugin.Handler interface and contains the main ECS plugin logic
+func (e *commandContext) Execute(ctx context.Context, r *plugin.Runtime, job *job.Job, cluster *cluster.Cluster) error {
 
 	// Build execution context with resolved configuration and loaded template
 	execCtx, err := buildExecutionContext(ctx, e, job, cluster, r)
@@ -170,7 +172,7 @@ func (e *commandContext) handler(ctx context.Context, r *plugin.Runtime, job *jo
 
 	// Return error based on failure reason
 	if execCtx.failureError != nil {
-		methodMetrics.LogAndCountError(execCtx.failureError, "ecs task failure")
+		handlerMethod.LogAndCountError(execCtx.failureError, fmt.Sprintf("ecs task failure: %s", execCtx.failureReason))
 		return execCtx.failureError
 	}
 
@@ -660,6 +662,75 @@ func (execCtx *executionContext) retrieveLogs(ctx context.Context) error {
 		default:
 			// Unsupported log driver - do nothing
 			execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Unsupported log driver for log retrieval: %s\n", logInfo.logDriver))
+		}
+	}
+
+	return nil
+
+}
+
+// cleanup stops all ECS tasks that were started by the given job
+func (e *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
+
+	// Resolve cluster context to get cluster name
+	clusterContext := &clusterContext{}
+	if err := c.Context.Unmarshal(clusterContext); err != nil {
+		return err
+	}
+
+	// Initialize AWS config and ECS client
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return err
+	}
+	ecsClient := ecs.NewFromConfig(cfg)
+
+	// List all tasks started by this job
+	var allTaskARNs []string
+	for taskNum := 0; taskNum < e.TaskCount; taskNum++ {
+		startedByValue := fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, taskNum)
+
+		listTasksOutput, err := ecsClient.ListTasks(ctx, &ecs.ListTasksInput{
+			Cluster:   aws.String(clusterContext.ClusterName),
+			StartedBy: aws.String(startedByValue),
+		})
+		if err != nil {
+			return err
+		}
+		allTaskARNs = append(allTaskARNs, listTasksOutput.TaskArns...)
+	}
+
+	if len(allTaskARNs) == 0 {
+		// No tasks found, nothing to clean up
+		return nil
+	}
+
+	// Bulk describe all tasks to check their LastStatus
+	describeOutput, err := ecsClient.DescribeTasks(ctx, &ecs.DescribeTasksInput{
+		Cluster: aws.String(clusterContext.ClusterName),
+		Tasks:   allTaskARNs,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Stop all tasks where LastStatus != STOPPED or SUCCEEDED
+	for _, task := range describeOutput.Tasks {
+		// Skip tasks that are already stopped
+		if aws.ToString(task.LastStatus) == "STOPPED" || aws.ToString(task.LastStatus) == "SUCCEEDED" {
+			continue
+		}
+
+		stopTaskInput := &ecs.StopTaskInput{
+			Cluster: aws.String(clusterContext.ClusterName),
+			Task:    task.TaskArn,
+			Reason:  aws.String(errJobTerminated),
+		}
+		_, err := ecsClient.StopTask(ctx, stopTaskInput)
+		if err != nil {
+			// Log error but continue stopping other tasks
+			cleanupMethod.LogAndCountError(err, fmt.Sprintf("failed to stop task %s", aws.ToString(task.TaskArn)))
+			continue
 		}
 	}
 

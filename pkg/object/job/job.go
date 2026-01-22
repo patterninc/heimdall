@@ -21,7 +21,7 @@ type Job struct {
 	CommandName     string           `yaml:"command_name,omitempty" json:"command_name,omitempty"`
 	ClusterID       string           `yaml:"cluster_id,omitempty" json:"cluster_id,omitempty"`
 	ClusterName     string           `yaml:"cluster_name,omitempty" json:"cluster_name,omitempty"`
-	CancelledBy     string           `yaml:"cancelled_by,omitempty" json:"cancelled_by,omitempty"`
+	CanceledBy      string           `yaml:"canceled_by,omitempty" json:"canceled_by,omitempty"`
 	Result          *result.Result   `yaml:"result,omitempty" json:"result,omitempty"`
 }
 
