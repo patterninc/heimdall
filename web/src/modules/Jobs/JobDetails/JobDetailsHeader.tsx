@@ -25,7 +25,7 @@ const JobDetailsHeader = ({
   const cancelMutation = useMutation({
     mutationFn: (id: string) => cancelJob(id),
     onSuccess: (response) => {
-      if (response.status === 'CANCELLING') {
+      if (response.status === 'CANCELING') {
         toast({
           type: 'info',
           message: `Job is being canceled...`,
@@ -46,7 +46,7 @@ const JobDetailsHeader = ({
     },
   })
 
-  // Only async jobs in active states can be cancelled
+  // Only async jobs in active states can be canceled
   const isCancelable = useMemo(
     () =>
       CANCELABLE_STATUSES.includes(jobData?.status ?? '') &&
@@ -54,7 +54,7 @@ const JobDetailsHeader = ({
     [jobData?.status, jobData?.is_sync],
   )
 
-  const isCancelling = jobData?.status === 'CANCELLING'
+  const isCanceling = jobData?.status === 'CANCELING'
 
   return (
     <div className='w-full'>
@@ -147,7 +147,7 @@ const JobDetailsHeader = ({
               },
               type: 'red',
             },
-            children: isCancelling ? (
+            children: isCanceling ? (
               <span>
                 Canceling job
                 <Ellipsis />
@@ -157,7 +157,7 @@ const JobDetailsHeader = ({
             ),
             styleType: 'primary-red',
             type: 'button',
-            disabled: !isCancelable || isCancelling,
+            disabled: !isCancelable || isCanceling,
           },
         ]}
       />
