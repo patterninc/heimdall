@@ -23,3 +23,10 @@ export const getJobStatus = async () => {
   const response = await fetch(`${API_URL}/job/statuses`)
   return await response.json()
 }
+
+export const cancelJob = async (id: string) => {
+  const response = await fetch(`${API_URL}/job/${id}/cancel`, {
+    method: 'POST',
+  })
+  return await response.json()
+}
