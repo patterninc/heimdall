@@ -59,8 +59,6 @@ const (
 	// Spark configuration related constants
 	sparkEventLogDirProperty              = "spark.eventLog.dir"
 	sparkAppNameProperty                  = "spark.app.name"
-	sparkKubernetesDriverLabelPrefix      = "spark.kubernetes.driver.label."
-	sparkKubernetesExecutorLabelPrefix    = "spark.kubernetes.executor.label."
 	sparkKubernetesSubmitInDriverProperty = "spark.kubernetes.submitInDriver"
 	sparkDriverCoresKey                   = "spark.driver.cores"
 	sparkDriverMemoryKey                  = "spark.driver.memory"
@@ -193,11 +191,8 @@ func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 }
 
 func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
-	// Build minimal execution context for cleanup.
-	//
-	// Note: janitor calls Cleanup with only jobID + cluster, so we must be able to
-	// derive identifiers deterministically. SparkApplication name uses:
-	//   spark-sql-job-<heimdall job id>
+
+	// get app name and namespace from job id and command context
 	appName := fmt.Sprintf("%s-%s", applicationPrefix, jobID)
 	namespace := s.KubeNamespace
 	if namespace == "" {
@@ -212,6 +207,7 @@ func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.C
 		}
 	}
 
+	// build execution context
 	execCtx := &executionContext{
 		job:            &job.Job{},
 		cluster:        c,
@@ -221,12 +217,12 @@ func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.C
 	}
 	execCtx.job.ID = jobID
 
-	// Create clients so we can locate/delete the SparkApplication.
+	// create spark clients
 	if err := createSparkClients(ctx, execCtx); err != nil {
 		return err
 	}
 
-	// Best-effort: delete SparkApplication (operator will terminate pods).
+	// delete spark application
 	if err := deleteSparkApplication(ctx, execCtx.sparkClient, namespace, appName); err != nil {
 		return fmt.Errorf("failed to cleanup SparkApplication %s/%s: %w", namespace, appName, err)
 	}
@@ -584,12 +580,6 @@ func updateKubeConfig(ctx context.Context, execCtx *executionContext) (string, e
 	// Create a temporary file for the kubeconfig
 	baseDir := ""
 	if execCtx.runtime != nil {
-		// Invariant: during normal job execution, runtime is always set up by Heimdall
-		// (`runtime.Set()`), which guarantees WorkingDirectory is non-empty.
-		// Cleanup paths call into this helper with runtime == nil.
-		if execCtx.runtime.WorkingDirectory == "" {
-			return "", fmt.Errorf("sparkeks: runtime.WorkingDirectory is empty; runtime.Set() must run before creating kubeconfig")
-		}
 		baseDir = execCtx.runtime.WorkingDirectory
 	}
 	tmpfile, err := os.CreateTemp(baseDir, "kubeconfig-")
@@ -679,10 +669,6 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 
 	// Add default spark properties
 	sparkApp.Spec.SparkConf[sparkAppNameProperty] = execCtx.appName
-	sparkApp.Spec.SparkConf[sparkKubernetesDriverLabelPrefix+"heimdall-job-id"] = execCtx.job.ID
-	sparkApp.Spec.SparkConf[sparkKubernetesDriverLabelPrefix+"heimdall-user"] = execCtx.job.User
-	sparkApp.Spec.SparkConf[sparkKubernetesExecutorLabelPrefix+"heimdall-job-id"] = execCtx.job.ID
-	sparkApp.Spec.SparkConf[sparkKubernetesExecutorLabelPrefix+"heimdall-user"] = execCtx.job.User
 
 	if execCtx.logURI != "" {
 		logURI := updateS3ToS3aURI(execCtx.logURI)
