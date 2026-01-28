@@ -23,7 +23,7 @@ select
     $6, -- job_version
     $7, -- job_description
     $8, -- job_context
-    $9, -- job_error
+    case when $9 is null then null else left($9, 1024) end, -- job_error
     $10, -- username
     $11, -- is_sync
     $12, -- store_result_sync
