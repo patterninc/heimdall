@@ -71,6 +71,7 @@ var chTypeHandlers = map[string]chScanHandler{
 	"Decimal":     handleDecimal,
 	"Bool":        handleBool,
 	"Array":       handleArray,
+	"Tuple":       handleTuple,
 }
 
 // Type handler signature
@@ -146,19 +147,33 @@ func handleDecimal(nullable bool) (any, func() any) {
 		return val
 	}
 }
+func handleTuple(nullable bool) (any, func() any) {
+    if nullable {
+        var p *any
+        return &p, func() any {
+            if p == nil || *p == nil {
+                return nil
+            }
+            return *p
+        }
+    }
+    var v any
+    return &v, func() any { return v }
+}
+
 
 func handleArray(nullable bool) (any, func() any) {
-	if nullable {
-		var p *[]any
-		return &p, func() any {
-			if p == nil {
-				return nil
-			}
-			return *p
-		}
-	}
-	var v []any
-	return &v, func() any { return v }
+    if nullable {
+        var p *any
+        return &p, func() any {
+            if p == nil || *p == nil {
+                return nil
+            }
+            return *p
+        }
+    }
+    var v any
+    return &v, func() any { return v }
 }
 
 func handleDefault(nullable bool) (any, func() any) {
@@ -191,6 +206,9 @@ func unwrapCHType(t string) (base string, nullable bool) {
 	if strings.HasPrefix(s, "Array(") {
 		return "Array", nullable
 	}
+	if strings.HasPrefix(s, "Tuple(") {
+        return "Tuple", nullable
+    }
 
 	// Decimal(N,S) normalize to "Decimal"
 	if isDecimal(s) {
