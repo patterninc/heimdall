@@ -117,9 +117,10 @@ const (
 )
 
 var (
-	errMissingTemplate = fmt.Errorf("task definition template is required")
-	cleanupMethod      = telemetry.NewMethod("ecs", "cleanup")
-	handlerMethod      = telemetry.NewMethod("ecs", "handler")
+	errMissingTemplate  = fmt.Errorf("task definition template is required")
+	errNoTasksAvailable = fmt.Errorf("no tasks available to retrieve logs")
+	cleanupMethod       = telemetry.NewMethod("ecs", "cleanup")
+	handlerMethod       = telemetry.NewMethod("ecs", "handler")
 )
 
 func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
@@ -640,6 +641,10 @@ func (execCtx *executionContext) retrieveLogs(ctx context.Context) error {
 			}
 		}
 		writer = execCtx.runtime.Stdout
+	}
+
+	if selectedTask == nil {
+		return errNoTasksAvailable
 	}
 
 	// Extract task ID from ARN
