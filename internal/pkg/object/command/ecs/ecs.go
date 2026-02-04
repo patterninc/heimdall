@@ -214,6 +214,7 @@ func (execCtx *executionContext) startTasks(ctx context.Context, jobID string) e
 			return err
 		}
 		taskName := fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, i)
+		execCtx.runtime.Stdout.WriteString(fmt.Sprintf("ecs: started task name=%s arn=%s\n", taskName, taskARN))
 		execCtx.tasks[taskName] = &taskTracker{
 			Name:      taskName,
 			ActiveARN: taskARN,
@@ -305,6 +306,7 @@ func (execCtx *executionContext) pollForCompletion(ctx context.Context) error {
 
 			// Assign the new task ARN to the tracker
 			tracker.ActiveARN = newTaskARN
+			execCtx.runtime.Stdout.WriteString(fmt.Sprintf("ecs: restarted task name=%s arn=%s retry=%d\n", tracker.Name, newTaskARN, tracker.Retries))
 
 			// Task failed but will be restarted, so mark as not complete
 			done = false
