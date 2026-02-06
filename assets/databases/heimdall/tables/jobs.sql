@@ -27,6 +27,6 @@ do $$ begin
     if exists (select 1 from information_schema.columns where table_name = 'jobs' and column_name = 'cancelled_by') then
         update jobs set canceled_by = cancelled_by where canceled_by is null and cancelled_by is not null;
         alter table jobs drop column cancelled_by;
+        update jobs set canceled_by = '' where canceled_by is null;
     end if;
 end $$;
-update jobs set canceled_by = '' where canceled_by is null;
