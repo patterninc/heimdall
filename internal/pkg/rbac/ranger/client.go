@@ -139,11 +139,13 @@ func (c *client) executeRequest(method string, endpoint string, v interface{}, r
 
 	req, err := c.createRequest(method, endpoint, reqBody)
 	if err != nil {
+		executeRequestMethod.CountError()
 		return err
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
+		executeRequestMethod.CountError()
 		return err
 	}
 	defer resp.Body.Close()
@@ -160,13 +162,14 @@ func (c *client) executeRequest(method string, endpoint string, v interface{}, r
 		return fmt.Errorf("request to %s failed with status %s\n%s", req.URL.String(), resp.Status, bodyString)
 	}
 
+	executeRequestMethod.CountSuccess()
+
 	vals, _ := io.ReadAll(resp.Body)
 	resp.Body = io.NopCloser(bytes.NewReader(vals))
 	if v != nil {
 		return json.NewDecoder(resp.Body).Decode(v)
 	}
 
-	executeRequestMethod.CountSuccess()
 	return nil
 }
 
