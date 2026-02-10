@@ -1,12 +1,14 @@
 with candidate_ids as (
-  -- canceling jobs
+  -- canceling jobs that were never claimed by an agent or stopped heartbeating
   select j.system_job_id
   from jobs j
+  left join active_jobs aj on aj.system_job_id = j.system_job_id
   where j.job_status_id = 7
+    and (aj.system_job_id is null or aj.last_heartbeat is null)
 
   union
 
-  -- stale active jobs (drive from active_jobs)
+  -- stale jobs still in active_jobs table (worker stopped heartbeating)
   select aj.system_job_id
   from active_jobs aj
   where aj.last_heartbeat > 0
@@ -35,4 +37,3 @@ from picked p
 join commands cm on cm.system_command_id = p.job_command_id
 join clusters cl on cl.system_cluster_id = p.job_cluster_id
 order by p.system_job_id;
-

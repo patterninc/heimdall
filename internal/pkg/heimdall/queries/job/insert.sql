@@ -23,7 +23,7 @@ select
     $6, -- job_version
     $7, -- job_description
     $8, -- job_context
-    $9, -- job_error
+    left($9::text, 1024), -- job_error
     $10, -- username
     $11, -- is_sync
     $12, -- store_result_sync
