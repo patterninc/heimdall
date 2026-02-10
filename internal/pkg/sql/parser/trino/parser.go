@@ -1,10 +1,17 @@
 package trino
 
 import (
+	"time"
+
 	"github.com/antlr4-go/antlr/v4"
-	
+	"github.com/hladush/go-telemetry/pkg/telemetry"
+
 	"github.com/patterninc/heimdall/internal/pkg/sql/parser"
 	"github.com/patterninc/heimdall/internal/pkg/sql/parser/trino/grammar"
+)
+
+var (
+	parseAccessMethod = telemetry.NewMethod("trino_parse_access", "heimdall")
 )
 
 type TrinoAccessReceiver struct {
@@ -16,6 +23,8 @@ func NewTrinoAccessReceiver(defaultCatalog string) *TrinoAccessReceiver {
 }
 
 func (t *TrinoAccessReceiver) ParseAccess(sql string) ([]parser.Access, error) {
+	parseAccessMethod.CountRequest()
+	defer parseAccessMethod.RecordLatency(time.Now())
 	is := antlr.NewInputStream(sql)
 	lexer := grammar.NewTrinoLexer(is)
 	tokens := antlr.NewCommonTokenStream(lexer, 0)

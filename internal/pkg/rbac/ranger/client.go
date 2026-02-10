@@ -9,11 +9,17 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/hladush/go-telemetry/pkg/telemetry"
 )
 
 const (
 	getUsersEndpoint           = `/service/xusers/users`
 	getServicePoliciesEndpoint = `/service/public/v2/api/service/%s/policy`
+)
+
+var (
+	executeRequestMethod = telemetry.NewMethod("ranger_execute_request", "heimdall")
 )
 
 //go:generate go run github.com/vektra/mockery/v2@v2.53.4 --name=Client --output=./mocks --outpkg=mocks
@@ -128,6 +134,9 @@ func (c *client) createRequest(method, endpoint string, reqBody interface{}) (*h
 }
 
 func (c *client) executeRequest(method string, endpoint string, v interface{}, reqBody interface{}) error {
+	executeRequestMethod.CountRequest()
+	defer executeRequestMethod.RecordLatency(time.Now())
+
 	req, err := c.createRequest(method, endpoint, reqBody)
 	if err != nil {
 		return err
@@ -147,6 +156,7 @@ func (c *client) executeRequest(method string, endpoint string, v interface{}, r
 			return nil
 		}
 
+		executeRequestMethod.CountError()
 		return fmt.Errorf("request to %s failed with status %s\n%s", req.URL.String(), resp.Status, bodyString)
 	}
 
@@ -156,11 +166,15 @@ func (c *client) executeRequest(method string, endpoint string, v interface{}, r
 		return json.NewDecoder(resp.Body).Decode(v)
 	}
 
+	executeRequestMethod.CountSuccess()
 	return nil
 }
 
 // executeBatchRequest performs paginated API requests and returns all aggregated results
 func (c *client) executeBatchRequest(method string, endpoint string) ([]getResponse, error) {
+	executeRequestMethod.CountRequest("batch")
+	defer executeRequestMethod.RecordLatency(time.Now(), "batch")
+
 	results := make([]getResponse, 500)
 	pageSize := 500
 	startIndex := 0

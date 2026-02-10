@@ -110,7 +110,6 @@ func (r *Ranger) HasAccess(user string, query string) (bool, error) {
 	return true, nil
 }
 
-
 func (r *Ranger) SyncState() error {
 	// receive all policies from ranger
 	policies, err := r.Client.GetPolicies(r.ServiceName)

@@ -50,7 +50,6 @@ type AccessReceiver interface {
 	ParseAccess(sql string) ([]Access, error)
 }
 
-
 func (t *TableAccess) QualifiedName() string {
 	return fmt.Sprintf("%s.%s.%s", t.Catalog, t.Schema, t.Table)
 }

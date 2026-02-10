@@ -49,15 +49,15 @@ func TestRangerPolicyCheck(t *testing.T) {
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
 						Catalog: &ranger.ResourceField{
-							RawValues:     []string{"default_catalog"},
+							RawValues:  []string{"default_catalog"},
 							IsExcludes: false,
 						},
 						Schema: &ranger.ResourceField{
-							RawValues:     []string{"public"},
+							RawValues:  []string{"public"},
 							IsExcludes: false,
 						},
 						Table: &ranger.ResourceField{
-							RawValues:     []string{"table1"},
+							RawValues:  []string{"table1"},
 							IsExcludes: false,
 						},
 					},
@@ -90,15 +90,15 @@ func TestRangerPolicyCheck(t *testing.T) {
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
 						Catalog: &ranger.ResourceField{
-							RawValues:     []string{"default_catalog"},
+							RawValues:  []string{"default_catalog"},
 							IsExcludes: false,
 						},
 						Schema: &ranger.ResourceField{
-							RawValues:     []string{"public"},
+							RawValues:  []string{"public"},
 							IsExcludes: false,
 						},
 						Table: &ranger.ResourceField{
-							RawValues:     []string{"table1"},
+							RawValues:  []string{"table1"},
 							IsExcludes: false,
 						},
 					},
@@ -131,15 +131,15 @@ func TestRangerPolicyCheck(t *testing.T) {
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
 						Catalog: &ranger.ResourceField{
-							RawValues:     []string{"default_catalog"},
+							RawValues:  []string{"default_catalog"},
 							IsExcludes: false,
 						},
 						Schema: &ranger.ResourceField{
-							RawValues:     []string{"public"},
+							RawValues:  []string{"public"},
 							IsExcludes: false,
 						},
 						Table: &ranger.ResourceField{
-							RawValues:     []string{"table1"},
+							RawValues:  []string{"table1"},
 							IsExcludes: false,
 						},
 					},
@@ -190,15 +190,15 @@ func TestRangerPolicyCheck(t *testing.T) {
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
 						Catalog: &ranger.ResourceField{
-							RawValues:     []string{"default_catalog"},
+							RawValues:  []string{"default_catalog"},
 							IsExcludes: false,
 						},
 						Schema: &ranger.ResourceField{
-							RawValues:     []string{"public"},
+							RawValues:  []string{"public"},
 							IsExcludes: false,
 						},
 						Table: &ranger.ResourceField{
-							RawValues:     []string{"table1"},
+							RawValues:  []string{"table1"},
 							IsExcludes: false,
 						},
 					},
@@ -220,15 +220,15 @@ func TestRangerPolicyCheck(t *testing.T) {
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
 						Catalog: &ranger.ResourceField{
-							RawValues:     []string{"default_catalog"},
+							RawValues:  []string{"default_catalog"},
 							IsExcludes: false,
 						},
 						Schema: &ranger.ResourceField{
-							RawValues:     []string{"public"},
+							RawValues:  []string{"public"},
 							IsExcludes: false,
 						},
 						Table: &ranger.ResourceField{
-							RawValues:     []string{"table1"},
+							RawValues:  []string{"table1"},
 							IsExcludes: false,
 						},
 					},
@@ -261,11 +261,11 @@ func TestRangerPolicyCheck(t *testing.T) {
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
 						Catalog: &ranger.ResourceField{
-							RawValues:     []string{"default_catalog"},
+							RawValues:  []string{"default_catalog"},
 							IsExcludes: false,
 						},
 						Schema: &ranger.ResourceField{
-							RawValues:     []string{"public"},
+							RawValues:  []string{"public"},
 							IsExcludes: false,
 						},
 					},
@@ -298,15 +298,15 @@ func TestRangerPolicyCheck(t *testing.T) {
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
 						Catalog: &ranger.ResourceField{
-							RawValues:     []string{"default_catalog"},
+							RawValues:  []string{"default_catalog"},
 							IsExcludes: false,
 						},
 						Schema: &ranger.ResourceField{
-							RawValues:     []string{"public"},
+							RawValues:  []string{"public"},
 							IsExcludes: false,
 						},
 						Table: &ranger.ResourceField{
-							RawValues:     []string{"*"},
+							RawValues:  []string{"*"},
 							IsExcludes: false,
 						},
 					},
@@ -339,15 +339,15 @@ func TestRangerPolicyCheck(t *testing.T) {
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
 						Catalog: &ranger.ResourceField{
-							RawValues:     []string{"default_catalog"},
+							RawValues:  []string{"default_catalog"},
 							IsExcludes: false,
 						},
 						Schema: &ranger.ResourceField{
-							RawValues:     []string{"public"},
+							RawValues:  []string{"public"},
 							IsExcludes: false,
 						},
 						Table: &ranger.ResourceField{
-							RawValues:     []string{"table_*"},
+							RawValues:  []string{"table_*"},
 							IsExcludes: false,
 						},
 					},
@@ -388,15 +388,15 @@ func TestRangerPolicyCheck(t *testing.T) {
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
 						Catalog: &ranger.ResourceField{
-							RawValues:     []string{"default_catalog"},
+							RawValues:  []string{"default_catalog"},
 							IsExcludes: false,
 						},
 						Schema: &ranger.ResourceField{
-							RawValues:     []string{"public"},
+							RawValues:  []string{"public"},
 							IsExcludes: false,
 						},
 						Table: &ranger.ResourceField{
-							RawValues:     []string{"table1"},
+							RawValues:  []string{"table1"},
 							IsExcludes: false,
 						},
 					},
@@ -437,15 +437,15 @@ func TestRangerPolicyCheck(t *testing.T) {
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
 						Catalog: &ranger.ResourceField{
-							RawValues:     []string{"default_catalog"},
+							RawValues:  []string{"default_catalog"},
 							IsExcludes: false,
 						},
 						Schema: &ranger.ResourceField{
-							RawValues:     []string{"public"},
+							RawValues:  []string{"public"},
 							IsExcludes: false,
 						},
 						Table: &ranger.ResourceField{
-							RawValues:     []string{"table1"},
+							RawValues:  []string{"table1"},
 							IsExcludes: false,
 						},
 					},
@@ -486,15 +486,15 @@ func TestRangerPolicyCheck(t *testing.T) {
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
 						Catalog: &ranger.ResourceField{
-							RawValues:     []string{"default_catalog"},
+							RawValues:  []string{"default_catalog"},
 							IsExcludes: false,
 						},
 						Schema: &ranger.ResourceField{
-							RawValues:     []string{"public"},
+							RawValues:  []string{"public"},
 							IsExcludes: false,
 						},
 						Table: &ranger.ResourceField{
-							RawValues:     []string{"table1"},
+							RawValues:  []string{"table1"},
 							IsExcludes: false,
 						},
 					},
@@ -543,15 +543,15 @@ func TestRangerPolicyCheck(t *testing.T) {
 					PolicyPriority: 1,
 					Resources: &ranger.Resource{
 						Catalog: &ranger.ResourceField{
-							RawValues:     []string{"default_catalog"},
+							RawValues:  []string{"default_catalog"},
 							IsExcludes: false,
 						},
 						Schema: &ranger.ResourceField{
-							RawValues:     []string{"internal"},
+							RawValues:  []string{"internal"},
 							IsExcludes: true,
 						},
 						Table: &ranger.ResourceField{
-							RawValues:     []string{"table1"},
+							RawValues:  []string{"table1"},
 							IsExcludes: false,
 						},
 					},
@@ -749,15 +749,15 @@ func runTests(t *testing.T, tests []testCase) {
 func createResourceWithExcludeOptionForTable(catalogs, schemas, table string, excludeTable bool) *ranger.Resource {
 	return &ranger.Resource{
 		Catalog: &ranger.ResourceField{
-			RawValues:     []string{catalogs},
+			RawValues:  []string{catalogs},
 			IsExcludes: false,
 		},
 		Schema: &ranger.ResourceField{
-			RawValues:     []string{schemas},
+			RawValues:  []string{schemas},
 			IsExcludes: false,
 		},
 		Table: &ranger.ResourceField{
-			RawValues:     []string{table},
+			RawValues:  []string{table},
 			IsExcludes: excludeTable,
 		},
 	}
@@ -766,15 +766,15 @@ func createResourceWithExcludeOptionForTable(catalogs, schemas, table string, ex
 func createResourceWithExcludeOptionForSchema(catalog, schema, table string, excludeSchema bool) *ranger.Resource {
 	return &ranger.Resource{
 		Catalog: &ranger.ResourceField{
-			RawValues:     []string{catalog},
+			RawValues:  []string{catalog},
 			IsExcludes: false,
 		},
 		Schema: &ranger.ResourceField{
-			RawValues:     []string{schema},
+			RawValues:  []string{schema},
 			IsExcludes: excludeSchema,
 		},
 		Table: &ranger.ResourceField{
-			RawValues:     []string{table},
+			RawValues:  []string{table},
 			IsExcludes: false,
 		},
 	}
@@ -783,15 +783,15 @@ func createResourceWithExcludeOptionForSchema(catalog, schema, table string, exc
 func createResourceWithExcludeOptionForCatalog(catalogs, schemas, tables string, excludeCatalog bool) *ranger.Resource {
 	return &ranger.Resource{
 		Catalog: &ranger.ResourceField{
-			RawValues:     []string{catalogs},
+			RawValues:  []string{catalogs},
 			IsExcludes: excludeCatalog,
 		},
 		Schema: &ranger.ResourceField{
-			RawValues:     []string{schemas},
+			RawValues:  []string{schemas},
 			IsExcludes: false,
 		},
 		Table: &ranger.ResourceField{
-			RawValues:     []string{tables},
+			RawValues:  []string{tables},
 			IsExcludes: false,
 		},
 	}
@@ -800,15 +800,15 @@ func createResourceWithExcludeOptionForCatalog(catalogs, schemas, tables string,
 func createResource(catalogs, schemas, tables string) *ranger.Resource {
 	return &ranger.Resource{
 		Catalog: &ranger.ResourceField{
-			RawValues:     []string{catalogs},
+			RawValues:  []string{catalogs},
 			IsExcludes: false,
 		},
 		Schema: &ranger.ResourceField{
-			RawValues:     []string{schemas},
+			RawValues:  []string{schemas},
 			IsExcludes: false,
 		},
 		Table: &ranger.ResourceField{
-			RawValues:     []string{tables},
+			RawValues:  []string{tables},
 			IsExcludes: false,
 		},
 	}
