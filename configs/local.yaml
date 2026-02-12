@@ -11,6 +11,9 @@ pool:
 # plugins location
 plugin_directory: ./plugins
 
+janitor:
+  finished_job_retention_days: 14
+
 # auth plugin
 auth:
   plugin: ./plugins/auth_header.so
