@@ -17,7 +17,7 @@ type Pool[T any] struct {
 	queue chan T
 }
 
-func (p *Pool[T]) Start(worker func(context.Context, T) error, getWork func(int) ([]T, error)) error {
+func (p *Pool[T]) Start(ctx context.Context, worker func(context.Context, T) error, getWork func(int) ([]T, error)) error {
 
 	// do we have the size set?
 	if p.Size <= 0 {
@@ -46,19 +46,19 @@ func (p *Pool[T]) Start(worker func(context.Context, T) error, getWork func(int)
 				c.Add(1)
 
 				// let's wait and get one item to work on...
-				w, ok := <-p.queue
+				select {
+				case <-ctx.Done():
+					return
+				case w, ok := <-p.queue:
+					if !ok {
+						return
+					}
 
-				// if we're not having the active queue, quit...
-				if !ok {
-					break
-				}
-
-				// do the work....
-				err := worker(context.Background(), w)
-
-				if err != nil {
-					// TODO: implement proper error logging
-					fmt.Println(`worker:`, err)
+					// do the work....
+					if err := worker(ctx, w); err != nil {
+						// TODO: implement proper error logging
+						fmt.Println(`worker:`, err)
+					}
 				}
 
 			}
@@ -69,8 +69,14 @@ func (p *Pool[T]) Start(worker func(context.Context, T) error, getWork func(int)
 
 	// let's provision process that will add work to the queue
 	go func(c *counter) {
+		defer close(p.queue)
 
 		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 
 			// how much work are we ready to request for our pool?
 			limit := c.Get()
@@ -98,7 +104,11 @@ func (p *Pool[T]) Start(worker func(context.Context, T) error, getWork func(int)
 
 			// let's add the work we got to the queue...
 			for _, item := range items {
-				p.queue <- item
+				select {
+				case <-ctx.Done():
+					return
+				case p.queue <- item:
+				}
 			}
 
 			// substruct the number of the items from our counter

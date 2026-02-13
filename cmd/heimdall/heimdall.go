@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"flag"
+	"os/signal"
+	"syscall"
 
 	"github.com/babourine/x/pkg/config"
 	"github.com/babourine/x/pkg/process"
@@ -65,8 +68,17 @@ func main() {
 		h.Version = defaultBuild
 	}
 
-	// start proxy
-	if err := h.Start(); err != nil {
+	// create context that cancels on SIGINT/SIGTERM
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// initialize internal components (janitor, pool, etc.)
+	if err := h.Init(ctx); err != nil {
+		process.Bail(`init`, err)
+	}
+
+	// start proxy and return when server exits or signal received
+	if err := h.Start(ctx); err != nil {
 		process.Bail(`server`, err)
 	}
 

@@ -1,6 +1,7 @@
 package heimdall
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -58,7 +59,7 @@ type Heimdall struct {
 	commandHandlers  map[string]plugin.Handler
 }
 
-func (h *Heimdall) Init() error {
+func (h *Heimdall) Init(ctx context.Context) error {
 
 	// set jobs directory if not set
 	if h.JobsDirectory == `` {
@@ -152,16 +153,16 @@ func (h *Heimdall) Init() error {
 	}
 
 	// start janitor
-	if err := h.Janitor.Start(h.Database, h.commandHandlers, h.Clusters); err != nil {
+	if err := h.Janitor.Start(ctx, h.Database, h.commandHandlers, h.Clusters); err != nil {
 		return err
 	}
 
 	// let's start the agent
-	return h.Pool.Start(h.runAsyncJob, h.getAsyncJobs)
+	return h.Pool.Start(ctx, h.runAsyncJob, h.getAsyncJobs)
 
 }
 
-func (h *Heimdall) Start() error {
+func (h *Heimdall) Start(ctx context.Context) error {
 	// set routes
 	router := mux.NewRouter()
 
@@ -223,6 +224,6 @@ func (h *Heimdall) Start() error {
 		}),
 	))
 
-	return h.Server.Start(router)
+	return h.Server.Start(ctx, router)
 
 }

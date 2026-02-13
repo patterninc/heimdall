@@ -1,6 +1,7 @@
 package janitor
 
 import (
+	"context"
 	"time"
 
 	"github.com/patterninc/heimdall/internal/pkg/database"
@@ -21,7 +22,7 @@ type Janitor struct {
 	clusters        cluster.Clusters
 }
 
-func (j *Janitor) Start(d *database.Database, commandHandlers map[string]plugin.Handler, clusters cluster.Clusters) error {
+func (j *Janitor) Start(ctx context.Context, d *database.Database, commandHandlers map[string]plugin.Handler, clusters cluster.Clusters) error {
 
 	// record database context
 	j.db = d
@@ -31,11 +32,21 @@ func (j *Janitor) Start(d *database.Database, commandHandlers map[string]plugin.
 	// kick off janitor worker in the background.
 	go func() {
 		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			jobsFound := j.worker()
 
 			// if no jobs are found, sleep before checking again
 			if !jobsFound {
-				time.Sleep(time.Duration(j.CleanInterval) * time.Second)
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(time.Duration(j.CleanInterval) * time.Second):
+				}
 			}
 		}
 	}()

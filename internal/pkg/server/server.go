@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -15,10 +16,9 @@ type Server struct {
 	ReadHeaderTimeout int    `yaml:"read_header_timeout,omitempty" json:"read_header_timeout,omitempty"`
 }
 
-func (s *Server) Start(router *mux.Router) error {
+func (s *Server) Start(ctx context.Context, router *mux.Router) error {
 
-	// configure server
-	server := &http.Server{
+	srv := &http.Server{
 		Addr:              s.Address,
 		ReadTimeout:       time.Duration(s.ReadTimeout) * time.Second,
 		WriteTimeout:      time.Duration(s.WriteTimeout) * time.Second,
@@ -27,6 +27,22 @@ func (s *Server) Start(router *mux.Router) error {
 		Handler:           router,
 	}
 
-	return server.ListenAndServe()
+	// run server in background
+	srvErr := make(chan error, 1)
+	go func() {
+		srvErr <- srv.ListenAndServe()
+	}()
+
+	// wait for either server error or context cancellation
+	select {
+	case err := <-srvErr:
+		return err
+	case <-ctx.Done():
+		// give server some time to shutdown gracefully
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(timeoutCtx)
+		return ctx.Err()
+	}
 
 }
