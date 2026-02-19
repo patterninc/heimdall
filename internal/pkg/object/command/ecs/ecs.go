@@ -119,8 +119,8 @@ const (
 var (
 	errMissingTemplate  = fmt.Errorf("task definition template is required")
 	errNoTasksAvailable = fmt.Errorf("no tasks available to retrieve logs")
-	cleanupMethod       = telemetry.NewMethod("ecs", "cleanup")
-	handlerMethod       = telemetry.NewMethod("ecs", "handler")
+	cleanupMethod       = telemetry.NewMethod("cleanup", "ecs")
+	handlerMethod       = telemetry.NewMethod("handler", "ecs")
 )
 
 func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
@@ -675,10 +675,9 @@ func (execCtx *executionContext) retrieveLogs(ctx context.Context) error {
 	return nil
 
 }
-
-// cleanup stops all ECS tasks that were started by the given job
 func (e *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
-
+  
+	cleanupMethod.CountRequest()
 	// Resolve cluster context to get cluster name
 	clusterContext := &clusterContext{}
 	if err := c.Context.Unmarshal(clusterContext); err != nil {
@@ -704,6 +703,7 @@ func (e *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.C
 			StartedBy: aws.String(startedByValue),
 		})
 		if err != nil {
+			cleanupMethod.CountError("list_tasks")
 			return err
 		}
 
@@ -716,6 +716,7 @@ func (e *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.C
 
 	if len(taskARNs) == 0 {
 		// No tasks found, nothing to clean up
+		cleanupMethod.CountSuccess("no_tasks_found")
 		return nil
 	}
 
@@ -733,7 +734,7 @@ func (e *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.C
 
 		time.Sleep(100 * time.Millisecond) // prevent API throttling
 	}
-
+	cleanupMethod.CountSuccess()
 	return nil
 
 }
