@@ -729,7 +729,7 @@ func (e *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.C
 		if _, err := ecsClient.StopTask(ctx, stopTaskInput); err != nil {
 			// Log error but continue stopping other tasks
 			err = errors.Wrapf(err, "failed to stop task %s", taskARN)
-			cleanupMethod.LogAndCountError(err, fmt.Sprintf("failed to stop task %s", taskARN))
+			cleanupMethod.LogAndCountError(err, "stop_task")
 		}
 
 		time.Sleep(100 * time.Millisecond) // prevent API throttling
