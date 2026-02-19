@@ -20,6 +20,7 @@ import (
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/plugin"
+	"github.com/pkg/errors"
 )
 
 // ECS command context structure
@@ -676,7 +677,7 @@ func (execCtx *executionContext) retrieveLogs(ctx context.Context) error {
 
 }
 func (e *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
-  
+
 	cleanupMethod.CountRequest()
 	// Resolve cluster context to get cluster name
 	clusterContext := &clusterContext{}
@@ -694,7 +695,7 @@ func (e *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.C
 	// List all tasks started by this job
 	maxTaskCount := clusterContext.MaxTaskCount
 
-	taskARNs := make(map[string]struct{})
+	taskARNs := make([]string, 0)
 	for taskNum := 0; taskNum < maxTaskCount; taskNum++ {
 		startedByValue := fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, taskNum)
 
@@ -707,9 +708,7 @@ func (e *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.C
 			return err
 		}
 
-		for _, arn := range listTasksOutput.TaskArns {
-			taskARNs[arn] = struct{}{}
-		}
+		taskARNs = append(taskARNs, listTasksOutput.TaskArns...)
 
 		time.Sleep(100 * time.Millisecond) // prevent API throttling
 	}
@@ -721,7 +720,7 @@ func (e *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.C
 	}
 
 	// Stop all tasks we found. StopTask is safe to call even if the task is already stopping/stopped.
-	for taskARN := range taskARNs {
+	for _, taskARN := range taskARNs {
 		stopTaskInput := &ecs.StopTaskInput{
 			Cluster: aws.String(clusterContext.ClusterName),
 			Task:    aws.String(taskARN),
@@ -729,6 +728,7 @@ func (e *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.C
 		}
 		if _, err := ecsClient.StopTask(ctx, stopTaskInput); err != nil {
 			// Log error but continue stopping other tasks
+			err = errors.Wrapf(err, "failed to stop task %s", taskARN)
 			cleanupMethod.LogAndCountError(err, fmt.Sprintf("failed to stop task %s", taskARN))
 		}
 
