@@ -30,3 +30,9 @@ do $$ begin
         update jobs set canceled_by = '' where canceled_by is null;
     end if;
 end $$;
+
+do $$ begin
+    if exists (select 1 from information_schema.columns where table_name = 'jobs' and column_name = 'job_context' and character_maximum_length < 131070) then
+        alter table jobs alter column job_context TYPE VARCHAR(131070);
+    end if;
+end $$;
