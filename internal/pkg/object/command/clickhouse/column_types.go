@@ -214,6 +214,18 @@ func unwrapCHType(t string) (base string, nullable bool) {
 	if isDecimal(s) {
 		return "Decimal", nullable
 	}
+	// Normalize type names to handle case variations from driver
+	// Driver may return "Datetime64" or "DateTime64", etc.
+	sLower := strings.ToLower(s)
+	
+	// DateTime64 always has precision: DateTime64(3) or DateTime64(6, 'UTC')
+	if strings.HasPrefix(sLower, "datetime64(") {
+		return "DateTime64", nullable
+	}
+	// DateTime may have timezone or not: DateTime or DateTime('UTC')
+	if sLower == "datetime" || strings.HasPrefix(sLower, "datetime(") {
+		return "DateTime", nullable
+	}
 	return s, nullable
 }
 
