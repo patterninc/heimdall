@@ -206,15 +206,15 @@ func getDefaultGroupAllowPolicy(accessType []string) *ranger.Policy {
 		PolicyPriority: 1,
 		Resources: &ranger.Resource{
 			Catalog: &ranger.ResourceField{
-				RawValues:     []string{"default_catalog"},
+				RawValues:  []string{"default_catalog"},
 				IsExcludes: false,
 			},
 			Schema: &ranger.ResourceField{
-				RawValues:     []string{"public"},
+				RawValues:  []string{"public"},
 				IsExcludes: false,
 			},
 			Table: &ranger.ResourceField{
-				RawValues:     []string{"table1"},
+				RawValues:  []string{"table1"},
 				IsExcludes: false,
 			},
 		},
@@ -243,15 +243,15 @@ func getDefaultAllActionsGroupPolicyWithExcludeForDefaultGroup(excludeAccess []s
 		PolicyPriority: 1,
 		Resources: &ranger.Resource{
 			Catalog: &ranger.ResourceField{
-				RawValues:     []string{"default_catalog"},
+				RawValues:  []string{"default_catalog"},
 				IsExcludes: false,
 			},
 			Schema: &ranger.ResourceField{
-				RawValues:     []string{"public"},
+				RawValues:  []string{"public"},
 				IsExcludes: false,
 			},
 			Table: &ranger.ResourceField{
-				RawValues:     []string{"table1"},
+				RawValues:  []string{"table1"},
 				IsExcludes: false,
 			},
 		},
@@ -289,15 +289,15 @@ func getAllowAllPolicyWithDenyForGroup(denyAccess []string) []*ranger.Policy {
 			PolicyPriority: 1,
 			Resources: &ranger.Resource{
 				Catalog: &ranger.ResourceField{
-					RawValues:     []string{"default_catalog"},
+					RawValues:  []string{"default_catalog"},
 					IsExcludes: false,
 				},
 				Schema: &ranger.ResourceField{
-					RawValues:     []string{"public"},
+					RawValues:  []string{"public"},
 					IsExcludes: false,
 				},
 				Table: &ranger.ResourceField{
-					RawValues:     []string{"table1"},
+					RawValues:  []string{"table1"},
 					IsExcludes: false,
 				},
 			},
@@ -336,15 +336,15 @@ func getAllowAllPolicyWithDenyAndExceptionForGroup(denyAccess, exceptionAccess [
 			PolicyPriority: 1,
 			Resources: &ranger.Resource{
 				Catalog: &ranger.ResourceField{
-					RawValues:     []string{"default_catalog"},
+					RawValues:  []string{"default_catalog"},
 					IsExcludes: false,
 				},
 				Schema: &ranger.ResourceField{
-					RawValues:     []string{"public"},
+					RawValues:  []string{"public"},
 					IsExcludes: false,
 				},
 				Table: &ranger.ResourceField{
-					RawValues:     []string{"table1"},
+					RawValues:  []string{"table1"},
 					IsExcludes: false,
 				},
 			},

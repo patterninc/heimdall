@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	cleanupJobsMethod = telemetry.NewMethod("db_connection", "cleanup_jobs")
-	workerMethod      = telemetry.NewMethod("janitor", "worker")
+	cleanupJobsMethod = telemetry.NewMethod("cleanup_jobs", "janitor")
+	workerMethod      = telemetry.NewMethod("worker", "janitor")
 	ctx               = context.Background()
 )
 
@@ -79,6 +79,7 @@ func (j *Janitor) worker() bool {
 
 	// if no jobs found, return false
 	if len(jobs) == 0 {
+		workerMethod.CountSuccess("no_jobs")
 		return false
 	}
 
@@ -89,7 +90,7 @@ func (j *Janitor) worker() bool {
 		go func(idx int, job *job.Job) {
 			defer wg.Done()
 			if err := j.cleanup(job); err != nil {
-				cleanupJobsMethod.LogAndCountError(err, "cleanup")
+				cleanupJobsMethod.LogAndCountError(err, "cleanup", job.CommandName, job.ClusterName)
 			}
 		}(i, jb)
 	}
@@ -142,19 +143,19 @@ func (j *Janitor) queryJobs(sess *database.Session) ([]*job.Job, error) {
 // cleanup calls the cleanup handler for a job
 func (j *Janitor) cleanup(jb *job.Job) error {
 
-	cleanupJobsMethod.CountRequest()
+	cleanupJobsMethod.CountRequest(jb.CommandName, jb.ClusterName)
 
 	// Call cleanup handler
 	handler := j.commandHandlers[jb.CommandID]
 	if handler != nil {
 		cluster := j.clusters[jb.ClusterID]
 		if err := handler.Cleanup(ctx, jb.ID, cluster); err != nil {
-			cleanupJobsMethod.CountError("cleanup_handler")
+			cleanupJobsMethod.CountError("cleanup_handler", jb.CommandName, jb.ClusterName)
 			return errors.Wrap(err, "cleanup_handler")
 		}
 	} else {
 		// count requests for jobs that don't have a cleanup handler
-		cleanupJobsMethod.CountRequest("no_cleanup_handler")
+		cleanupJobsMethod.CountRequest("no_cleanup_handler", jb.CommandName, jb.ClusterName)
 	}
 
 	return nil

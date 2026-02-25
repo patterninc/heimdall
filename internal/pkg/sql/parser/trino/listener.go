@@ -1,8 +1,8 @@
 package trino
 
 import (
-	"github.com/patterninc/heimdall/internal/pkg/sql/parser/trino/grammar"
 	"github.com/patterninc/heimdall/internal/pkg/sql/parser"
+	"github.com/patterninc/heimdall/internal/pkg/sql/parser/trino/grammar"
 )
 
 type trinoListener struct {
