@@ -5,10 +5,10 @@ create table if not exists jobs
     job_cluster_id int null,
     job_status_id smallint not null,
     job_id varchar(64) not null,
-    job_name varchar(64) not null,
+    job_name varchar(300) not null,
     job_version varchar(32) not null,
     job_description varchar(255) null,
-    job_context varchar(65535) null,
+    job_context varchar(131070) null,
     job_error varchar(1024) null,
     username varchar(64) not null,
     is_sync boolean not null,
@@ -34,5 +34,12 @@ end $$;
 do $$ begin
     if exists (select 1 from information_schema.columns where table_name = 'jobs' and column_name = 'job_context' and character_maximum_length < 131070) then
         alter table jobs alter column job_context TYPE VARCHAR(131070);
+    end if;
+end $$;
+
+
+do $$ begin
+    if exists (select 1 from information_schema.columns where table_name = 'jobs' and column_name = 'job_name' and character_maximum_length < 300) then
+        alter table jobs alter column job_name TYPE VARCHAR(300);
     end if;
 end $$;
