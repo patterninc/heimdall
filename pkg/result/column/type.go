@@ -23,38 +23,61 @@ var (
 type Type string
 
 func (t *Type) UnmarshalJSON(data []byte) error {
+	trimmed := strings.TrimSpace(string(data))
 
-	if strings.HasPrefix(string(data), `[`) {
-
-		temp := make([]string, 0, 2)
-
+	if strings.HasPrefix(trimmed, `[`) {
+		var temp []json.RawMessage
 		if err := json.Unmarshal(data, &temp); err != nil {
 			return err
 		}
 
-		for _, v := range temp {
-			if v != `null` {
-				*t = Type(temp[0])
+		for _, elem := range temp {
+			elemStr := strings.TrimSpace(string(elem))
+			if elemStr == `"null"` {
+				continue
+			}
+			if strings.HasPrefix(elemStr, `"`) {
+				var s string
+				if err := json.Unmarshal(elem, &s); err != nil {
+					return err
+				}
+				*t = Type(s)
 				return nil
 			}
+			// Complex type (object) — extract its "type" field name or serialize as string
+			*t = extractComplexTypeName(elem)
+			return nil
 		}
 
-		return fmt.Errorf("unexpected value: %s", string(data))
+		return fmt.Errorf("unexpected value: %s", trimmed)
+
+	} else if strings.HasPrefix(trimmed, `{`) {
+		*t = extractComplexTypeName(data)
+		return nil
 
 	} else {
-
-		temp := ``
-
+		var temp string
 		if err := json.Unmarshal(data, &temp); err != nil {
 			return err
 		}
-
 		*t = Type(temp)
-
 	}
 
 	return nil
+}
 
+func extractComplexTypeName(data json.RawMessage) Type {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return Type(string(data))
+	}
+	if raw, ok := obj["type"]; ok {
+		var typeName string
+		if err := json.Unmarshal(raw, &typeName); err == nil {
+			return Type(typeName)
+		}
+	}
+	return Type(string(data))
 }
 
 func (t Type) IsPrimitive() bool {
