@@ -165,7 +165,7 @@ func FromAvro(uri string) (*Result, error) {
 				}
 			for _, c := range r.Columns {
 				val := record[c.Name]
-				if m, ok := val.(map[string]any); ok {
+				if m, ok := val.(map[string]any); ok && len(m) == 1 {
 					val = extractUnionValue(m, c)
 				}
 				if c.IsDecimal() {

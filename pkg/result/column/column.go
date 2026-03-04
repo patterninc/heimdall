@@ -10,6 +10,7 @@ type Column struct {
 	Type         Type   `yaml:"type,omitempty" json:"type,omitempty"`
 	Scale        int    `json:"-" yaml:"-"`
 	AvroTypeName string `json:"-" yaml:"-"`
+	isDecimal    bool
 }
 
 func (c *Column) UnmarshalJSON(data []byte) error {
@@ -68,6 +69,7 @@ func (c *Column) parseComplexMeta(data json.RawMessage) {
 	if raw, ok := obj["logicalType"]; ok {
 		var logicalType string
 		if json.Unmarshal(raw, &logicalType) == nil && logicalType == "decimal" {
+			c.isDecimal = true
 			if s, ok := obj["scale"]; ok {
 				json.Unmarshal(s, &c.Scale)
 			}
@@ -76,5 +78,5 @@ func (c *Column) parseComplexMeta(data json.RawMessage) {
 }
 
 func (c *Column) IsDecimal() bool {
-	return c.Scale > 0
+	return c.isDecimal
 }
