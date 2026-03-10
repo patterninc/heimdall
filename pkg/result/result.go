@@ -163,16 +163,16 @@ func FromAvro(uri string) (*Result, error) {
 				if !ok {
 					return nil, fmt.Errorf("failed to parse record. unexpected type: %T", recordObject)
 				}
-			for _, c := range r.Columns {
-				val := record[c.Name]
-				if m, ok := val.(map[string]any); ok && len(m) == 1 {
-					val = extractUnionValue(m, c)
+				for _, c := range r.Columns {
+					val := record[c.Name]
+					if m, ok := val.(map[string]any); ok && len(m) == 1 {
+						val = extractUnionValue(m, c)
+					}
+					if c.IsDecimal() {
+						val = decodeDecimal(val, c.Scale)
+					}
+					row = append(row, val)
 				}
-				if c.IsDecimal() {
-					val = decodeDecimal(val, c.Scale)
-				}
-				row = append(row, val)
-			}
 				r.Data = append(r.Data, row)
 			}
 		}
