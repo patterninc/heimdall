@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -106,8 +107,6 @@ func FromJson(json map[string]any) (*Result, error) {
 
 func FromAvro(uri string) (*Result, error) {
 
-	var nothing *string
-
 	// upload file
 	awsConfig, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -165,15 +164,14 @@ func FromAvro(uri string) (*Result, error) {
 					return nil, fmt.Errorf("failed to parse record. unexpected type: %T", recordObject)
 				}
 				for _, c := range r.Columns {
-					if m, ok := record[c.Name].(map[string]any); ok && c.Type.IsPrimitive() {
-						if v, found := m[string(c.Type)]; found {
-							row = append(row, v)
-						} else {
-							row = append(row, nothing)
-						}
-					} else {
-						row = append(row, record[c.Name])
+					val := record[c.Name]
+					if m, ok := val.(map[string]any); ok && len(m) == 1 {
+						val = extractUnionValue(m, c)
 					}
+					if c.IsDecimal() {
+						val = decodeDecimal(val, c.Scale)
+					}
+					row = append(row, val)
 				}
 				r.Data = append(r.Data, row)
 			}
@@ -247,6 +245,49 @@ func FromDynamo(items []map[string]types.AttributeValue) (*Result, error) {
 
 	return r, nil
 
+}
+
+// extractUnionValue unwraps a goavro union map to get the actual value.
+// For primitive types the key is the type name (e.g. "string").
+// For named complex types the key is the full Avro name (e.g. "topLevelRecord.sp_spend.fixed").
+func extractUnionValue(m map[string]any, c *column.Column) any {
+	if c.Type.IsPrimitive() {
+		if v, found := m[string(c.Type)]; found {
+			return v
+		}
+	}
+	if c.AvroTypeName != "" {
+		if v, found := m[c.AvroTypeName]; found {
+			return v
+		}
+	}
+	for _, v := range m {
+		return v
+	}
+	return nil
+}
+
+// decodeDecimal converts Avro fixed/bytes decimal values to a float64.
+func decodeDecimal(val any, scale int) any {
+	if val == nil {
+		return nil
+	}
+	var raw []byte
+	switch v := val.(type) {
+	case []byte:
+		raw = v
+	default:
+		return val
+	}
+	unscaled := new(big.Int).SetBytes(raw)
+	// Handle two's complement sign for fixed-size byte arrays
+	if len(raw) > 0 && raw[0]&0x80 != 0 {
+		magnitude := new(big.Int).Lsh(big.NewInt(1), uint(len(raw)*8))
+		unscaled.Sub(unscaled, magnitude)
+	}
+	divisor := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(scale)), nil))
+	result, _ := new(big.Float).Quo(new(big.Float).SetInt(unscaled), divisor).Float64()
+	return result
 }
 
 func getS3Object(svc *s3.Client, bucket, key *string) ([]byte, error) {
