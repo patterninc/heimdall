@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -31,11 +32,11 @@ type postgresCommandContext struct {
 // New creates a new PostgreSQL plugin handler.
 func New(_ *pkgcontext.Context) (plugin.Handler, error) {
 	p := &postgresCommandContext{}
-	return p.handler, nil
+	return p, nil
 }
 
 // Handler for the PostgreSQL query execution.
-func (p *postgresCommandContext) handler(r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (p *postgresCommandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 	jobContext, err := validateJobContext(j)
 	if err != nil {
 		return err
@@ -153,4 +154,9 @@ func splitAndTrimQueries(query string) []string {
 		}
 	}
 	return queries
+}
+
+func (p *postgresCommandContext)Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error{
+	// implement me
+	return nil
 }
