@@ -94,6 +94,7 @@ var (
 type commandContext struct {
 	JobsURI       string            `yaml:"jobs_uri,omitempty" json:"jobs_uri,omitempty"`
 	WrapperURI    string            `yaml:"wrapper_uri,omitempty" json:"wrapper_uri,omitempty"`
+	EventLogURI   string            `yaml:"event_log_uri,omitempty" json:"event_log_uri,omitempty"`
 	Properties    map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 	KubeNamespace string            `yaml:"kube_namespace,omitempty" json:"kube_namespace,omitempty"`
 }
@@ -670,9 +671,10 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	// Add default spark properties
 	sparkApp.Spec.SparkConf[sparkAppNameProperty] = execCtx.appName
 
-	if execCtx.logURI != "" {
-		logURI := updateS3ToS3aURI(execCtx.logURI)
-		sparkApp.Spec.SparkConf[sparkEventLogDirProperty] = logURI
+	// Set spark event log directory for spark history server 
+	if execCtx.commandContext.EventLogURI != "" {
+		eventLogURI := updateS3ToS3aURI(execCtx.commandContext.EventLogURI)
+		sparkApp.Spec.SparkConf[sparkEventLogDirProperty] = eventLogURI
 	}
 
 	if sparkSubmitParams := getSparkSubmitParameters(jobContext); sparkSubmitParams != nil {
