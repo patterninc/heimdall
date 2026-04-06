@@ -114,7 +114,7 @@ type clusterContext struct {
 	Properties                 map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 	Image                      *string           `yaml:"image,omitempty" json:"image,omitempty"`
 	Region                     *string           `yaml:"region,omitempty" json:"region,omitempty"`
-	ClusterName                *string           `yaml:"cluster_name,omitempty" json:"cluster_name,omitempty"`
+	KubernetesClusterName      *string           `yaml:"cluster_name,omitempty" json:"cluster_name,omitempty"`
 	SparkApplicationFile       string            `yaml:"spark_application_file,omitempty" json:"spark_application_file,omitempty"`
 	RequiredSparkSQLExtensions string            `yaml:"required_spark_sql_extensions,omitempty" json:"required_spark_sql_extensions,omitempty"`
 }
@@ -565,8 +565,8 @@ func createSparkClients(ctx context.Context, execCtx *executionContext) error {
 
 	if execCtx.runtime != nil && execCtx.runtime.Stdout != nil {
 		clusterName := ""
-		if execCtx.clusterContext.ClusterName != nil {
-			clusterName = *execCtx.clusterContext.ClusterName
+		if execCtx.clusterContext.KubernetesClusterName != nil {
+			clusterName = *execCtx.clusterContext.KubernetesClusterName
 		}
 		execCtx.runtime.Stdout.WriteString(fmt.Sprintf("Successfully created Spark Operator and Kubernetes clients for cluster: %s\n", clusterName))
 	}
@@ -596,8 +596,8 @@ func updateKubeConfig(ctx context.Context, execCtx *executionContext) (string, e
 	tmpfile.Close() // Close the file so `aws` can write to it
 
 	clusterName := ""
-	if execCtx.clusterContext.ClusterName != nil {
-		clusterName = *execCtx.clusterContext.ClusterName
+	if execCtx.clusterContext.KubernetesClusterName != nil {
+		clusterName = *execCtx.clusterContext.KubernetesClusterName
 	}
 
 	args := []string{
