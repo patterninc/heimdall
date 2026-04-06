@@ -514,7 +514,7 @@ func getAndUploadPodContainerLogs(ctx context.Context, execCtx *executionContext
 }
 
 // getSparkApplicationPodLogs fetches logs from pods and uploads them to S3.
-func getSparkApplicationPodLogs(ctx context.Context, execCtx *executionContext, pods []corev1.Pod, writeToStderr bool) {
+func getSparkApplicationPodLogs(ctx context.Context, execCtx *executionContext, pods []corev1.Pod, writeToStderr bool) error {
 	for _, pod := range pods {
 		if !isPodInValidPhase(pod) {
 			continue
@@ -526,6 +526,7 @@ func getSparkApplicationPodLogs(ctx context.Context, execCtx *executionContext, 
 			getAndUploadPodContainerLogs(ctx, execCtx, pod, container, true, stderrLogSuffix, false)
 		}
 	}
+	return nil
 }
 
 // createSparkClients creates Kubernetes and Spark clients for the EKS cluster.
@@ -911,7 +912,9 @@ func collectSparkApplicationLogs(ctx context.Context, execCtx *executionContext,
 		return
 	}
 
-	getSparkApplicationPodLogs(ctx, execCtx, pods, writeToStderr)
+	if err := getSparkApplicationPodLogs(ctx, execCtx, pods, writeToStderr); err != nil {
+		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Warning: failed to collect pod logs: %v\n", err))
+	}
 }
 
 // isTerminalState checks if the given state is a terminal state.
