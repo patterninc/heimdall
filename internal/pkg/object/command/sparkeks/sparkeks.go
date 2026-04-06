@@ -114,6 +114,7 @@ type clusterContext struct {
 	Properties                 map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 	Image                      *string           `yaml:"image,omitempty" json:"image,omitempty"`
 	Region                     *string           `yaml:"region,omitempty" json:"region,omitempty"`
+	KubernetesClusterName      *string           `yaml:"cluster_name,omitempty" json:"cluster_name,omitempty"`
 	SparkApplicationFile       string            `yaml:"spark_application_file,omitempty" json:"spark_application_file,omitempty"`
 	RequiredSparkSQLExtensions string            `yaml:"required_spark_sql_extensions,omitempty" json:"required_spark_sql_extensions,omitempty"`
 }
@@ -563,7 +564,11 @@ func createSparkClients(ctx context.Context, execCtx *executionContext) error {
 	execCtx.kubeClient = kubeClient
 
 	if execCtx.runtime != nil && execCtx.runtime.Stdout != nil {
-		execCtx.runtime.Stdout.WriteString(fmt.Sprintf("Successfully created Spark Operator and Kubernetes clients for cluster: %s\n", execCtx.cluster.Name))
+		clusterName := ""
+		if execCtx.clusterContext.KubernetesClusterName != nil {
+			clusterName = *execCtx.clusterContext.KubernetesClusterName
+		}
+		execCtx.runtime.Stdout.WriteString(fmt.Sprintf("Successfully created Spark Operator and Kubernetes clients for cluster: %s\n", clusterName))
 	}
 	return nil
 }
@@ -590,10 +595,15 @@ func updateKubeConfig(ctx context.Context, execCtx *executionContext) (string, e
 	kubeconfigPath := tmpfile.Name()
 	tmpfile.Close() // Close the file so `aws` can write to it
 
+	clusterName := ""
+	if execCtx.clusterContext.KubernetesClusterName != nil {
+		clusterName = *execCtx.clusterContext.KubernetesClusterName
+	}
+
 	args := []string{
 		"eks", "update-kubeconfig",
 		"--region", region,
-		"--name", execCtx.cluster.Name,
+		"--name", clusterName,
 		"--kubeconfig", kubeconfigPath,
 	}
 	if roleArn != "" {
@@ -671,7 +681,7 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	// Add default spark properties
 	sparkApp.Spec.SparkConf[sparkAppNameProperty] = execCtx.appName
 
-	// Set spark event log directory for spark history server 
+	// Set spark event log directory for spark history server
 	if execCtx.commandContext.EventLogURI != "" {
 		eventLogURI := updateS3ToS3aURI(execCtx.commandContext.EventLogURI)
 		sparkApp.Spec.SparkConf[sparkEventLogDirProperty] = eventLogURI
