@@ -20,10 +20,11 @@ import (
 )
 
 const (
-	healthCheckTimeout = 30 * time.Second
-	healthCheckUser    = `heimdall-health`
-	healthStatusOK     = `ok`
-	healthStatusError  = `error`
+	healthCheckTimeout     = 30 * time.Second
+	healthCheckUser        = `heimdall-health`
+	healthStatusOK         = `ok`
+	healthStatusError      = `error`
+	healthCheckConcurrency = 10
 )
 
 type healthCheckResult struct {
@@ -70,7 +71,12 @@ func (h *Heimdall) commandHealthHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Heimdall) writeHealthResponse(w http.ResponseWriter, ctx context.Context, commandID *string) {
-	results := h.runHealthChecks(ctx, h.resolveHealthPairs(ctx, commandID))
+	pairs, err := h.resolveHealthPairs(ctx, commandID)
+	if err != nil {
+		writeAPIError(w, fmt.Errorf("error resolving health check pairs: %w", err), nil)
+		return
+	}
+	results := h.runHealthChecks(ctx, pairs)
 
 	healthy := true
 	for _, res := range results {
@@ -92,36 +98,40 @@ func (h *Heimdall) writeHealthResponse(w http.ResponseWriter, ctx context.Contex
 	w.Write(data)
 }
 
-func (h *Heimdall) resolveHealthPairs(ctx context.Context, commandID *string) []*healthPair {
+func (h *Heimdall) resolveHealthPairs(ctx context.Context, commandID *string) ([]*healthPair, error) {
 	var pairs []*healthPair
 	if commandID != nil {
 		cmd, found := h.Commands[*commandID]
 		if !found {
-			return pairs
+			return pairs, nil
 		}
 		return h.resolveHealthPairsForCommand(ctx, cmd)
 	}
 	for _, cmd := range h.Commands {
-		pairs = append(pairs, h.resolveHealthPairsForCommand(ctx, cmd)...)
+		cmdPairs, err := h.resolveHealthPairsForCommand(ctx, cmd)
+		if err != nil {
+			return pairs, err
+		}
+		pairs = append(pairs, cmdPairs...)
 	}
-	return pairs
+	return pairs, nil
 }
 
-func (h *Heimdall) resolveHealthPairsForCommand(ctx context.Context, cmd *command.Command) []*healthPair {
+func (h *Heimdall) resolveHealthPairsForCommand(ctx context.Context, cmd *command.Command) ([]*healthPair, error) {
 	var pairs []*healthPair
 	if cmd == nil {
-		return pairs
+		return pairs, nil
 	}
 	if !cmd.HealthCheck {
-		return pairs
+		return pairs, nil
 	}
 	// check DB for command status to avoid unnecessary health checks for inactive commands
 	dbCmd, err := h.getCommandStatus(ctx, cmd)
 	if err != nil {
-		return pairs
+		return pairs, err
 	}
 	if dbCmd.(*command.Command).Status != status.Active {
-		return pairs
+		return pairs, nil
 	}
 	for _, cl := range h.Clusters {
 		if cl.Status != status.Active {
@@ -131,16 +141,19 @@ func (h *Heimdall) resolveHealthPairsForCommand(ctx context.Context, cmd *comman
 			pairs = append(pairs, &healthPair{cmd, cl, h.commandHandlers[cmd.ID]})
 		}
 	}
-	return pairs
+	return pairs, nil
 }
 
 func (h *Heimdall) runHealthChecks(ctx context.Context, pairs []*healthPair) []healthCheckResult {
 	results := make([]healthCheckResult, len(pairs))
+	sem := make(chan struct{}, healthCheckConcurrency)
 	var wg sync.WaitGroup
 	for i, pair := range pairs {
 		wg.Add(1)
 		go func(i int, pair *healthPair) {
 			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 			results[i] = h.checkPair(ctx, pair)
 		}(i, pair)
 	}
