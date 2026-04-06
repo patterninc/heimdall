@@ -269,11 +269,6 @@ func (h *Heimdall) updateCommandStatus(ctx context.Context, c *command.Command) 
 		return nil, ErrUnknownCommandID
 	}
 
-	// keep in-memory state in sync with the DB
-	if cmd, ok := h.Commands[c.ID]; ok {
-		cmd.Status = c.Status
-	}
-
 	updateCommandStatusMethod.CountSuccess()
 	return h.getCommandStatus(ctx, c)
 

@@ -48,7 +48,7 @@ func (h *Heimdall) healthHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), healthCheckTimeout)
 	defer cancel()
 
-	results := h.runHealthChecks(ctx, h.resolveHealthPairs())
+	results := h.runHealthChecks(ctx, h.resolveHealthPairs(ctx))
 
 	healthy := true
 	for _, res := range results {
@@ -70,18 +70,27 @@ func (h *Heimdall) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func (h *Heimdall) resolveHealthPairs() []*healthPair {
+func (h *Heimdall) resolveHealthPairs(ctx context.Context) []*healthPair {
 	var pairs []*healthPair
 	for _, cmd := range h.Commands {
-		if !cmd.HealthCheck || cmd.Status != status.Active {
+		if !cmd.HealthCheck {
 			continue
 		}
-		for _, cl := range h.Clusters {
-			if cl.Status != status.Active {
+		// check DB for command status to avoid unnecessary health checks for inactive commands
+		dbCmd, err := h.getCommandStatus(ctx, cmd)
+		if err != nil {
+			continue
+		}
+		if dbCmd.(*command.Command).Status != status.Active {
+			continue
+		}
+		// find active clusters matching command's cluster tags
+		for _, cluster := range h.Clusters {
+			if cluster.Status != status.Active {
 				continue
 			}
-			if cl.Tags.Contains(cmd.ClusterTags) {
-				pairs = append(pairs, &healthPair{cmd, cl, h.commandHandlers[cmd.ID]})
+			if cluster.Tags.Contains(cmd.ClusterTags) {
+				pairs = append(pairs, &healthPair{cmd, cluster, h.commandHandlers[cmd.ID]})
 			}
 		}
 	}
