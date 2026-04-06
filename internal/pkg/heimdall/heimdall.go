@@ -172,7 +172,7 @@ func (h *Heimdall) Start() error {
 	apiRouter := router.PathPrefix(defaultAPIPrefix).Subrouter()
 
 	// job(s) endpoints...
-	apiRouter.Methods(methodGET).Path(`/command/health`).HandlerFunc(h.healthHandler)
+	apiRouter.Methods(methodGET).PathPrefix(`/command/health`).HandlerFunc(h.healthHandler)
 	apiRouter.Methods(methodGET).PathPrefix(`/job/statuses`).HandlerFunc(payloadHandler(h.getJobStatuses))
 	apiRouter.Methods(methodGET).PathPrefix(`/job/{id}/status`).HandlerFunc(payloadHandler(h.getJobStatus))
 	apiRouter.Methods(methodPOST).PathPrefix(`/job/{id}/cancel`).HandlerFunc(payloadHandler(h.cancelJob))
