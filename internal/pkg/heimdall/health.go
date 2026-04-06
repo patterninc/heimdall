@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/command"
@@ -47,8 +48,29 @@ type healthPair struct {
 func (h *Heimdall) healthHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), healthCheckTimeout)
 	defer cancel()
+	h.writeHealthResponse(w, ctx, nil)
+}
 
-	results := h.runHealthChecks(ctx, h.resolveHealthPairs(ctx))
+func (h *Heimdall) commandHealthHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), healthCheckTimeout)
+	defer cancel()
+
+	commandID := mux.Vars(r)[idKey]
+	cmd, found := h.Commands[commandID]
+	if !found {
+		writeAPIError(w, ErrUnknownCommandID, nil)
+		return
+	}
+	if !cmd.HealthCheck {
+		writeAPIError(w, fmt.Errorf("command %s has not opted into health checks", commandID), nil)
+		return
+	}
+
+	h.writeHealthResponse(w, ctx, &commandID)
+}
+
+func (h *Heimdall) writeHealthResponse(w http.ResponseWriter, ctx context.Context, commandID *string) {
+	results := h.runHealthChecks(ctx, h.resolveHealthPairs(ctx, commandID))
 
 	healthy := true
 	for _, res := range results {
@@ -70,28 +92,43 @@ func (h *Heimdall) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func (h *Heimdall) resolveHealthPairs(ctx context.Context) []*healthPair {
+func (h *Heimdall) resolveHealthPairs(ctx context.Context, commandID *string) []*healthPair {
 	var pairs []*healthPair
+	if commandID != nil {
+		cmd, found := h.Commands[*commandID]
+		if !found {
+			return pairs
+		}
+		return h.resolveHealthPairsForCommand(ctx, cmd)
+	}
 	for _, cmd := range h.Commands {
-		if !cmd.HealthCheck {
+		pairs = append(pairs, h.resolveHealthPairsForCommand(ctx, cmd)...)
+	}
+	return pairs
+}
+
+func (h *Heimdall) resolveHealthPairsForCommand(ctx context.Context, cmd *command.Command) []*healthPair {
+	var pairs []*healthPair
+	if cmd == nil {
+		return pairs
+	}
+	if !cmd.HealthCheck {
+		return pairs
+	}
+	// check DB for command status to avoid unnecessary health checks for inactive commands
+	dbCmd, err := h.getCommandStatus(ctx, cmd)
+	if err != nil {
+		return pairs
+	}
+	if dbCmd.(*command.Command).Status != status.Active {
+		return pairs
+	}
+	for _, cl := range h.Clusters {
+		if cl.Status != status.Active {
 			continue
 		}
-		// check DB for command status to avoid unnecessary health checks for inactive commands
-		dbCmd, err := h.getCommandStatus(ctx, cmd)
-		if err != nil {
-			continue
-		}
-		if dbCmd.(*command.Command).Status != status.Active {
-			continue
-		}
-		// find active clusters matching command's cluster tags
-		for _, cluster := range h.Clusters {
-			if cluster.Status != status.Active {
-				continue
-			}
-			if cluster.Tags.Contains(cmd.ClusterTags) {
-				pairs = append(pairs, &healthPair{cmd, cluster, h.commandHandlers[cmd.ID]})
-			}
+		if cl.Tags.Contains(cmd.ClusterTags) {
+			pairs = append(pairs, &healthPair{cmd, cl, h.commandHandlers[cmd.ID]})
 		}
 	}
 	return pairs

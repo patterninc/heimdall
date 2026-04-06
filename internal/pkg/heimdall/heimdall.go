@@ -172,7 +172,6 @@ func (h *Heimdall) Start() error {
 	apiRouter := router.PathPrefix(defaultAPIPrefix).Subrouter()
 
 	// job(s) endpoints...
-	apiRouter.Methods(methodGET).PathPrefix(`/command/health`).HandlerFunc(h.healthHandler)
 	apiRouter.Methods(methodGET).PathPrefix(`/job/statuses`).HandlerFunc(payloadHandler(h.getJobStatuses))
 	apiRouter.Methods(methodGET).PathPrefix(`/job/{id}/status`).HandlerFunc(payloadHandler(h.getJobStatus))
 	apiRouter.Methods(methodPOST).PathPrefix(`/job/{id}/cancel`).HandlerFunc(payloadHandler(h.cancelJob))
@@ -183,6 +182,8 @@ func (h *Heimdall) Start() error {
 	apiRouter.Methods(methodGET).PathPrefix(`/command/statuses`).HandlerFunc(payloadHandler(h.getCommandStatuses))
 	apiRouter.Methods(methodGET).PathPrefix(`/command/{id}/status`).HandlerFunc(payloadHandler(h.getCommandStatus))
 	apiRouter.Methods(methodPUT).PathPrefix(`/command/{id}/status`).HandlerFunc(payloadHandler(h.updateCommandStatus))
+	apiRouter.Methods(methodGET).PathPrefix(`/command/health`).HandlerFunc(h.healthHandler)
+	apiRouter.Methods(methodGET).PathPrefix(`/command/{id}/health`).HandlerFunc(h.commandHealthHandler)
 	apiRouter.Methods(methodPUT).PathPrefix(`/command/{id}`).HandlerFunc(payloadHandler(h.submitCommand))
 	apiRouter.Methods(methodGET).PathPrefix(`/command/{id}`).HandlerFunc(payloadHandler(h.getCommand))
 	apiRouter.Methods(methodGET).PathPrefix(`/commands`).HandlerFunc(payloadHandler(h.getCommands))
