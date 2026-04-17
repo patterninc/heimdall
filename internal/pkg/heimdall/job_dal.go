@@ -223,13 +223,11 @@ func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
 
 }
 
-const (
-	defaultPageSize = 101
-	maxPageSize     = 1000
-)
+const defaultPageSize = 101
 
 func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error) {
 
+	// Track DB connection for jobs list operation
 	defer getJobsMethod.RecordLatency(time.Now())
 	getJobsMethod.CountRequest()
 
@@ -237,14 +235,15 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 	pageSize := defaultPageSize
 	if v, ok := (*f)[`limit`]; ok {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			if n > maxPageSize {
-				n = maxPageSize
+			if n > defaultPageSize {
+				n = defaultPageSize
 			}
 			pageSize = n
 		}
 		delete(*f, `limit`)
 	}
 
+	// open connection
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
 		getJobsMethod.LogAndCountError(err, "new_session")
