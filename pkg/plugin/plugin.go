@@ -11,3 +11,7 @@ type Handler interface {
 	Execute(context.Context, *Runtime, *job.Job, *cluster.Cluster) error
 	Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error
 }
+
+type HealthChecker interface {
+	HealthCheck(ctx context.Context, c *cluster.Cluster) error
+}
