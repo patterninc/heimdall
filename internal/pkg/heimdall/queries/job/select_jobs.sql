@@ -26,6 +26,3 @@ where
     {{ .Clause }}{{end}}
 order by
     j.system_job_id desc
-limit
-    101
-;
