@@ -95,6 +95,11 @@ var (
 			},
 		},
 	}
+
+	// tag filters use correlated EXISTS — one clause per value, all must match (AND semantics)
+	jobsTagsFilterConfig = map[string]string{
+		`tags`: `exists (select 1 from job_tags jt where jt.system_job_id = j.system_job_id and jt.job_tag = $%d)`,
+	}
 )
 
 type jobRequest struct {
@@ -225,6 +230,35 @@ func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
 
 const defaultPageSize = 101
 
+func injectTagsFilter(f *database.Filter, key, existsTemplate string, query string, args []any) (string, []any) {
+	v, ok := (*f)[key]
+	if !ok {
+		return query, args
+	}
+	delete(*f, key)
+
+	var clauses []string
+	for _, t := range strings.Split(v, `,`) {
+		if t = strings.TrimSpace(t); t != `` {
+			clauses = append(clauses, fmt.Sprintf(existsTemplate, len(args)+1))
+			args = append(args, t)
+		}
+	}
+	if len(clauses) == 0 {
+		return query, args
+	}
+
+	idx := strings.Index(query, "\norder by")
+	if idx < 0 {
+		return query, args
+	}
+	before, after, clause := query[:idx], query[idx:], strings.Join(clauses, " and\n    ")
+	if strings.Contains(before, "where") {
+		return before + " and\n    " + clause + after, args
+	}
+	return before + "\nwhere\n    " + clause + after, args
+}
+
 func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error) {
 
 	// Track DB connection for jobs list operation
@@ -255,6 +289,10 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 	if err != nil {
 		getJobsMethod.LogAndCountError(err, "query")
 		return nil, err
+	}
+
+	for key, tmpl := range jobsTagsFilterConfig {
+		query, args = injectTagsFilter(f, key, tmpl, query, args)
 	}
 
 	// append LIMIT; fetch one extra row to detect whether a next page exists
