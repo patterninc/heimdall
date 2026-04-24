@@ -6,6 +6,8 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hladush/go-telemetry/pkg/telemetry"
@@ -88,7 +90,15 @@ var (
 				Join:    `, `,
 				Value:   `js.job_status_name in ({{ .Slice }})`,
 			},
+			`cursor`: {
+				Value: `j.system_job_id < $%d`,
+			},
 		},
+	}
+
+	// tag filters use correlated EXISTS — one clause per value, all must match (AND semantics)
+	jobsTagsFilterConfig = map[string]string{
+		`tags`: `exists (select 1 from job_tags jt where jt.system_job_id = j.system_job_id and jt.job_tag = $%d)`,
 	}
 )
 
@@ -218,11 +228,54 @@ func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
 
 }
 
+const defaultPageSize = 101
+
+func injectTagsFilter(f *database.Filter, key, existsTemplate string, query string, args []any) (string, []any) {
+	v, ok := (*f)[key]
+	if !ok {
+		return query, args
+	}
+	delete(*f, key)
+
+	var clauses []string
+	for _, t := range strings.Split(v, `,`) {
+		if t = strings.TrimSpace(t); t != `` {
+			clauses = append(clauses, fmt.Sprintf(existsTemplate, len(args)+1))
+			args = append(args, t)
+		}
+	}
+	if len(clauses) == 0 {
+		return query, args
+	}
+
+	idx := strings.Index(query, "\norder by")
+	if idx < 0 {
+		return query, args
+	}
+	before, after, clause := query[:idx], query[idx:], strings.Join(clauses, " and\n    ")
+	if strings.Contains(before, "where") {
+		return before + " and\n    " + clause + after, args
+	}
+	return before + "\nwhere\n    " + clause + after, args
+}
+
 func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error) {
 
 	// Track DB connection for jobs list operation
 	defer getJobsMethod.RecordLatency(time.Now())
 	getJobsMethod.CountRequest()
+
+	// extract limit before rendering WHERE clause (it is not a filter condition)
+	pageSize := defaultPageSize
+	if v, ok := (*f)[`limit`]; ok {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			if n > defaultPageSize {
+				n = defaultPageSize
+			}
+			pageSize = n
+		}
+		delete(*f, `limit`)
+	}
 
 	// open connection
 	sess, err := h.Database.NewSession(false)
@@ -238,6 +291,14 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 		return nil, err
 	}
 
+	for key, tmpl := range jobsTagsFilterConfig {
+		query, args = injectTagsFilter(f, key, tmpl, query, args)
+	}
+
+	// append LIMIT; fetch one extra row to detect whether a next page exists
+	query = fmt.Sprintf("%s\nlimit $%d", strings.TrimRight(query, "\n; \t"), len(args)+1)
+	args = append(args, pageSize+1)
+
 	rows, err := sess.Query(query, args...)
 	if err != nil {
 		getJobsMethod.LogAndCountError(err, "query")
@@ -245,7 +306,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 	}
 	defer rows.Close()
 
-	result := make([]*job.Job, 0, 100)
+	result := make([]*job.Job, 0, pageSize+1)
 
 	for rows.Next() {
 
@@ -267,10 +328,15 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 
 	}
 
+	rs := &resultset{Data: result}
+	if len(result) > pageSize {
+		rs.HasMore = true
+		rs.NextCursor = result[pageSize-1].SystemID
+		rs.Data = result[:pageSize]
+	}
+
 	getJobsMethod.CountSuccess()
-	return &resultset{
-		Data: result,
-	}, nil
+	return rs, nil
 
 }
 
