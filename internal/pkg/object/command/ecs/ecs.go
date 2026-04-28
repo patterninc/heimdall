@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	smithy "github.com/aws/smithy-go"
 	"github.com/hladush/go-telemetry/pkg/telemetry"
 	heimdallAws "github.com/patterninc/heimdall/internal/pkg/aws"
 	heimdallContext "github.com/patterninc/heimdall/pkg/context"
@@ -109,18 +112,21 @@ type executionContext struct {
 }
 
 const (
-	defaultPollingInterval               = duration.Duration(30 * time.Second)
-	defaultTaskTimeout                   = duration.Duration(1 * time.Hour)
-	defaultMaxFailCount                  = 1
-	defaultTaskCount                     = 1
-	startedByPrefix                      = "heimdall-job-"
-	errMaxFailCount                      = "task %s failed %d times (max: %d), giving up"
-	errPollingTimeout                    = "polling timed out for arns %v after %v"
-	errJobTerminated                     = "job marked as stale or canceled"
-	Timeout                FailureReason = "timeout"
-	Error                  FailureReason = "error"
-	maxLogChunkSize                      = 200                // Process 200 log entries at a time
-	maxLogMemoryBytes                    = 1024 * 1024 * 1024 // 1GB safety limit
+	defaultPollingInterval                  = duration.Duration(30 * time.Second)
+	defaultTaskTimeout                      = duration.Duration(1 * time.Hour)
+	defaultMaxFailCount                     = 1
+	defaultTaskCount                        = 1
+	defaultThrottleMaxRetries               = 5
+	throttleBackoffBase                     = time.Second
+	throttleBackoffMax                      = 2 * time.Minute
+	startedByPrefix                         = "heimdall-job-"
+	errMaxFailCount                         = "task %s failed %d times (max: %d), giving up"
+	errPollingTimeout                       = "polling timed out for arns %v after %v"
+	errJobTerminated                        = "job marked as stale or canceled"
+	Timeout                   FailureReason = "timeout"
+	Error                     FailureReason = "error"
+	maxLogChunkSize                         = 200                // Process 200 log entries at a time
+	maxLogMemoryBytes                       = 1024 * 1024 * 1024 // 1GB safety limit
 )
 
 var (
@@ -336,8 +342,12 @@ func (execCtx *executionContext) pollForCompletion(ctx context.Context) error {
 			Tasks:   activeARNs,
 		}
 
-		describeOutput, err := execCtx.ecsClient.DescribeTasks(ctx, describeInput)
-		if err != nil {
+		var describeOutput *ecs.DescribeTasksOutput
+		if err := retryWithBackoff(ctx, defaultThrottleMaxRetries, func() error {
+			var descErr error
+			describeOutput, descErr = execCtx.ecsClient.DescribeTasks(ctx, describeInput)
+			return descErr
+		}); err != nil {
 			return err
 		}
 
@@ -644,7 +654,12 @@ func runTask(ctx context.Context, execCtx *executionContext, startedBy string, t
 		},
 	}
 
-	runTaskOutput, err := execCtx.ecsClient.RunTask(ctx, runTaskInput)
+	var runTaskOutput *ecs.RunTaskOutput
+	err := retryWithBackoff(ctx, defaultThrottleMaxRetries, func() error {
+		var runErr error
+		runTaskOutput, runErr = execCtx.ecsClient.RunTask(ctx, runTaskInput)
+		return runErr
+	})
 	if err != nil {
 		return ``, err
 	}
@@ -802,4 +817,38 @@ func (e *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.C
 	cleanupMethod.CountSuccess()
 	return nil
 
+}
+
+// retryWithBackoff retries op on throttling errors using exponential backoff with jitter.
+func retryWithBackoff(ctx context.Context, maxRetries int, op func() error) error {
+	var err error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		err = op()
+		if err == nil {
+			return nil
+		}
+		if !isThrottlingError(err) || attempt == maxRetries {
+			return err
+		}
+		delay := min(time.Duration(math.Pow(2, float64(attempt)))*throttleBackoffBase, throttleBackoffMax)
+		delay += time.Duration(rand.Int63n(int64(throttleBackoffBase)))
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+	}
+	return err
+}
+
+// isThrottlingError reports whether err is an AWS throttling error.
+func isThrottlingError(err error) bool {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		switch apiErr.ErrorCode() {
+		case "ThrottlingException", "RequestThrottledException", "Throttling", "RequestLimitExceeded":
+			return true
+		}
+	}
+	return false
 }
