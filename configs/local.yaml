@@ -28,7 +28,6 @@ commands:
     version: 0.0.1
     store_result_sync: false
     description: Test ping command
-    health_check: true
     tags:
       - type:ping
     cluster_tags:
@@ -40,6 +39,7 @@ clusters:
     status: active
     version: 0.0.1
     description: Just a localhost
+    health_check: true
     tags:
       - type:localhost
       - data:local
