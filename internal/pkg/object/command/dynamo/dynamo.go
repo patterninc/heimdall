@@ -143,6 +143,45 @@ func (d *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 
 }
 
+// HealthCheck implements the plugin.HealthChecker interface
+func (d *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) error {
+	clusterCtx := &clusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterCtx); err != nil {
+			return err
+		}
+	}
+
+	awsConfig, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	assumeRoleOptions := func(_ *dynamodb.Options) {}
+	if clusterCtx.RoleARN != nil {
+		stsSvc := sts.NewFromConfig(awsConfig)
+		out, err := stsSvc.AssumeRole(ctx, &sts.AssumeRoleInput{
+			RoleArn:         clusterCtx.RoleARN,
+			RoleSessionName: assumeRoleSession,
+		})
+		if err != nil {
+			return err
+		}
+		assumeRoleOptions = func(o *dynamodb.Options) {
+			o.Credentials = credentials.NewStaticCredentialsProvider(
+				*out.Credentials.AccessKeyId,
+				*out.Credentials.SecretAccessKey,
+				*out.Credentials.SessionToken,
+			)
+		}
+	}
+
+	svc := dynamodb.NewFromConfig(awsConfig, assumeRoleOptions)
+	maxResults := int32(1)
+	_, err = svc.ListTables(ctx, &dynamodb.ListTablesInput{Limit: &maxResults})
+	return err
+}
+
 func (d *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
 	// TODO: Implement cleanup if needed
 	return nil

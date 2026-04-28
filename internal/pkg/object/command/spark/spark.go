@@ -261,6 +261,47 @@ timeoutLoop:
 
 }
 
+// HealthCheck implements the plugin.HealthChecker interface
+func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) error {
+	clusterCtx := &clusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterCtx); err != nil {
+			return err
+		}
+	}
+
+	awsConfig, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	assumeRoleOptions := func(_ *emrcontainers.Options) {}
+	if clusterCtx.RoleARN != nil {
+		stsSvc := sts.NewFromConfig(awsConfig)
+		out, err := stsSvc.AssumeRole(ctx, &sts.AssumeRoleInput{
+			RoleArn:         clusterCtx.RoleARN,
+			RoleSessionName: assumeRoleSession,
+		})
+		if err != nil {
+			return err
+		}
+		assumeRoleOptions = func(o *emrcontainers.Options) {
+			o.Credentials = credentials.NewStaticCredentialsProvider(
+				*out.Credentials.AccessKeyId,
+				*out.Credentials.SecretAccessKey,
+				*out.Credentials.SessionToken,
+			)
+		}
+	}
+
+	emrClient := emrcontainers.NewFromConfig(awsConfig, assumeRoleOptions)
+	maxResults := int32(1)
+	_, err = emrClient.ListVirtualClusters(ctx, &emrcontainers.ListVirtualClustersInput{
+		MaxResults: &maxResults,
+	})
+	return err
+}
+
 func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
 	// TODO: Implement cleanup if needed
 	return nil

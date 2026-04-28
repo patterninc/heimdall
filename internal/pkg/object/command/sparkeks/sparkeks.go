@@ -192,6 +192,32 @@ func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 	return nil
 }
 
+// HealthCheck implements the plugin.HealthChecker interface
+func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) error {
+	clusterCtx := &clusterContext{}
+	if c != nil && c.Context != nil {
+		if err := c.Context.Unmarshal(clusterCtx); err != nil {
+			return err
+		}
+	}
+
+	if clusterCtx.RoleARN == nil {
+		return nil
+	}
+
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	stsSvc := sts.NewFromConfig(awsCfg)
+	_, err = stsSvc.AssumeRole(ctx, &sts.AssumeRoleInput{
+		RoleArn:         clusterCtx.RoleARN,
+		RoleSessionName: aws.String("heimdall-health"),
+	})
+	return err
+}
+
 func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
 
 	// get app name and namespace from job id and command context

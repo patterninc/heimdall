@@ -852,3 +852,32 @@ func isThrottlingError(err error) bool {
 	}
 	return false
 }
+
+// HealthCheck implements the plugin.HealthChecker interface
+func (e *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) error {
+	clusterCtx := &clusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterCtx); err != nil {
+			return err
+		}
+	}
+
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	ecsClient := ecs.NewFromConfig(cfg)
+	out, err := ecsClient.DescribeClusters(ctx, &ecs.DescribeClustersInput{
+		Clusters: []string{clusterCtx.ClusterName},
+	})
+	if err != nil {
+		return err
+	}
+
+	if len(out.Clusters) == 0 {
+		return fmt.Errorf("ECS cluster %q not found", clusterCtx.ClusterName)
+	}
+
+	return nil
+}

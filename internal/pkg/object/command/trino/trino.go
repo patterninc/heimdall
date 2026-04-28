@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/hladush/go-telemetry/pkg/telemetry"
@@ -93,6 +94,33 @@ func (t *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 
 	return nil
 
+}
+
+// HealthCheck implements the plugin.HealthChecker interface
+func (t *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) error {
+	clusterCtx := &clusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterCtx); err != nil {
+			return err
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, clusterCtx.Endpoint+"/v1/info", nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("trino /v1/info returned status %d", resp.StatusCode)
+	}
+
+	return nil
 }
 
 func (t *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {

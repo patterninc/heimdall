@@ -184,6 +184,31 @@ func collectResults(rows driver.Rows) (*result.Result, error) {
 	return out, nil
 }
 
+// HealthCheck implements the plugin.HealthChecker interface
+func (cmd *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) error {
+	clusterCtx := &clusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterCtx); err != nil {
+			return err
+		}
+	}
+
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: clusterCtx.Endpoints,
+		Auth: clickhouse.Auth{
+			Database: clusterCtx.Database,
+			Username: cmd.Username,
+			Password: cmd.Password,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	return conn.Ping(ctx)
+}
+
 func (cmd *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
 	// No cleanup needed. CLickhouse queries should always be synchronous.
 	return nil

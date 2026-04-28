@@ -146,6 +146,47 @@ func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 
 }
 
+// HealthCheck implements the plugin.HealthChecker interface
+func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) error {
+	clusterCtx := &clusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterCtx); err != nil {
+			return err
+		}
+	}
+
+	privateKeyBytes, err := os.ReadFile(clusterCtx.PrivateKey)
+	if err != nil {
+		return err
+	}
+
+	privateKey, err := parsePrivateKey(privateKeyBytes)
+	if err != nil {
+		return err
+	}
+
+	dsn, err := sf.DSN(&sf.Config{
+		Account:       clusterCtx.Account,
+		User:          clusterCtx.User,
+		Database:      clusterCtx.Database,
+		Warehouse:     clusterCtx.Warehouse,
+		Role:          s.Role,
+		Authenticator: sf.AuthTypeJwt,
+		PrivateKey:    privateKey,
+	})
+	if err != nil {
+		return err
+	}
+
+	db, err := sql.Open(snowflakeDriverName, dsn)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	return db.PingContext(ctx)
+}
+
 func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
 	// TODO: Implement cleanup if needed
 	return nil

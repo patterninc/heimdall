@@ -191,6 +191,7 @@ func (h *Heimdall) Start() error {
 	apiRouter.Methods(methodPUT).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.submitCluster))
 	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.getCluster))
 	apiRouter.Methods(methodGET).PathPrefix(`/clusters`).HandlerFunc(payloadHandler(h.getClusters))
+	apiRouter.Methods(methodGET).PathPrefix(`/health`).HandlerFunc(h.healthHandler)
 
 	// metrics endpoint - proxy to metrics service
 	router.Path(`/metrics`).HandlerFunc(metricsRouteHandler)

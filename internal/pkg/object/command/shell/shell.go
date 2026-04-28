@@ -110,6 +110,11 @@ func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 
 }
 
+// HealthCheck implements the plugin.HealthChecker interface
+func (s *commandContext) HealthCheck(_ context.Context, _ *cluster.Cluster) error {
+	return nil
+}
+
 func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
 	// Implement cleanup if needed
 	return nil

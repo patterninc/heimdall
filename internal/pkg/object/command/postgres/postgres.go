@@ -156,7 +156,7 @@ func splitAndTrimQueries(query string) []string {
 	return queries
 }
 
-func (p *postgresCommandContext)Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error{
+func (p *postgresCommandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
 	// implement me
 	return nil
 }
