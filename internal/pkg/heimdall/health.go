@@ -3,36 +3,36 @@ package heimdall
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/gorilla/mux"
-
 	"github.com/patterninc/heimdall/pkg/object/cluster"
-	"github.com/patterninc/heimdall/pkg/object/command"
-	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/object/status"
 	"github.com/patterninc/heimdall/pkg/plugin"
 )
 
 const (
 	healthCheckTimeout     = 30 * time.Second
-	healthCheckUser        = `heimdall-health`
+	healthCheckConcurrency = 10
 	healthStatusOK         = `ok`
 	healthStatusError      = `error`
-	healthCheckConcurrency = 10
+	healthStatusUnchecked  = `unchecked`
 )
 
+type clusterProbe struct {
+	cluster    *cluster.Cluster
+	handler    plugin.Handler
+	pluginName string
+}
+
 type healthCheckResult struct {
-	CommandID string `json:"command_id"`
-	ClusterID string `json:"cluster_id"`
-	Status    string `json:"status"`
-	LatencyMs int64  `json:"latency_ms"`
-	Error     string `json:"error,omitempty"`
+	ClusterID   string `json:"cluster_id"`
+	ClusterName string `json:"cluster_name"`
+	Plugin      string `json:"plugin"`
+	Status      string `json:"status"`
+	LatencyMs   int64  `json:"latency_ms"`
+	Error       string `json:"error,omitempty"`
 }
 
 type healthChecksResponse struct {
@@ -40,43 +40,12 @@ type healthChecksResponse struct {
 	Checks  []healthCheckResult `json:"checks"`
 }
 
-type healthPair struct {
-	cmd     *command.Command
-	cluster *cluster.Cluster
-	handler plugin.Handler
-}
-
 func (h *Heimdall) healthHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), healthCheckTimeout)
 	defer cancel()
-	h.writeHealthResponse(w, ctx, nil)
-}
 
-func (h *Heimdall) commandHealthHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), healthCheckTimeout)
-	defer cancel()
-
-	commandID := mux.Vars(r)[idKey]
-	cmd, found := h.Commands[commandID]
-	if !found {
-		writeAPIError(w, ErrUnknownCommandID, nil)
-		return
-	}
-	if !cmd.HealthCheck {
-		writeAPIError(w, fmt.Errorf("command %s has not opted into health checks", commandID), nil)
-		return
-	}
-
-	h.writeHealthResponse(w, ctx, &commandID)
-}
-
-func (h *Heimdall) writeHealthResponse(w http.ResponseWriter, ctx context.Context, commandID *string) {
-	pairs, err := h.resolveHealthPairs(ctx, commandID)
-	if err != nil {
-		writeAPIError(w, fmt.Errorf("error resolving health check pairs: %w", err), nil)
-		return
-	}
-	results := h.runHealthChecks(ctx, pairs)
+	probes := h.resolveClusterProbes()
+	results := h.runHealthChecks(ctx, probes)
 
 	healthy := true
 	for _, res := range results {
@@ -98,80 +67,62 @@ func (h *Heimdall) writeHealthResponse(w http.ResponseWriter, ctx context.Contex
 	w.Write(data)
 }
 
-func (h *Heimdall) resolveHealthPairs(ctx context.Context, commandID *string) ([]*healthPair, error) {
-	var pairs []*healthPair
-	if commandID != nil {
-		cmd, found := h.Commands[*commandID]
-		if !found {
-			return pairs, nil
-		}
-		return h.resolveHealthPairsForCommand(ctx, cmd)
-	}
-	for _, cmd := range h.Commands {
-		cmdPairs, err := h.resolveHealthPairsForCommand(ctx, cmd)
-		if err != nil {
-			return pairs, err
-		}
-		pairs = append(pairs, cmdPairs...)
-	}
-	return pairs, nil
-}
-
-func (h *Heimdall) resolveHealthPairsForCommand(ctx context.Context, cmd *command.Command) ([]*healthPair, error) {
-	var pairs []*healthPair
-	if cmd == nil {
-		return pairs, nil
-	}
-	if !cmd.HealthCheck {
-		return pairs, nil
-	}
-	// check DB for command status to avoid unnecessary health checks for inactive commands
-	dbCmd, err := h.getCommandStatus(ctx, cmd)
-	if err != nil {
-		return pairs, err
-	}
-	if dbCmd.(*command.Command).Status != status.Active {
-		return pairs, nil
-	}
+func (h *Heimdall) resolveClusterProbes() []*clusterProbe {
+	var probes []*clusterProbe
 	for _, cl := range h.Clusters {
-		if cl.Status != status.Active {
+		if cl.Status != status.Active || !cl.HealthCheck {
 			continue
 		}
-		if cl.Tags.Contains(cmd.ClusterTags) {
-			pairs = append(pairs, &healthPair{cmd, cl, h.commandHandlers[cmd.ID]})
+		for _, cmd := range h.Commands {
+			if cmd.Status != status.Active {
+				continue
+			}
+			if cl.Tags.Contains(cmd.ClusterTags) {
+				probes = append(probes, &clusterProbe{
+					cluster:    cl,
+					handler:    h.commandHandlers[cmd.ID],
+					pluginName: cmd.Plugin,
+				})
+				break
+			}
 		}
 	}
-	return pairs, nil
+	return probes
 }
 
-func (h *Heimdall) runHealthChecks(ctx context.Context, pairs []*healthPair) []healthCheckResult {
-	results := make([]healthCheckResult, len(pairs))
+func (h *Heimdall) runHealthChecks(ctx context.Context, probes []*clusterProbe) []healthCheckResult {
+	results := make([]healthCheckResult, len(probes))
 	sem := make(chan struct{}, healthCheckConcurrency)
 	var wg sync.WaitGroup
-	for i, pair := range pairs {
+	for i, probe := range probes {
 		wg.Add(1)
-		go func(i int, pair *healthPair) {
+		go func(i int, probe *clusterProbe) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			results[i] = h.checkPair(ctx, pair)
-		}(i, pair)
+			results[i] = h.checkCluster(ctx, probe)
+		}(i, probe)
 	}
 	wg.Wait()
 	return results
 }
 
-func (h *Heimdall) checkPair(ctx context.Context, pair *healthPair) healthCheckResult {
+func (h *Heimdall) checkCluster(ctx context.Context, probe *clusterProbe) healthCheckResult {
 	start := time.Now()
-	res := healthCheckResult{CommandID: pair.cmd.ID, ClusterID: pair.cluster.ID}
-
-	var err error
-	if hc, ok := pair.handler.(plugin.HealthChecker); ok {
-		err = hc.HealthCheck(ctx, pair.cluster)
-	} else {
-		err = h.pluginProbe(ctx, pair.cluster, pair.handler)
+	res := healthCheckResult{
+		ClusterID:   probe.cluster.ID,
+		ClusterName: probe.cluster.Name,
+		Plugin:      probe.pluginName,
 	}
 
+	hc, ok := probe.handler.(plugin.HealthChecker)
+	if !ok {
+		res.Status = healthStatusUnchecked
+		res.LatencyMs = time.Since(start).Milliseconds()
+		return res
+	}
+
+	err := hc.HealthCheck(ctx, probe.cluster)
 	res.LatencyMs = time.Since(start).Milliseconds()
 	if err != nil {
 		res.Status = healthStatusError
@@ -180,31 +131,4 @@ func (h *Heimdall) checkPair(ctx context.Context, pair *healthPair) healthCheckR
 		res.Status = healthStatusOK
 	}
 	return res
-}
-
-func (h *Heimdall) pluginProbe(ctx context.Context, cl *cluster.Cluster, handler plugin.Handler) error {
-	j := &job.Job{}
-	j.ID = uuid.NewString()
-	j.User = healthCheckUser
-
-	tmpDir, err := os.MkdirTemp("", "heimdall-health-*")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(tmpDir)
-
-	runtime := &plugin.Runtime{
-		WorkingDirectory: tmpDir,
-		ResultDirectory:  tmpDir + separator + "result",
-		Version:          h.Version,
-		UserAgent:        fmt.Sprintf(formatUserAgent, h.Version),
-	}
-
-	if err := runtime.Set(); err != nil {
-		return err
-	}
-	defer runtime.Stdout.Close()
-	defer runtime.Stderr.Close()
-
-	return handler.Execute(ctx, runtime, j, cl)
 }

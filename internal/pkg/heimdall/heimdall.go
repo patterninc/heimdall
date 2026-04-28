@@ -182,8 +182,6 @@ func (h *Heimdall) Start() error {
 	apiRouter.Methods(methodGET).PathPrefix(`/command/statuses`).HandlerFunc(payloadHandler(h.getCommandStatuses))
 	apiRouter.Methods(methodGET).PathPrefix(`/command/{id}/status`).HandlerFunc(payloadHandler(h.getCommandStatus))
 	apiRouter.Methods(methodPUT).PathPrefix(`/command/{id}/status`).HandlerFunc(payloadHandler(h.updateCommandStatus))
-	apiRouter.Methods(methodGET).PathPrefix(`/command/health`).HandlerFunc(h.healthHandler)
-	apiRouter.Methods(methodGET).PathPrefix(`/command/{id}/health`).HandlerFunc(h.commandHealthHandler)
 	apiRouter.Methods(methodPUT).PathPrefix(`/command/{id}`).HandlerFunc(payloadHandler(h.submitCommand))
 	apiRouter.Methods(methodGET).PathPrefix(`/command/{id}`).HandlerFunc(payloadHandler(h.getCommand))
 	apiRouter.Methods(methodGET).PathPrefix(`/commands`).HandlerFunc(payloadHandler(h.getCommands))
@@ -193,6 +191,7 @@ func (h *Heimdall) Start() error {
 	apiRouter.Methods(methodPUT).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.submitCluster))
 	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.getCluster))
 	apiRouter.Methods(methodGET).PathPrefix(`/clusters`).HandlerFunc(payloadHandler(h.getClusters))
+	apiRouter.Methods(methodGET).PathPrefix(`/health`).HandlerFunc(h.healthHandler)
 
 	// metrics endpoint - proxy to metrics service
 	router.Path(`/metrics`).HandlerFunc(metricsRouteHandler)

@@ -20,7 +20,6 @@ type Command struct {
 	Plugin        string           `yaml:"plugin,omitempty" json:"plugin,omitempty"`
 	IsSync        bool             `yaml:"is_sync,omitempty" json:"is_sync,omitempty"`
 	ClusterTags   *set.Set[string] `yaml:"cluster_tags,omitempty" json:"cluster_tags,omitempty"`
-	HealthCheck   bool             `yaml:"health_check,omitempty" json:"health_check,omitempty"`
 	Handler       plugin.Handler   `yaml:"-" json:"-"`
 }
 
