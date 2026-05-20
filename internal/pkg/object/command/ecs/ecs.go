@@ -57,6 +57,7 @@ type clusterContext struct {
 type vpcConfig struct {
 	Subnets        []string `yaml:"subnets,omitempty" json:"subnets,omitempty"`
 	SecurityGroups []string `yaml:"security_groups,omitempty" json:"security_groups,omitempty"`
+	AssignPublicIp bool     `yaml:"assign_public_ip,omitempty" json:"assign_public_ip,omitempty"`
 }
 
 // Task definition wrapper with pre-computed essential containers map
@@ -649,7 +650,7 @@ func runTask(ctx context.Context, execCtx *executionContext, startedBy string, t
 			AwsvpcConfiguration: &types.AwsVpcConfiguration{
 				Subnets:        execCtx.ClusterConfig.VPCConfig.Subnets,
 				SecurityGroups: execCtx.ClusterConfig.VPCConfig.SecurityGroups,
-				AssignPublicIp: types.AssignPublicIpDisabled,
+				AssignPublicIp: assignPublicIp(execCtx.ClusterConfig.VPCConfig.AssignPublicIp),
 			},
 		},
 	}
@@ -839,6 +840,14 @@ func retryWithBackoff(ctx context.Context, maxRetries int, op func() error) erro
 		}
 	}
 	return err
+}
+
+// assignPublicIp converts a bool to the ECS AssignPublicIp enum value.
+func assignPublicIp(enabled bool) types.AssignPublicIp {
+	if enabled {
+		return types.AssignPublicIpEnabled
+	}
+	return types.AssignPublicIpDisabled
 }
 
 // isThrottlingError reports whether err is an AWS throttling error.
