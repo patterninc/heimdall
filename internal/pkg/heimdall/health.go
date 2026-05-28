@@ -3,6 +3,7 @@ package heimdall
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -40,7 +41,13 @@ type healthChecksResponse struct {
 	Checks  []healthCheckResult `json:"checks"`
 }
 
-func (h *Heimdall) healthHandler(w http.ResponseWriter, r *http.Request) {
+type clusterHealthRequest struct {
+	ID string `json:"id"`
+}
+
+// getClustersHealthz handles GET /clusters/healthz
+// Returns 200 when all probes pass, 503 when any fail.
+func (h *Heimdall) getClustersHealthz(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), healthCheckTimeout)
 	defer cancel()
 
@@ -55,9 +62,8 @@ func (h *Heimdall) healthHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	resp := healthChecksResponse{Healthy: healthy, Checks: results}
+	resp := &healthChecksResponse{Healthy: healthy, Checks: results}
 	data, _ := json.Marshal(resp)
-
 	w.Header().Set(contentTypeKey, contentTypeJSON)
 	if healthy {
 		w.WriteHeader(http.StatusOK)
@@ -65,6 +71,46 @@ func (h *Heimdall) healthHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
 	w.Write(data)
+}
+
+// getClusterHealth handles GET /cluster/{id}/health — runs health check for one cluster.
+func (h *Heimdall) getClusterHealth(ctx context.Context, req *clusterHealthRequest) (any, error) {
+	ctx, cancel := context.WithTimeout(ctx, healthCheckTimeout)
+	defer cancel()
+
+	cl, found := h.Clusters[req.ID]
+	if !found {
+		return nil, fmt.Errorf("%w: %s", ErrUnknownClusterID, req.ID)
+	}
+
+	probe := h.resolveProbeForCluster(cl)
+	if probe == nil {
+		return &healthChecksResponse{Healthy: true, Checks: []healthCheckResult{}}, nil
+	}
+
+	result := h.checkCluster(ctx, probe)
+	healthy := result.Status != healthStatusError
+
+	return &healthChecksResponse{Healthy: healthy, Checks: []healthCheckResult{result}}, nil
+}
+
+func (h *Heimdall) resolveProbeForCluster(cl *cluster.Cluster) *clusterProbe {
+	if cl.Status != status.Active {
+		return nil
+	}
+	for _, cmd := range h.Commands {
+		if cmd.Status != status.Active {
+			continue
+		}
+		if cl.Tags.Contains(cmd.ClusterTags) {
+			return &clusterProbe{
+				cluster:    cl,
+				handler:    h.commandHandlers[cmd.ID],
+				pluginName: cmd.Plugin,
+			}
+		}
+	}
+	return nil
 }
 
 func (h *Heimdall) resolveClusterProbes() []*clusterProbe {
