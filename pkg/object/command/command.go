@@ -2,6 +2,7 @@ package command
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/babourine/x/pkg/set"
 
@@ -15,12 +16,14 @@ var (
 )
 
 type Command struct {
-	object.Object `yaml:",inline" json:",inline"`
-	Status        status.Status    `yaml:"status,omitempty" json:"status,omitempty"`
-	Plugin        string           `yaml:"plugin,omitempty" json:"plugin,omitempty"`
-	IsSync        bool             `yaml:"is_sync,omitempty" json:"is_sync,omitempty"`
-	ClusterTags   *set.Set[string] `yaml:"cluster_tags,omitempty" json:"cluster_tags,omitempty"`
-	Handler       plugin.Handler   `yaml:"-" json:"-"`
+	object.Object  `yaml:",inline" json:",inline"`
+	Status         status.Status    `yaml:"status,omitempty" json:"status,omitempty"`
+	Plugin         string           `yaml:"plugin,omitempty" json:"plugin,omitempty"`
+	IsSync         bool             `yaml:"is_sync,omitempty" json:"is_sync,omitempty"`
+	ClusterTags    *set.Set[string] `yaml:"cluster_tags,omitempty" json:"cluster_tags,omitempty"`
+	AllowedCallers *set.Set[string] `yaml:"allowed_callers,omitempty" json:"allowed_callers,omitempty"`
+	Handler        plugin.Handler   `yaml:"-" json:"-"`
+	callerPatterns []*regexp.Regexp `yaml:"-" json:"-"`
 }
 
 type Commands map[string]*Command
@@ -62,6 +65,38 @@ func (c *Command) Init() error {
 		c.Status = status.Active
 	}
 
+	if err := c.setCallerPatterns(); err != nil {
+		return err
+	}
+
 	return nil
 
+}
+
+func (c *Command) IsCallerAllowed(user string) bool {
+	if len(c.callerPatterns) == 0 {
+		return true
+	}
+	for _, re := range c.callerPatterns {
+		if re.MatchString(user) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Command) setCallerPatterns() error {
+	if c.AllowedCallers == nil || c.AllowedCallers.Len() == 0 {
+		return nil
+	}
+	patterns := make([]*regexp.Regexp, 0, c.AllowedCallers.Len())
+	for _, raw := range c.AllowedCallers.Slice() {
+		re, err := regexp.Compile(`^(?:` + raw + `)$`)
+		if err != nil {
+			return fmt.Errorf("command %s: invalid allowed_callers pattern %q: %w", c.ID, raw, err)
+		}
+		patterns = append(patterns, re)
+	}
+	c.callerPatterns = patterns
+	return nil
 }
