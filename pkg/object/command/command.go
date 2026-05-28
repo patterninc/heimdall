@@ -3,6 +3,7 @@ package command
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/babourine/x/pkg/set"
 
@@ -86,11 +87,15 @@ func (c *Command) IsCallerAllowed(user string) bool {
 }
 
 func (c *Command) setCallerPatterns() error {
+	c.callerPatterns = nil
 	if c.AllowedCallers == nil || c.AllowedCallers.Len() == 0 {
 		return nil
 	}
 	patterns := make([]*regexp.Regexp, 0, c.AllowedCallers.Len())
 	for _, raw := range c.AllowedCallers.Slice() {
+		if strings.TrimSpace(raw) == `` {
+			return fmt.Errorf("command %s: allowed_callers contains empty pattern", c.ID)
+		}
 		re, err := regexp.Compile(`^(?:` + raw + `)$`)
 		if err != nil {
 			return fmt.Errorf("command %s: invalid allowed_callers pattern %q: %w", c.ID, raw, err)
