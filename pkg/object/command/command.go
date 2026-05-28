@@ -24,7 +24,7 @@ type Command struct {
 	ClusterTags    *set.Set[string] `yaml:"cluster_tags,omitempty" json:"cluster_tags,omitempty"`
 	AllowedCallers *set.Set[string] `yaml:"allowed_callers,omitempty" json:"allowed_callers,omitempty"`
 	Handler        plugin.Handler   `yaml:"-" json:"-"`
-	callerPatterns []*regexp.Regexp `yaml:"-" json:"-"`
+	callerPattern  *regexp.Regexp   `yaml:"-" json:"-"`
 }
 
 type Commands map[string]*Command
@@ -75,33 +75,31 @@ func (c *Command) Init() error {
 }
 
 func (c *Command) IsCallerAllowed(user string) bool {
-	if len(c.callerPatterns) == 0 {
+	if c.callerPattern == nil {
 		return true
 	}
-	for _, re := range c.callerPatterns {
-		if re.MatchString(user) {
-			return true
-		}
-	}
-	return false
+	return c.callerPattern.MatchString(user)
 }
 
 func (c *Command) setCallerPatterns() error {
-	c.callerPatterns = nil
+	c.callerPattern = nil
 	if c.AllowedCallers == nil || c.AllowedCallers.Len() == 0 {
 		return nil
 	}
-	patterns := make([]*regexp.Regexp, 0, c.AllowedCallers.Len())
+	parts := make([]string, 0, c.AllowedCallers.Len())
 	for _, raw := range c.AllowedCallers.Slice() {
 		if strings.TrimSpace(raw) == `` {
 			return fmt.Errorf("command %s: allowed_callers contains empty pattern", c.ID)
 		}
-		re, err := regexp.Compile(`^(?:` + raw + `)$`)
-		if err != nil {
+		if _, err := regexp.Compile(raw); err != nil {
 			return fmt.Errorf("command %s: invalid allowed_callers pattern %q: %w", c.ID, raw, err)
 		}
-		patterns = append(patterns, re)
+		parts = append(parts, `(?:`+raw+`)`)
 	}
-	c.callerPatterns = patterns
+	re, err := regexp.Compile(`^(?:` + strings.Join(parts, `|`) + `)$`)
+	if err != nil {
+		return fmt.Errorf("command %s: failed to compile combined allowed_callers regex: %w", c.ID, err)
+	}
+	c.callerPattern = re
 	return nil
 }
