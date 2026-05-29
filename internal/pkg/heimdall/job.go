@@ -39,6 +39,7 @@ const (
 var (
 	ErrCommandClusterPairNotFound = fmt.Errorf(`command-cluster pair is not found`)
 	ErrJobCancelFailed            = fmt.Errorf(`async job unrecognized or already in final state`)
+	ErrCallerNotAllowed           = fmt.Errorf(`caller is not allowed to run this command`)
 	runJobMethod                  = telemetry.NewMethod("runJob", "heimdall")
 	cancelJobMethod               = telemetry.NewMethod("db_connection", "cancel_job")
 )
@@ -62,6 +63,11 @@ func (h *Heimdall) submitJob(ctx context.Context, j *job.Job) (any, error) {
 	command, cluster, err := h.resolveJob(j.CommandCriteria, j.ClusterCriteria)
 	if err != nil {
 		return j, err
+	}
+
+	// enforce per-command caller allowlist
+	if !command.IsCallerAllowed(j.User) {
+		return j, ErrCallerNotAllowed
 	}
 
 	// let's set the mode in which we'll execute our job
