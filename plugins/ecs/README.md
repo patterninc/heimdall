@@ -34,6 +34,9 @@ An ECS command requires a task definition template and configuration for running
     polling_interval: "30s"  # 30 seconds
     timeout: "1h"            # 1 hour
     max_fail_count: 3        # max retries per task
+    tags:
+      env: prod
+      team: data-platform
   tags:
     - type:ecs
   cluster_tags:
@@ -76,9 +79,44 @@ ECS clusters must specify Fargate configuration, IAM roles, and network settings
         - subnet-87654321
       security_groups:
         - sg-12345678
+      tags:
+        cluster: my-fargate-cluster
+        env: prod
   tags:
     - type:fargate
     - data:prod
+```
+
+---
+
+## 🏷️ AWS Task Tags
+
+Tags are attached to every ECS task at launch and are useful for cost allocation, filtering, and auditing in the AWS console.
+
+### Tag Precedence
+
+Tags are merged from three sources, with later sources taking precedence:
+
+1. **Cluster context** — baseline tags applied to all tasks on the cluster
+2. **Command context** — tags applied to all jobs using this command
+3. **Job context** — per-job tags supplied at submission time
+
+### Automatic Tags
+
+The following tag is always added by Heimdall and cannot be overridden:
+
+| Tag | Value |
+|-----|-------|
+| `job_id` | The Heimdall job ID |
+
+### Example
+
+Given cluster tags `{env: prod}`, command tags `{team: data}`, and job tags `{env: staging}`, the resulting task tags will be:
+
+```
+env=staging   (job overrides cluster)
+team=data     (from command)
+job_id=abc123 (always added)
 ```
 
 ---
@@ -97,6 +135,10 @@ A typical ECS job includes task configuration and optional overrides:
     "task_count": 2,
     "cpu": 256,
     "memory": 512,
+    "tags": {
+      "pipeline": "my-pipeline",
+      "owner": "will"
+    },
     "container_overrides": [
       {
         "name": "main",
@@ -356,6 +398,9 @@ container_overrides:
     max_fail_count: 3
     cpu: 256
     memory: 512
+    tags:
+      env: prod
+      team: data-platform
   tags:
     - type:ecs
   cluster_tags:
