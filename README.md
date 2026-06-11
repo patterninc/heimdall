@@ -155,6 +155,8 @@ Heimdall removes the need for:
 
 It centralizes execution logic, logging, and auditing—all accessible via API or UI.
 
+Commands may also restrict invocation via `allowed_callers` — a list of anchored regex patterns matched against `X-Heimdall-User`. Omitted/empty means open; non-matching callers are rejected at submit.
+
 ---
 
 ## 📦 API Overview

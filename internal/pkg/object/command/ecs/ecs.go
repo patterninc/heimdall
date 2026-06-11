@@ -39,24 +39,27 @@ type commandContext struct {
 	PollingInterval        duration.Duration         `yaml:"polling_interval,omitempty" json:"polling_interval,omitempty"`
 	Timeout                duration.Duration         `yaml:"timeout,omitempty" json:"timeout,omitempty"`
 	MaxFailCount           int                       `yaml:"max_fail_count,omitempty" json:"max_fail_count,omitempty"` // max failures before giving up
+	Tags                   map[string]string         `yaml:"tags,omitempty" json:"tags,omitempty"`
 }
 
 // ECS cluster context structure
 type clusterContext struct {
-	MaxCPU           int       `yaml:"max_cpu,omitempty" json:"max_cpu,omitempty"`
-	MaxMemory        int       `yaml:"max_memory,omitempty" json:"max_memory,omitempty"`
-	MaxTaskCount     int       `yaml:"max_task_count,omitempty" json:"max_task_count,omitempty"`
-	ExecutionRoleARN string    `yaml:"execution_role_arn,omitempty" json:"execution_role_arn,omitempty"`
-	TaskRoleARN      string    `yaml:"task_role_arn,omitempty" json:"task_role_arn,omitempty"`
-	ClusterName      string    `yaml:"cluster_name,omitempty" json:"cluster_name,omitempty"`
-	LaunchType       string    `yaml:"launch_type,omitempty" json:"launch_type,omitempty"`
-	VPCConfig        vpcConfig `yaml:"vpc_config,omitempty" json:"vpc_config,omitempty"`
+	MaxCPU           int               `yaml:"max_cpu,omitempty" json:"max_cpu,omitempty"`
+	MaxMemory        int               `yaml:"max_memory,omitempty" json:"max_memory,omitempty"`
+	MaxTaskCount     int               `yaml:"max_task_count,omitempty" json:"max_task_count,omitempty"`
+	ExecutionRoleARN string            `yaml:"execution_role_arn,omitempty" json:"execution_role_arn,omitempty"`
+	TaskRoleARN      string            `yaml:"task_role_arn,omitempty" json:"task_role_arn,omitempty"`
+	ClusterName      string            `yaml:"cluster_name,omitempty" json:"cluster_name,omitempty"`
+	LaunchType       string            `yaml:"launch_type,omitempty" json:"launch_type,omitempty"`
+	VPCConfig        vpcConfig         `yaml:"vpc_config,omitempty" json:"vpc_config,omitempty"`
+	Tags             map[string]string `yaml:"tags,omitempty" json:"tags,omitempty"`
 }
 
 // VPC configuration structure
 type vpcConfig struct {
 	Subnets        []string `yaml:"subnets,omitempty" json:"subnets,omitempty"`
 	SecurityGroups []string `yaml:"security_groups,omitempty" json:"security_groups,omitempty"`
+	AssignPublicIp bool     `yaml:"assign_public_ip,omitempty" json:"assign_public_ip,omitempty"`
 }
 
 // Task definition wrapper with pre-computed essential containers map
@@ -101,6 +104,7 @@ type executionContext struct {
 	PollingInterval duration.Duration `json:"polling_interval"`
 	Timeout         duration.Duration `json:"timeout"`
 	MaxFailCount    int               `json:"max_fail_count"`
+	Tags            map[string]string `json:"tags,omitempty"`
 
 	runtime       *plugin.Runtime
 	ecsClient     *ecs.Client
@@ -460,6 +464,7 @@ func buildExecutionContext(ctx context.Context, commandCtx *commandContext, j *j
 	}
 
 	// Overlay job context (overrides command values)
+	// Note: json.Unmarshal merges map fields, so command tags are preserved and job tags overlay them
 	if j.Context != nil {
 		if err := j.Context.Unmarshal(execCtx); err != nil {
 			return nil, err
@@ -474,6 +479,10 @@ func buildExecutionContext(ctx context.Context, commandCtx *commandContext, j *j
 		}
 	}
 	execCtx.ClusterConfig = clusterContext
+
+	// Merge cluster tags as the base, with command+job tags (already merged by json.Unmarshal) taking precedence
+	execCtx.Tags = mergeMaps(clusterContext.Tags, execCtx.Tags)
+	execCtx.Tags["job_id"] = j.ID
 
 	// Load task definition template
 	taskDefWrapper, err := loadTaskDefinitionTemplate(commandCtx.TaskDefinitionTemplate)
@@ -649,9 +658,10 @@ func runTask(ctx context.Context, execCtx *executionContext, startedBy string, t
 			AwsvpcConfiguration: &types.AwsVpcConfiguration{
 				Subnets:        execCtx.ClusterConfig.VPCConfig.Subnets,
 				SecurityGroups: execCtx.ClusterConfig.VPCConfig.SecurityGroups,
-				AssignPublicIp: types.AssignPublicIpDisabled,
+				AssignPublicIp: assignPublicIp(execCtx.ClusterConfig.VPCConfig.AssignPublicIp),
 			},
 		},
+		Tags: toECSTags(execCtx.Tags),
 	}
 
 	var runTaskOutput *ecs.RunTaskOutput
@@ -839,6 +849,34 @@ func retryWithBackoff(ctx context.Context, maxRetries int, op func() error) erro
 		}
 	}
 	return err
+}
+
+// assignPublicIp converts a bool to the ECS AssignPublicIp enum value.
+func assignPublicIp(enabled bool) types.AssignPublicIp {
+	if enabled {
+		return types.AssignPublicIpEnabled
+	}
+	return types.AssignPublicIpDisabled
+}
+
+// mergeMaps merges multiple string maps into one. Later maps take precedence.
+func mergeMaps(maps ...map[string]string) map[string]string {
+	merged := make(map[string]string)
+	for _, m := range maps {
+		for k, v := range m {
+			merged[k] = v
+		}
+	}
+	return merged
+}
+
+// toECSTags converts a map of string key-value pairs to ECS task tags.
+func toECSTags(tags map[string]string) []types.Tag {
+	result := make([]types.Tag, 0, len(tags))
+	for k, v := range tags {
+		result = append(result, types.Tag{Key: aws.String(k), Value: aws.String(v)})
+	}
+	return result
 }
 
 // isThrottlingError reports whether err is an AWS throttling error.

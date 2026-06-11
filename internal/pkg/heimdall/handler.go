@@ -3,6 +3,7 @@ package heimdall
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -45,8 +46,19 @@ func writeAPIError(w http.ResponseWriter, err error, obj any) {
 	responseJSON, _ := json.Marshal(response)
 
 	w.Header().Add(contentTypeKey, contentTypeJSON)
-	w.WriteHeader(http.StatusInternalServerError)
+	w.WriteHeader(statusForError(err))
 	w.Write(responseJSON)
+}
+
+func statusForError(err error) int {
+	switch {
+	case errors.Is(err, ErrCallerNotAllowed):
+		return http.StatusForbidden
+	case errors.Is(err, ErrNoCaller):
+		return http.StatusUnauthorized
+	default:
+		return http.StatusInternalServerError
+	}
 }
 
 func payloadHandler[T any](fn func(context.Context, *T) (any, error)) http.HandlerFunc {
