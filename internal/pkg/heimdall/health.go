@@ -21,6 +21,10 @@ const (
 	healthStatusUnchecked  = `unchecked`
 )
 
+type healthCheckConfig struct {
+	TimeoutSeconds int `yaml:"timeout_seconds,omitempty" json:"timeout_seconds,omitempty"`
+}
+
 type clusterProbe struct {
 	cluster    *cluster.Cluster
 	handler    plugin.Handler
@@ -48,7 +52,7 @@ type clusterHealthRequest struct {
 // getClustersHealth handles GET /clusters/health — runs health checks for all clusters and returns aggregated result.
 // Returns 200 when all probes pass, 503 when any fail.
 func (h *Heimdall) getClustersHealth(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), healthCheckTimeout)
+	ctx, cancel := context.WithTimeout(r.Context(), h.HealthCheck.timeout())
 	defer cancel()
 
 	probes := h.resolveClusterProbes()
@@ -75,7 +79,7 @@ func (h *Heimdall) getClustersHealth(w http.ResponseWriter, r *http.Request) {
 
 // getClusterHealth handles GET /cluster/{id}/health — runs health check for one cluster.
 func (h *Heimdall) getClusterHealth(ctx context.Context, req *clusterHealthRequest) (any, error) {
-	ctx, cancel := context.WithTimeout(ctx, healthCheckTimeout)
+	ctx, cancel := context.WithTimeout(ctx, h.HealthCheck.timeout())
 	defer cancel()
 
 	cl, found := h.Clusters[req.ID]
@@ -177,4 +181,11 @@ func (h *Heimdall) checkCluster(ctx context.Context, probe *clusterProbe) health
 		res.Status = healthStatusOK
 	}
 	return res
+}
+
+func (c *healthCheckConfig) timeout() time.Duration {
+	if c == nil || c.TimeoutSeconds <= 0 {
+		return healthCheckTimeout
+	}
+	return time.Duration(c.TimeoutSeconds) * time.Second
 }
