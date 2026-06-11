@@ -913,8 +913,21 @@ func (e *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) er
 		return err
 	}
 
+	clusterName := clusterCtx.ClusterName
+	if clusterName == "" {
+		clusterName = "default"
+	}
+
 	if len(out.Clusters) == 0 {
-		return fmt.Errorf("ECS cluster %q not found", clusterCtx.ClusterName)
+		return fmt.Errorf("ECS cluster %q not found", clusterName)
+	}
+
+	if out.Clusters[0].Status == nil || *out.Clusters[0].Status != "ACTIVE" {
+		status := "<nil>"
+		if out.Clusters[0].Status != nil {
+			status = *out.Clusters[0].Status
+		}
+		return fmt.Errorf("ECS cluster %q is not active: %s", clusterName, status)
 	}
 
 	return nil

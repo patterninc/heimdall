@@ -195,7 +195,7 @@ func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 // HealthCheck implements the plugin.HealthChecker interface
 func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) error {
 	clusterCtx := &clusterContext{}
-	if c != nil && c.Context != nil {
+	if c.Context != nil {
 		if err := c.Context.Unmarshal(clusterCtx); err != nil {
 			return err
 		}

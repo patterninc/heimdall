@@ -87,9 +87,13 @@ func (h *Heimdall) getClusterHealth(ctx context.Context, req *clusterHealthReque
 		return nil, fmt.Errorf("%w: %s", ErrUnknownClusterID, req.ID)
 	}
 
+	if !cl.HealthCheck {
+		return nil, fmt.Errorf("health check is not enabled for cluster %s", req.ID)
+	}
+
 	probe := h.resolveProbeForCluster(cl)
 	if probe == nil {
-		return &healthChecksResponse{Healthy: true, Checks: []healthCheckResult{}}, nil
+		return nil, fmt.Errorf("no active command matched cluster %s", req.ID)
 	}
 
 	result := h.checkCluster(ctx, probe)

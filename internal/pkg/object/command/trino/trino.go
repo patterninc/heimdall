@@ -3,6 +3,7 @@ package trino
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -114,7 +115,10 @@ func (t *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) er
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("trino /v1/info returned status %d", resp.StatusCode)
