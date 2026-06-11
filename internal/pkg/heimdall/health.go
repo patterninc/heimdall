@@ -45,9 +45,9 @@ type clusterHealthRequest struct {
 	ID string `json:"id"`
 }
 
-// getClustersHealthz handles GET /clusters/healthz
+// getClustersHealth handles GET /clusters/health — runs health checks for all clusters and returns aggregated result.
 // Returns 200 when all probes pass, 503 when any fail.
-func (h *Heimdall) getClustersHealthz(w http.ResponseWriter, r *http.Request) {
+func (h *Heimdall) getClustersHealth(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), healthCheckTimeout)
 	defer cancel()
 
@@ -95,7 +95,7 @@ func (h *Heimdall) getClusterHealth(ctx context.Context, req *clusterHealthReque
 }
 
 func (h *Heimdall) resolveProbeForCluster(cl *cluster.Cluster) *clusterProbe {
-	if cl.Status != status.Active {
+	if cl.Status != status.Active || !cl.HealthCheck {
 		return nil
 	}
 	for _, cmd := range h.Commands {
