@@ -2,6 +2,7 @@ package trino
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -122,6 +123,39 @@ func (t *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) er
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("trino /v1/info returned status %d", resp.StatusCode)
+	}
+
+	return t.checkTrinoClusterCapacity(ctx, clusterCtx.Endpoint)
+}
+
+func (t *commandContext) checkTrinoClusterCapacity(ctx context.Context, endpoint string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"/v1/cluster", nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("trino /v1/cluster returned status %d", resp.StatusCode)
+	}
+
+	var info struct {
+		ActiveWorkers int `json:"activeWorkers"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return fmt.Errorf("trino /v1/cluster: failed to decode response: %w", err)
+	}
+
+	if info.ActiveWorkers == 0 {
+		return fmt.Errorf("trino cluster has no active workers")
 	}
 
 	return nil

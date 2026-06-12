@@ -15,7 +15,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
@@ -201,7 +203,7 @@ func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) er
 		}
 	}
 
-	if clusterCtx.RoleARN == nil {
+	if clusterCtx.KubernetesClusterName == nil {
 		return nil
 	}
 
@@ -210,12 +212,48 @@ func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) er
 		return err
 	}
 
-	stsSvc := sts.NewFromConfig(awsCfg)
-	_, err = stsSvc.AssumeRole(ctx, &sts.AssumeRoleInput{
-		RoleArn:         clusterCtx.RoleARN,
-		RoleSessionName: aws.String("heimdall-health"),
+	eksOptions := []func(*eks.Options){}
+	if clusterCtx.RoleARN != nil {
+		stsSvc := sts.NewFromConfig(awsCfg)
+		out, err := stsSvc.AssumeRole(ctx, &sts.AssumeRoleInput{
+			RoleArn:         clusterCtx.RoleARN,
+			RoleSessionName: aws.String("heimdall-health"),
+		})
+		if err != nil {
+			return err
+		}
+		eksOptions = append(eksOptions, func(o *eks.Options) {
+			o.Credentials = credentials.NewStaticCredentialsProvider(
+				*out.Credentials.AccessKeyId,
+				*out.Credentials.SecretAccessKey,
+				*out.Credentials.SessionToken,
+			)
+		})
+	}
+
+	if clusterCtx.Region != nil {
+		eksOptions = append(eksOptions, func(o *eks.Options) {
+			o.Region = *clusterCtx.Region
+		})
+	}
+
+	eksClient := eks.NewFromConfig(awsCfg, eksOptions...)
+	out, err := eksClient.DescribeCluster(ctx, &eks.DescribeClusterInput{
+		Name: clusterCtx.KubernetesClusterName,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+
+	if out.Cluster == nil || string(out.Cluster.Status) != "ACTIVE" {
+		status := "<nil>"
+		if out.Cluster != nil {
+			status = string(out.Cluster.Status)
+		}
+		return fmt.Errorf("EKS cluster %q is not active: %s", *clusterCtx.KubernetesClusterName, status)
+	}
+
+	return nil
 }
 
 func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {

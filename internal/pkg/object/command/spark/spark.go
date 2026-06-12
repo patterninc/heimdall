@@ -296,10 +296,17 @@ func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) er
 
 	emrClient := emrcontainers.NewFromConfig(awsConfig, assumeRoleOptions)
 	maxResults := int32(1)
-	_, err = emrClient.ListVirtualClusters(ctx, &emrcontainers.ListVirtualClustersInput{
+	out, err := emrClient.ListVirtualClusters(ctx, &emrcontainers.ListVirtualClustersInput{
 		MaxResults: &maxResults,
+		States:     []types.VirtualClusterState{types.VirtualClusterStateRunning},
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if len(out.VirtualClusters) == 0 {
+		return fmt.Errorf("no running EMR virtual clusters found")
+	}
+	return nil
 }
 
 func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {

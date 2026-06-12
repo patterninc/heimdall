@@ -67,7 +67,11 @@ func (h *Heimdall) getClustersHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := &healthChecksResponse{Healthy: healthy, Checks: results}
-	data, _ := json.Marshal(resp)
+	data, err := json.Marshal(resp)
+	if err != nil {
+		writeAPIError(w, err, nil)
+		return
+	}
 	w.Header().Set(contentTypeKey, contentTypeJSON)
 	if healthy {
 		w.WriteHeader(http.StatusOK)
