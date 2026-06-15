@@ -95,11 +95,7 @@ var (
 		},
 	}
 
-	// Whitelist of sortable columns, mapping the UI's column key to its SQL
-	// expression and value type. Anything not listed falls back to
-	// system_job_id, so the `order_by` value can never be injected into the
-	// query. Sorts run unindexed today; if a column's sort gets slow, add a
-	// composite index on (column, system_job_id) to restore the keyset seek.
+	// Whitelisted sortable columns -> SQL expr + value type; unknown order_by falls back to system_job_id (no injection).
 	jobsSortColumns = map[string]sortColumn{
 		`id`:         {expr: `j.job_id`, isInt: false},
 		`created_at`: {expr: `j.created_at`, isInt: true},
@@ -240,17 +236,13 @@ func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
 
 const defaultPageSize = 101
 
-// sortColumn describes a whitelisted sortable column: its SQL expression and
-// whether its value is an integer (which affects how the keyset cursor value
-// is decoded, since JSON numbers come back as float64).
+// sortColumn is a whitelisted sortable column: SQL expr and whether its value is an integer (for cursor decoding).
 type sortColumn struct {
 	expr  string
 	isInt bool
 }
 
-// jobsCursor is the opaque keyset position handed back to clients. It carries
-// the last row's sort-column value plus system_job_id as a stable tiebreaker,
-// base64-JSON encoded so the wire format can change without breaking callers.
+// jobsCursor is the opaque keyset position: last row's sort value + system_job_id tiebreaker, base64-JSON encoded.
 type jobsCursor struct {
 	Value any   `json:"v"`
 	ID    int64 `json:"i"`
@@ -274,9 +266,7 @@ func decodeJobsCursor(s string) (*jobsCursor, error) {
 	return &c, nil
 }
 
-// appendWhereClause splices an additional condition into the query's WHERE,
-// just before the template's trailing ORDER BY, adding the WHERE keyword if the
-// query doesn't already have one.
+// appendWhereClause inserts a condition into the WHERE, before the trailing ORDER BY (adds WHERE if absent).
 func appendWhereClause(query, clause string) string {
 	idx := strings.Index(query, "\norder by")
 	if idx < 0 {
@@ -316,8 +306,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 	defer getJobsMethod.RecordLatency(time.Now())
 	getJobsMethod.CountRequest()
 
-	// pagination + sort params drive ORDER BY and the keyset WHERE, not the
-	// filter conditions, so pull them out before rendering the filter.
+	// pull pagination/sort params out before rendering the filter WHERE
 	pageSize := defaultPageSize
 	if v, ok := (*f)[`limit`]; ok {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
@@ -329,8 +318,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 		delete(*f, `limit`)
 	}
 
-	// resolve the sort column against the whitelist; unknown values fall back to
-	// the always-indexed system_job_id, so order_by can never be injected.
+	// resolve sort column from whitelist; unknown falls back to system_job_id
 	orderKey := (*f)[`order_by`]
 	sortCol, sorted := jobsSortColumns[orderKey]
 	orderExpr := `j.system_job_id`
@@ -346,8 +334,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 	}
 	delete(*f, `direction`)
 
-	// opaque keyset cursor marking the last row of the previous page; absent
-	// means first page.
+	// decode opaque keyset cursor (absent = first page)
 	var cursor *jobsCursor
 	if cursorStr := (*f)[`cursor`]; cursorStr != `` {
 		c, err := decodeJobsCursor(cursorStr)
@@ -377,9 +364,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 		query, args = injectTagsFilter(f, key, tmpl, query, args)
 	}
 
-	// keyset seek: only rows after the cursor in the chosen order. We compare on
-	// the sort column with system_job_id as the deterministic tiebreaker, so
-	// rows sharing a sort value are never dropped or repeated across pages.
+	// keyset seek: rows after the cursor, sort column + system_job_id tiebreaker (no dropped/repeated rows)
 	if cursor != nil {
 		if sorted {
 			value := cursor.Value
@@ -402,8 +387,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 		}
 	}
 
-	// Replace the template's ORDER BY with the chosen sort, keeping system_job_id
-	// as the tiebreaker. Fetch one extra row to detect whether a next page exists.
+	// swap in chosen ORDER BY (+ system_job_id tiebreaker); fetch one extra row to detect a next page
 	orderIdx := strings.Index(query, "\norder by")
 	if orderIdx < 0 {
 		orderIdx = len(query)
@@ -442,8 +426,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 
 	}
 
-	// the extra row signals a next page; trim it and emit a cursor from the last
-	// row we actually return.
+	// extra row => next page exists; trim it and emit a cursor from the last returned row
 	rs := &resultset{Data: result}
 	if len(result) > pageSize {
 		last := result[pageSize-1]
@@ -457,8 +440,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 
 }
 
-// jobSortValue returns the value of the sort column for a job, used to build the
-// next-page cursor. Mirrors the jobsSortColumns whitelist.
+// jobSortValue returns a job's value for the sort column, for the next-page cursor.
 func jobSortValue(orderKey string, j *job.Job) any {
 	switch orderKey {
 	case `id`:

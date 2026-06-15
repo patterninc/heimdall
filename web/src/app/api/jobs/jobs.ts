@@ -12,8 +12,7 @@ export const fetchJobs = async (
     order_by: sort.prop,
     direction: sort.flip ? 'desc' : 'asc',
   }
-  // keyset pagination: send the opaque cursor for the previous page's last row.
-  // Omitted on the first page.
+  // keyset: send the opaque cursor for the previous page (omitted on first page)
   if (cursor) queryParams.cursor = cursor
   const queryString = buildQueryString(queryParams)
 
