@@ -18,7 +18,18 @@ export type ApiParams = {
   cluster?: string
   command?: string
   status?: string[]
-  page?: string
+  limit?: string
+  cursor?: string
+  order_by?: string
+  direction?: string
+}
+
+export const JOBS_PAGE_SIZE = 20
+
+export type JobsResponse = {
+  data: JobType[]
+  has_more?: boolean
+  next_cursor?: string
 }
 
 export type JobType = {
@@ -97,6 +108,7 @@ export const useJobConfig = ({
       {
         name: 'name',
         label: 'Name',
+        noSort: true,
         cell: {
           children: (row: JobType) => {
             return (
@@ -110,6 +122,7 @@ export const useJobConfig = ({
       {
         name: 'version',
         label: 'Version',
+        noSort: true,
         cell: {
           children: (row: JobType) => (
             <div className={sortBy.prop === 'version' ? 'fw-semi-bold' : ''}>
@@ -121,6 +134,7 @@ export const useJobConfig = ({
       {
         name: 'user',
         label: 'User',
+        noSort: true,
         cell: {
           children: (row: JobType) => (
             <div className={sortBy.prop === 'user' ? 'fw-semi-bold' : ''}>
@@ -132,6 +146,7 @@ export const useJobConfig = ({
       {
         name: 'cluster_id',
         label: 'Cluster ID',
+        noSort: true,
         cell: {
           children: (row: JobType) => (
             <div className={sortBy.prop === 'cluster_id' ? 'fw-semi-bold' : ''}>
@@ -143,6 +158,7 @@ export const useJobConfig = ({
       {
         name: 'command_id',
         label: 'Command ID',
+        noSort: true,
         cell: {
           children: (row: JobType) => (
             <div className={sortBy.prop === 'command_id' ? 'fw-semi-bold' : ''}>
@@ -180,6 +196,7 @@ export const useJobConfig = ({
       {
         name: 'status',
         label: 'Status',
+        noSort: true,
         cell: {
           children: (row: JobType) => (
             <div className={sortBy.prop === 'status' ? 'fw-semi-bold' : ''}>
