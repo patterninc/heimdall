@@ -53,6 +53,7 @@ type Heimdall struct {
 	Pool             *pool.Pool[*job.Job] `yaml:"pool,omitempty" json:"pool,omitempty"`
 	Auth             *auth.Auth           `yaml:"auth,omitempty" json:"auth,omitempty"`
 	Janitor          *janitor.Janitor     `yaml:"janitor,omitempty" json:"janitor,omitempty"`
+	HealthCheck      *healthCheckConfig   `yaml:"health_check,omitempty" json:"health_check,omitempty"`
 	Version          string               `yaml:"-" json:"-"`
 	agentName        string
 	commandHandlers  map[string]plugin.Handler
@@ -186,6 +187,8 @@ func (h *Heimdall) Start() error {
 	apiRouter.Methods(methodGET).PathPrefix(`/command/{id}`).HandlerFunc(payloadHandler(h.getCommand))
 	apiRouter.Methods(methodGET).PathPrefix(`/commands`).HandlerFunc(payloadHandler(h.getCommands))
 	apiRouter.Methods(methodGET).PathPrefix(`/cluster/statuses`).HandlerFunc(payloadHandler(h.getClusterStatuses))
+	apiRouter.Methods(methodGET).PathPrefix(`/clusters/health`).HandlerFunc(h.getClustersHealth)
+	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}/health`).HandlerFunc(payloadHandler(h.getClusterHealth))
 	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}/status`).HandlerFunc(payloadHandler(h.getClusterStatus))
 	apiRouter.Methods(methodPUT).PathPrefix(`/cluster/{id}/status`).HandlerFunc(payloadHandler(h.updateClusterStatus))
 	apiRouter.Methods(methodPUT).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.submitCluster))

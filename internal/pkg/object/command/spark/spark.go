@@ -261,6 +261,54 @@ timeoutLoop:
 
 }
 
+// HealthCheck implements the plugin.HealthChecker interface
+func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) error {
+	clusterCtx := &clusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterCtx); err != nil {
+			return err
+		}
+	}
+
+	awsConfig, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	assumeRoleOptions := func(_ *emrcontainers.Options) {}
+	if clusterCtx.RoleARN != nil {
+		stsSvc := sts.NewFromConfig(awsConfig)
+		out, err := stsSvc.AssumeRole(ctx, &sts.AssumeRoleInput{
+			RoleArn:         clusterCtx.RoleARN,
+			RoleSessionName: assumeRoleSession,
+		})
+		if err != nil {
+			return err
+		}
+		assumeRoleOptions = func(o *emrcontainers.Options) {
+			o.Credentials = credentials.NewStaticCredentialsProvider(
+				*out.Credentials.AccessKeyId,
+				*out.Credentials.SecretAccessKey,
+				*out.Credentials.SessionToken,
+			)
+		}
+	}
+
+	emrClient := emrcontainers.NewFromConfig(awsConfig, assumeRoleOptions)
+	maxResults := int32(1)
+	out, err := emrClient.ListVirtualClusters(ctx, &emrcontainers.ListVirtualClustersInput{
+		MaxResults: &maxResults,
+		States:     []types.VirtualClusterState{types.VirtualClusterStateRunning},
+	})
+	if err != nil {
+		return err
+	}
+	if len(out.VirtualClusters) == 0 {
+		return fmt.Errorf("no running EMR virtual clusters found")
+	}
+	return nil
+}
+
 func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
 	// TODO: Implement cleanup if needed
 	return nil

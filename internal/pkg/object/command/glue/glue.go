@@ -3,6 +3,9 @@ package glue
 import (
 	"context"
 
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/glue"
 	"github.com/patterninc/heimdall/internal/pkg/aws"
 	heimdallContext "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
@@ -54,6 +57,19 @@ func (g *commandContext) Execute(ctx context.Context, _ *plugin.Runtime, j *job.
 	j.Result, err = result.FromMessage(string(metadata))
 	return
 
+}
+
+// HealthCheck implements the plugin.HealthChecker interface
+func (g *commandContext) HealthCheck(ctx context.Context, _ *cluster.Cluster) error {
+	cfg, err := awsconfig.LoadDefaultConfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	glueClient := glue.NewFromConfig(cfg)
+	maxResults := awssdk.Int32(1)
+	_, err = glueClient.GetDatabases(ctx, &glue.GetDatabasesInput{MaxResults: maxResults})
+	return err
 }
 
 // Cleanup implements the plugin.Handler interface

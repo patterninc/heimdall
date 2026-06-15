@@ -15,6 +15,7 @@ var (
 type Cluster struct {
 	object.Object `yaml:",inline" json:",inline"`
 	Status        status.Status `yaml:"status,omitempty" json:"status,omitempty"`
+	HealthCheck   bool          `yaml:"health_check,omitempty" json:"health_check,omitempty"`
 	RBACNames     []string      `yaml:"rbacs,omitempty" json:"rbacs,omitempty"`
 	RBACs         []rbac.RBAC   `yaml:"-" json:"-"`
 }

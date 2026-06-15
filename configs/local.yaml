@@ -14,6 +14,9 @@ plugin_directory: ./plugins
 janitor:
   finished_job_retention_days: 14
 
+health_check:
+  timeout_seconds: 300
+
 # auth plugin
 auth:
   plugin: ./plugins/auth_header.so
@@ -39,6 +42,7 @@ clusters:
     status: active
     version: 0.0.1
     description: Just a localhost
+    health_check: true
     tags:
       - type:localhost
       - data:local

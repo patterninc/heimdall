@@ -32,6 +32,11 @@ func (p *commandContext) Execute(ctx context.Context, _ *plugin.Runtime, j *job.
 
 }
 
+// HealthCheck implements the plugin.HealthChecker interface
+func (p *commandContext) HealthCheck(_ context.Context, _ *cluster.Cluster) error {
+	return nil
+}
+
 // Cleanup implements the plugin.Handler interface
 func (p *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
 	// TODO: Implement cleanup if needed

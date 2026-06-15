@@ -5,23 +5,29 @@ go 1.24.6
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.40.3
 	github.com/antlr4-go/antlr/v4 v4.13.1
-	github.com/aws/aws-sdk-go-v2 v1.39.6
+	github.com/aws/aws-lambda-go v1.54.0
+	github.com/aws/aws-sdk-go-v2 v1.42.0
 	github.com/aws/aws-sdk-go-v2/config v1.30.3
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.3
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.18.3
+	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.65.0
+	github.com/aws/aws-sdk-go-v2/service/codedeploy v1.35.15
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.46.0
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.62.0
 	github.com/aws/aws-sdk-go-v2/service/emrcontainers v1.37.0
 	github.com/aws/aws-sdk-go-v2/service/glue v1.123.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.86.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.36.0
+	github.com/aws/smithy-go v1.27.1
 	github.com/babourine/x v1.0.4
+	github.com/go-faster/errors v0.7.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hladush/go-telemetry v0.0.0-20250803202644-50ee1a0a57cc
 	github.com/kubeflow/spark-operator/v2 v2.3.0
 	github.com/lib/pq v1.10.9
 	github.com/linkedin/goavro v2.1.0+incompatible
+	github.com/pkg/errors v0.9.1
 	github.com/shopspring/decimal v1.4.0
 	github.com/snowflakedb/gosnowflake v1.15.0
 	github.com/stretchr/testify v1.11.1
@@ -43,13 +49,13 @@ require (
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/apache/arrow-go/v18 v18.4.0 // indirect
 	github.com/apache/thrift v0.22.0 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.3 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.2 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.13 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.13 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.29 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.29 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.58.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/eks v1.85.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.8.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.11.2 // indirect
@@ -57,7 +63,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.27.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.32.0 // indirect
-	github.com/aws/smithy-go v1.23.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/danieljoos/wincred v1.2.2 // indirect
@@ -67,7 +72,6 @@ require (
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
-	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
@@ -96,7 +100,6 @@ require (
 	github.com/paulmach/orb v0.11.1 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect

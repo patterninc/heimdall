@@ -21,10 +21,10 @@ type Janitor struct {
 	Keepalive                int `yaml:"keepalive,omitempty" json:"keepalive,omitempty"`
 	StaleJob                 int `yaml:"stale_job,omitempty" json:"stale_job,omitempty"`
 	FinishedJobRetentionDays int `yaml:"finished_job_retention_days,omitempty" json:"finished_job_retention_days,omitempty"`
-	CleanInterval   int `yaml:"clean_interval,omitempty" json:"clean_interval,omitempty"`
+	CleanInterval            int `yaml:"clean_interval,omitempty" json:"clean_interval,omitempty"`
 	db                       *database.Database
-	commandHandlers map[string]plugin.Handler
-	clusters        cluster.Clusters
+	commandHandlers          map[string]plugin.Handler
+	clusters                 cluster.Clusters
 }
 
 func (j *Janitor) Start(d *database.Database, commandHandlers map[string]plugin.Handler, clusters cluster.Clusters) error {

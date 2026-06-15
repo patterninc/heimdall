@@ -156,7 +156,28 @@ func splitAndTrimQueries(query string) []string {
 	return queries
 }
 
-func (p *postgresCommandContext)Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error{
+func (p *postgresCommandContext) HealthCheck(_ context.Context, c *cluster.Cluster) error {
+	clusterContext, err := validateClusterContext(c)
+	if err != nil {
+		return err
+	}
+
+	db := &database.Database{ConnectionString: clusterContext.ConnectionString}
+	sess, err := db.NewSession(false)
+	if err != nil {
+		return err
+	}
+	defer sess.Close()
+
+	rows, err := sess.Query("SELECT 1")
+	if err != nil {
+		return err
+	}
+	rows.Close()
+	return nil
+}
+
+func (p *postgresCommandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
 	// implement me
 	return nil
 }

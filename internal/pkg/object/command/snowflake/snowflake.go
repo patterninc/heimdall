@@ -146,6 +146,88 @@ func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 
 }
 
+// HealthCheck implements the plugin.HealthChecker interface
+func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) error {
+	clusterCtx := &clusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterCtx); err != nil {
+			return err
+		}
+	}
+
+	privateKeyBytes, err := os.ReadFile(clusterCtx.PrivateKey)
+	if err != nil {
+		return err
+	}
+
+	privateKey, err := parsePrivateKey(privateKeyBytes)
+	if err != nil {
+		return err
+	}
+
+	dsn, err := sf.DSN(&sf.Config{
+		Account:       clusterCtx.Account,
+		User:          clusterCtx.User,
+		Database:      clusterCtx.Database,
+		Warehouse:     clusterCtx.Warehouse,
+		Role:          s.Role,
+		Authenticator: sf.AuthTypeJwt,
+		PrivateKey:    privateKey,
+	})
+	if err != nil {
+		return err
+	}
+
+	db, err := sql.Open(snowflakeDriverName, dsn)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	rows, err := db.QueryContext(ctx, fmt.Sprintf("SHOW WAREHOUSES LIKE '%s'", clusterCtx.Warehouse))
+	if err != nil {
+		return fmt.Errorf("snowflake SHOW WAREHOUSES failed: %w", err)
+	}
+	defer rows.Close()
+
+	cols, err := rows.Columns()
+	if err != nil {
+		return err
+	}
+
+	// Find the "state" column index
+	stateIdx := -1
+	for i, col := range cols {
+		if col == "state" {
+			stateIdx = i
+			break
+		}
+	}
+	if stateIdx < 0 {
+		return fmt.Errorf("snowflake SHOW WAREHOUSES: state column not found")
+	}
+
+	if !rows.Next() {
+		return fmt.Errorf("snowflake warehouse %q not found", clusterCtx.Warehouse)
+	}
+
+	vals := make([]any, len(cols))
+	ptrs := make([]any, len(cols))
+	for i := range vals {
+		ptrs[i] = &vals[i]
+	}
+	if err := rows.Scan(ptrs...); err != nil {
+		return err
+	}
+
+	state, _ := vals[stateIdx].(string)
+	if state != "STARTED" {
+		return fmt.Errorf("snowflake warehouse %q is not ready: state=%s", clusterCtx.Warehouse, state)
+	}
+
+	return nil
+}
+
 func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
 	// TODO: Implement cleanup if needed
 	return nil

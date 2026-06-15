@@ -890,3 +890,53 @@ func isThrottlingError(err error) bool {
 	}
 	return false
 }
+
+// HealthCheck implements the plugin.HealthChecker interface
+func (e *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) error {
+	clusterCtx := &clusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterCtx); err != nil {
+			return err
+		}
+	}
+
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	ecsClient := ecs.NewFromConfig(cfg)
+	out, err := ecsClient.DescribeClusters(ctx, &ecs.DescribeClustersInput{
+		Clusters: []string{clusterCtx.ClusterName},
+	})
+	if err != nil {
+		return err
+	}
+
+	clusterName := clusterCtx.ClusterName
+	if clusterName == "" {
+		clusterName = "default"
+	}
+
+	if len(out.Clusters) == 0 {
+		return fmt.Errorf("ECS cluster %q not found", clusterName)
+	}
+
+	if out.Clusters[0].Status == nil || *out.Clusters[0].Status != "ACTIVE" {
+		status := "<nil>"
+		if out.Clusters[0].Status != nil {
+			status = *out.Clusters[0].Status
+		}
+		return fmt.Errorf("ECS cluster %q is not active: %s", clusterName, status)
+	}
+
+	if clusterCtx.MaxTaskCount > 0 {
+		running := int(out.Clusters[0].RunningTasksCount)
+		pending := int(out.Clusters[0].PendingTasksCount)
+		if running+pending >= clusterCtx.MaxTaskCount {
+			return fmt.Errorf("ECS cluster %q at capacity: %d running + %d pending >= max %d", clusterName, running, pending, clusterCtx.MaxTaskCount)
+		}
+	}
+
+	return nil
+}

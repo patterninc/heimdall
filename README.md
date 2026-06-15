@@ -19,6 +19,7 @@ Originally inspired by [Netflix Genie](https://github.com/Netflix/genie), Heimda
 * 🔐 **Secure orchestration without credential leakage**
 * 🧠 **Dynamic routing based on command / cluster criteria**
 * 📦 **Configurable or self-registering clusters**
+* 🩺 **Cluster health checks** with per-plugin probes and configurable timeout
 
 ---
 
@@ -96,9 +97,11 @@ Heimdall supports a growing set of pluggable command types:
 | `dynamo`      | [DynamoDB read operation](https://github.com/patterninc/heimdall/blob/main/plugins/dynamo/README.md)                | Sync or Async  |
 | `snowflake`   | [Query execution in Snowflake](https://github.com/patterninc/heimdall/blob/main/plugins/snowflake/README.md)           | Async          |
 | `spark`       | [SparkSQL query execution on EMR on EKS](https://github.com/patterninc/heimdall/blob/main/plugins/spark/README.md) | Async          |
+| `sparkeks`    | [SparkSQL query execution on EKS](https://github.com/patterninc/heimdall/blob/main/plugins/sparkeks/README.md) | Async          |
 | `trino`       | [Query execution in Trino](https://github.com/patterninc/heimdall/blob/main/plugins/trino/README.md) | Async          |
 | `clickhouse`  | [Query execution in Clickhouse](https://github.com/patterninc/heimdall/blob/main/plugins/clickhouse/README.md) | Sync          |
 | `ecs fargate` | [Task Deployment in ECS Fargate](https://github.com/patterninc/heimdall/blob/main/plugins/ecs/README.md) | Async |
+| `postgres`    | [PostgreSQL query execution](https://github.com/patterninc/heimdall/blob/main/plugins/postgres/README.md) | Sync or Async  |
 
 ---
 
@@ -181,7 +184,24 @@ Commands may also restrict invocation via `allowed_callers` — a list of anchor
 | `GET /api/v1/cluster/<id>/status` | Check cluster status           |
 | `PUT /api/v1/cluster/<id>/status` | Set cluster status             |
 | `GET /api/v1/clusters`            | List configured clusters       |
+| `GET /api/v1/clusters/health`     | Health check all opted-in clusters |
+| `GET /api/v1/cluster/<id>/health` | Health check a single cluster  |
 
+
+---
+
+## 🩺 Cluster Health Checks
+
+Opt any cluster into health probing by setting `health_check: true` in its config. Each plugin performs a lightweight connectivity check against its backend (see the Health Check column in the plugins table above).
+
+Configure the global probe timeout (default 30s):
+
+```yaml
+health_check:
+  timeout_seconds: 10
+```
+
+`GET /api/v1/clusters/health` returns 200 if all probes pass, 503 if any fail. `status` per check: `ok`, `error`, or `unchecked`. Failing or misconfigured health checks have no effect on job execution or startup.
 
 ---
 
