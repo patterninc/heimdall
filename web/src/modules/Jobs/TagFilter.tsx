@@ -1,5 +1,5 @@
 import React from 'react'
-import { Button, FormLabel, TextInput } from '@patterninc/react-ui'
+import { Button, FormLabel, Icon, TextInput } from '@patterninc/react-ui'
 import { TagPair } from './Helper'
 
 type TagFilterProps = {
@@ -48,9 +48,10 @@ const TagFilter = ({ tags, onChange }: TagFilterProps): React.JSX.Element => {
               callout={(_, value) => updateRow(index, 'value', value as string)}
             />
           </div>
-        <Button as='unstyled' onClick={() => removeRow(index)}>
+          <Button as='unstyled' onClick={() => removeRow(index)}>
             <Icon icon='trash' color='dark-red' />
           </Button>
+        </div>
       ))}
       <div>
         <Button as='button' styleType='tertiary' onClick={addRow}>
