@@ -48,8 +48,9 @@ const TagFilter = ({ tags, onChange }: TagFilterProps): React.JSX.Element => {
               callout={(_, value) => updateRow(index, 'value', value as string)}
             />
           </div>
-          <Button as='unstyled' icon='trash' onClick={() => removeRow(index)} />
-        </div>
+        <Button as='unstyled' onClick={() => removeRow(index)}>
+            <Icon icon='trash' color='dark-red' />
+          </Button>
       ))}
       <div>
         <Button as='button' styleType='tertiary' onClick={addRow}>
