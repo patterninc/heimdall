@@ -18,8 +18,40 @@ export type ApiParams = {
   cluster?: string
   command?: string
   status?: string[]
+  tags?: string
   page?: string
 }
+
+// A single tag filter row, e.g. { key: 'owner', value: '#dev-core' }.
+export type TagPair = {
+  key: string
+  value: string
+}
+
+// Join tag pairs into the backend's `tags` param format: `key:value,key:value`.
+// Blank rows are dropped; the full `key:value` string is matched exactly server-side.
+export const serializeTags = (pairs: TagPair[]): string =>
+  pairs
+    .filter((p) => p.key.trim() && p.value.trim())
+    .map((p) => `${p.key.trim()}:${p.value.trim()}`)
+    .join(',')
+
+// Parse a `key:value,key:value` string back into tag pairs. Splits each tag on
+// its first colon so values may themselves contain colons.
+export const parseTags = (value: string): TagPair[] =>
+  value
+    .split(',')
+    .map((raw) => raw.trim())
+    .reduce<TagPair[]>((acc, tag) => {
+      const idx = tag.indexOf(':')
+      if (idx > 0) {
+        acc.push({
+          key: tag.slice(0, idx).trim(),
+          value: tag.slice(idx + 1).trim(),
+        })
+      }
+      return acc
+    }, [])
 
 export type JobType = {
   id: string
