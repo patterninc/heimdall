@@ -221,20 +221,33 @@ func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) er
 		return err
 	}
 
-	state, _ := vals[stateIdx].(string)
+	state := scanToString(vals[stateIdx])
 	switch state {
-	case "STARTED":
+	case "STARTED", "RESUMING":
 		return nil
 	case "SUSPENDED":
-		if autoResumeIdx >= 0 {
-			autoResume, _ := vals[autoResumeIdx].(string)
-			if autoResume == "true" {
-				return nil
-			}
+		if autoResumeIdx >= 0 && scanToString(vals[autoResumeIdx]) == "true" {
+			return nil
 		}
-		return fmt.Errorf("snowflake warehouse %q is suspended with auto_resume disabled", clusterCtx.Warehouse)
+		return fmt.Errorf("snowflake warehouse %q is suspended and auto_resume is not enabled", clusterCtx.Warehouse)
 	default:
 		return fmt.Errorf("snowflake warehouse %q is not ready: state=%s", clusterCtx.Warehouse, state)
+	}
+}
+
+func scanToString(v any) string {
+	switch val := v.(type) {
+	case string:
+		return val
+	case []byte:
+		return string(val)
+	case bool:
+		if val {
+			return "true"
+		}
+		return "false"
+	default:
+		return fmt.Sprintf("%v", v)
 	}
 }
 
