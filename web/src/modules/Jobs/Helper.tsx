@@ -6,6 +6,7 @@ import {
   Tag,
   TagProps,
   SortByProps,
+  TrimText,
 } from '@patterninc/react-ui'
 import Link from 'next/link'
 import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
@@ -101,7 +102,13 @@ export const useJobConfig = ({
           children: (row: JobType) => {
             return (
               <div className={sortBy.prop === 'name' ? 'fw-semi-bold' : ''}>
-                <MdashCheck check={!!row.name}>{row.name}</MdashCheck>
+                <MdashCheck check={!!row.name}>
+                  <TrimText
+                    text={row.name}
+                    limit={60}
+                    customClass='whitespace-nowrap'
+                  />
+                </MdashCheck>
               </div>
             )
           },
