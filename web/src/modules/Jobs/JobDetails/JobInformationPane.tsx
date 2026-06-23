@@ -124,6 +124,27 @@ const JobInformationPane = ({
               ]}
               isTwoColumns
             />
+            {!!jobData?.spark_application_id && (
+              <InformationPane.Section
+                data={[
+                  {
+                    label: '',
+                    data: (
+                      <Button
+                        styleType='text-blue'
+                        as='externalLink'
+                        href={`https://spark-history.data-platform.aws.pattern.com/history/${jobData?.spark_application_id}/jobs/`}
+                        className='gap-1'
+                      >
+                        <span>Spark History</span>
+                        <Icon icon='launch' color='dark-blue' iconSize='12px' />
+                      </Button>
+                    ),
+                    check: true,
+                  },
+                ]}
+              />
+            )}
           </div>
         )}
       </InformationPane>

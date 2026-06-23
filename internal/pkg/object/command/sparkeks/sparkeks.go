@@ -929,6 +929,10 @@ func (e *executionContext) monitorJobAndCollectLogs(ctx context.Context) error {
 		}
 
 		finalSparkApp = sparkApp
+		// Capture Spark's runtime application id (used by the Spark History Server)
+		if id := sparkApp.Status.SparkApplicationID; id != "" {
+			e.job.SparkApplicationID = id
+		}
 		state := sparkApp.Status.AppState.State
 
 		if time.Since(lastReport) >= statusReportInterval || isTerminalState(state) {

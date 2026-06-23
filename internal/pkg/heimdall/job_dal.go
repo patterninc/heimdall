@@ -210,7 +210,7 @@ func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
 	var jobContext string
 
 	if err := row.Scan(&r.SystemID, &r.Status, &r.Name, &r.Version, &r.Description, &jobContext, &r.Error, &r.User, &r.IsSync,
-		&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CanceledBy); err != nil {
+		&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CanceledBy, &r.SparkApplicationID); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrUnknownJobID
 		} else {
@@ -314,7 +314,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 		r := &job.Job{}
 
 		if err := rows.Scan(&r.SystemID, &r.ID, &r.Status, &r.Name, &r.Version, &r.Description, &jobContext, &r.Error, &r.User, &r.IsSync,
-			&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CanceledBy); err != nil {
+			&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CanceledBy, &r.SparkApplicationID); err != nil {
 			getJobsMethod.LogAndCountError(err, "scan")
 			return nil, err
 		}

@@ -21,6 +21,7 @@ create table if not exists jobs
 
 alter table jobs add column if not exists store_result_sync boolean not null default false;
 alter table jobs add column if not exists canceled_by varchar(64) null;
+alter table jobs add column if not exists spark_application_id varchar(128) not null default '';
 
 -- Originally had "cancelled_by" column and "cancelling" status, but we aren't british. Whoops.
 do $$ begin

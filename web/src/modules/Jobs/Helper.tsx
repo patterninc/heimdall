@@ -39,6 +39,7 @@ export type JobType = {
   cluster_id: string
   cluster_name: string
   canceled_by?: string
+  spark_application_id?: string
   error?: string
   context?: {
     properties: {

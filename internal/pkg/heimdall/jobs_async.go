@@ -118,7 +118,7 @@ func (h *Heimdall) runAsyncJob(ctx context.Context, j *job.Job) error {
 	}
 	defer sess.Close()
 
-	if _, err := sess.Exec(queryJobStatusUpdate, status.Running, ``, j.SystemID); err != nil {
+	if _, err := sess.Exec(queryJobStatusUpdate, status.Running, ``, j.SparkApplicationID, j.SystemID); err != nil {
 		return h.updateAsyncJobStatus(j, err)
 	}
 
@@ -154,7 +154,7 @@ func (h *Heimdall) updateAsyncJobStatus(j *job.Job, jobError error) error {
 	}
 	defer sess.Close()
 
-	if _, err := sess.Exec(queryJobStatusUpdate, j.Status, j.Error, j.SystemID); err != nil {
+	if _, err := sess.Exec(queryJobStatusUpdate, j.Status, j.Error, j.SparkApplicationID, j.SystemID); err != nil {
 		// TODO: implement proper logging
 		fmt.Println(`job status update error:`, err)
 	}

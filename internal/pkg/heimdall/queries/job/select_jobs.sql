@@ -16,7 +16,8 @@ select
     cl.cluster_id,
     cl.cluster_name,
     j.store_result_sync,
-    j.canceled_by
+    j.canceled_by,
+    j.spark_application_id
 from
     jobs j
     join job_statuses js on js.job_status_id = j.job_status_id
