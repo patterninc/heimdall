@@ -195,12 +195,13 @@ func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) er
 		return err
 	}
 
-	// Find the "state" column index
-	stateIdx := -1
+	stateIdx, autoResumeIdx := -1, -1
 	for i, col := range cols {
-		if col == "state" {
+		switch col {
+		case "state":
 			stateIdx = i
-			break
+		case "auto_resume":
+			autoResumeIdx = i
 		}
 	}
 	if stateIdx < 0 {
@@ -220,12 +221,34 @@ func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) er
 		return err
 	}
 
-	state, _ := vals[stateIdx].(string)
-	if state != "STARTED" {
+	state := scanToString(vals[stateIdx])
+	switch state {
+	case "STARTED", "RESUMING":
+		return nil
+	case "SUSPENDED":
+		if autoResumeIdx >= 0 && scanToString(vals[autoResumeIdx]) == "true" {
+			return nil
+		}
+		return fmt.Errorf("snowflake warehouse %q is suspended and auto_resume is not enabled", clusterCtx.Warehouse)
+	default:
 		return fmt.Errorf("snowflake warehouse %q is not ready: state=%s", clusterCtx.Warehouse, state)
 	}
+}
 
-	return nil
+func scanToString(v any) string {
+	switch val := v.(type) {
+	case string:
+		return val
+	case []byte:
+		return string(val)
+	case bool:
+		if val {
+			return "true"
+		}
+		return "false"
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {

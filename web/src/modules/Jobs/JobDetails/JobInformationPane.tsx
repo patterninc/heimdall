@@ -3,6 +3,7 @@ import {
   Icon,
   InformationPane,
   ListLoading,
+  TrimText,
 } from '@patterninc/react-ui'
 import { getStatusColor, JobDataTypesProps } from '../Helper'
 import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
@@ -60,7 +61,13 @@ const JobInformationPane = ({
         header={{
           labelAndData: {
             label: 'Job Name',
-            data: <span>{jobData?.name}</span>,
+            data: (
+              <TrimText
+                text={jobData?.name ?? ''}
+                limit={25}
+                customClass='whitespace-nowrap'
+              />
+            ),
             check: !!jobData?.name,
           },
           tag: {
