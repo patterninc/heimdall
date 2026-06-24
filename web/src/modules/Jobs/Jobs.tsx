@@ -15,7 +15,14 @@ import {
 import { BreadcrumbContext } from '@/common/BreadCrumbsProvider/context'
 import { fetchJobs, getJobStatus } from '@/app/api/jobs/jobs'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { ApiParams, JobType, useJobConfig } from './Helper'
+import {
+  ApiParams,
+  JobType,
+  TagPair,
+  parseTags,
+  serializeTags,
+  useJobConfig,
+} from './Helper'
 import { useQueryState } from 'nuqs'
 import { FilterStatesType } from '@patterninc/react-ui'
 import {
@@ -24,6 +31,7 @@ import {
   sortData,
 } from '@/common/Services'
 import { AutoRefreshContext } from '@/common/AutoRefreshProvider/context'
+import TagFilter from './TagFilter'
 
 type FilterType = {
   id: string
@@ -33,6 +41,7 @@ type FilterType = {
   clusterId: string
   commandId: string
   status: string[]
+  tags: TagPair[]
 }
 
 const Jobs = (): React.JSX.Element => {
@@ -56,6 +65,11 @@ const Jobs = (): React.JSX.Element => {
     parse: (value) => (value ? value.split(',') : []),
     serialize: (value) => value?.join(',') ?? '',
   })
+  const [tags, setTags] = useQueryState<TagPair[]>('tags', {
+    defaultValue: [],
+    parse: (value) => (value ? parseTags(value) : []),
+    serialize: (value) => serializeTags(value),
+  })
 
   const [filter, setFilter] = useState<FilterType>({
     id: jobId,
@@ -65,6 +79,7 @@ const Jobs = (): React.JSX.Element => {
     clusterId: clusterId,
     commandId: commandId,
     status: status,
+    tags: tags,
   })
 
   useEffect(() => {
@@ -81,8 +96,10 @@ const Jobs = (): React.JSX.Element => {
     if (clusterId) params.cluster = clusterId
     if (commandId) params.command = commandId
     if (status.length > 0) params.status = status
+    const serializedTags = serializeTags(tags)
+    if (serializedTags) params.tags = serializedTags
     return params
-  }, [jobId, name, user, version, clusterId, commandId, status])
+  }, [jobId, name, user, version, clusterId, commandId, status, tags])
 
   // Fetch Jobs with filters applied
   const { data, isLoading, fetchNextPage, hasNextPage, isSuccess } =
@@ -130,6 +147,7 @@ const Jobs = (): React.JSX.Element => {
     setClusterId(filter.clusterId)
     setCommandId(filter.commandId)
     setStatus(filter.status)
+    setTags(filter.tags)
 
     if (filter?.user) queryParams.append('user', filter.user)
     if (filter?.name) queryParams.append('name', filter.name)
@@ -140,6 +158,8 @@ const Jobs = (): React.JSX.Element => {
     if (filter?.status && filter.status.length > 0) {
       queryParams.append('status', filter.status.join(','))
     }
+    const serializedTags = serializeTags(filter.tags)
+    if (serializedTags) queryParams.append('tags', serializedTags)
     updateBreadcrumbs({
       name: 'Jobs',
       link: `/jobs?${queryParams.toString()}`,
@@ -151,6 +171,7 @@ const Jobs = (): React.JSX.Element => {
     filter.id,
     filter.name,
     filter.status,
+    filter.tags,
     filter.user,
     filter.version,
     setClusterId,
@@ -158,6 +179,7 @@ const Jobs = (): React.JSX.Element => {
     setJobId,
     setName,
     setStatus,
+    setTags,
     setUser,
     setVersion,
     updateBreadcrumbs,
@@ -264,6 +286,7 @@ const Jobs = (): React.JSX.Element => {
     setClusterId(null)
     setCommandId(null)
     setStatus(null)
+    setTags(null)
     setFilter({
       id: '',
       name: '',
@@ -272,6 +295,7 @@ const Jobs = (): React.JSX.Element => {
       clusterId: '',
       commandId: '',
       status: [],
+      tags: [],
     })
   }, [
     setJobId,
@@ -281,6 +305,7 @@ const Jobs = (): React.JSX.Element => {
     setClusterId,
     setCommandId,
     setStatus,
+    setTags,
   ])
 
   // Compute applied filter count
@@ -293,8 +318,18 @@ const Jobs = (): React.JSX.Element => {
       commandId,
       clusterId,
       status.length > 0,
+      tags.length > 0,
     ].filter(Boolean).length
-  }, [jobId, name, user, version, commandId, clusterId, status.length])
+  }, [
+    jobId,
+    name,
+    user,
+    version,
+    commandId,
+    clusterId,
+    status.length,
+    tags.length,
+  ])
 
   const updateFormField = useCallback(
     (...params: unknown[]) => {
@@ -307,6 +342,10 @@ const Jobs = (): React.JSX.Element => {
     },
     [setFilter],
   )
+
+  const updateTags = useCallback((newTags: TagPair[]) => {
+    setFilter((prevFilter) => ({ ...prevFilter, tags: newTags }))
+  }, [])
 
   return (
     <div className='pt-4'>
@@ -339,6 +378,9 @@ const Jobs = (): React.JSX.Element => {
             resetCallout: resetFilters,
             cancelCallout: () => {},
             onChangeCallout: updateFormField,
+            children: () => (
+              <TagFilter tags={filter.tags} onChange={updateTags} />
+            ),
           },
         }}
       />

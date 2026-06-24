@@ -19,8 +19,35 @@ export type ApiParams = {
   cluster?: string
   command?: string
   status?: string[]
+  tags?: string
   page?: string
 }
+
+export type TagPair = {
+  key: string
+  value: string
+}
+
+export const serializeTags = (pairs: TagPair[]): string =>
+  pairs
+    .filter((p) => p.key.trim() && p.value.trim())
+    .map((p) => `${p.key.trim()}:${p.value.trim()}`)
+    .join(',')
+
+export const parseTags = (value: string): TagPair[] =>
+  value
+    .split(',')
+    .map((raw) => raw.trim())
+    .reduce<TagPair[]>((acc, tag) => {
+      const idx = tag.indexOf(':')
+      if (idx > 0) {
+        acc.push({
+          key: tag.slice(0, idx).trim(),
+          value: tag.slice(idx + 1).trim(),
+        })
+      }
+      return acc
+    }, [])
 
 export type JobType = {
   id: string
