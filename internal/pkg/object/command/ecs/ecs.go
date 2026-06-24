@@ -930,13 +930,5 @@ func (e *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) er
 		return fmt.Errorf("ECS cluster %q is not active: %s", clusterName, status)
 	}
 
-	if clusterCtx.MaxTaskCount > 0 {
-		running := int(out.Clusters[0].RunningTasksCount)
-		pending := int(out.Clusters[0].PendingTasksCount)
-		if running+pending >= clusterCtx.MaxTaskCount {
-			return fmt.Errorf("ECS cluster %q at capacity: %d running + %d pending >= max %d", clusterName, running, pending, clusterCtx.MaxTaskCount)
-		}
-	}
-
 	return nil
 }

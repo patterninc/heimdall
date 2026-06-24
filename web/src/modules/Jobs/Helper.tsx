@@ -6,6 +6,7 @@ import {
   Tag,
   TagProps,
   SortByProps,
+  TrimText,
 } from '@patterninc/react-ui'
 import Link from 'next/link'
 import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
@@ -18,6 +19,7 @@ export type ApiParams = {
   cluster?: string
   command?: string
   status?: string[]
+  tags?: string
   limit?: string
   cursor?: string
   order_by?: string
@@ -31,6 +33,32 @@ export type JobsResponse = {
   has_more?: boolean
   next_cursor?: string
 }
+
+export type TagPair = {
+  key: string
+  value: string
+}
+
+export const serializeTags = (pairs: TagPair[]): string =>
+  pairs
+    .filter((p) => p.key.trim() && p.value.trim())
+    .map((p) => `${p.key.trim()}:${p.value.trim()}`)
+    .join(',')
+
+export const parseTags = (value: string): TagPair[] =>
+  value
+    .split(',')
+    .map((raw) => raw.trim())
+    .reduce<TagPair[]>((acc, tag) => {
+      const idx = tag.indexOf(':')
+      if (idx > 0) {
+        acc.push({
+          key: tag.slice(0, idx).trim(),
+          value: tag.slice(idx + 1).trim(),
+        })
+      }
+      return acc
+    }, [])
 
 export type JobType = {
   id: string
@@ -113,7 +141,13 @@ export const useJobConfig = ({
           children: (row: JobType) => {
             return (
               <div className={sortBy.prop === 'name' ? 'fw-semi-bold' : ''}>
-                <MdashCheck check={!!row.name}>{row.name}</MdashCheck>
+                <MdashCheck check={!!row.name}>
+                  <TrimText
+                    text={row.name}
+                    limit={60}
+                    customClass='whitespace-nowrap'
+                  />
+                </MdashCheck>
               </div>
             )
           },
