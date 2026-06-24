@@ -242,6 +242,40 @@ type sortColumn struct {
 	isInt bool
 }
 
+type resolvedSort struct {
+	orderKey  string     
+	column    sortColumn 
+	sorted    bool       
+	expr      string     
+	direction string     
+	cmp       string     
+}
+
+func resolveSortColumns(f *database.Filter) resolvedSort {
+	orderKey := (*f)[`order_by`]
+	sortCol, sorted := jobsSortColumns[orderKey]
+	expr := `j.system_job_id`
+	if sorted {
+		expr = sortCol.expr
+	}
+	delete(*f, `order_by`)
+
+	direction, cmp := `desc`, `<`
+	if strings.EqualFold((*f)[`direction`], `asc`) {
+		direction, cmp = `asc`, `>`
+	}
+	delete(*f, `direction`)
+
+	return resolvedSort{
+		orderKey:  orderKey,
+		column:    sortCol,
+		sorted:    sorted,
+		expr:      expr,
+		direction: direction,
+		cmp:       cmp,
+	}
+}
+
 // jobsCursor is the opaque keyset position: last row's sort value + system_job_id tiebreaker, base64-JSON encoded.
 type jobsCursor struct {
 	Value any   `json:"v"`
@@ -300,6 +334,33 @@ func injectTagsFilter(f *database.Filter, key, existsTemplate string, query stri
 	return appendWhereClause(query, strings.Join(clauses, " and\n    ")), args
 }
 
+func applyKeysetSeek(query string, args []any, sort resolvedSort, cursor *jobsCursor) (string, []any, error) {
+	if cursor == nil {
+		return query, args, nil
+	}
+
+	if !sort.sorted {
+		query = appendWhereClause(query, fmt.Sprintf(`j.system_job_id %s $%d`, sort.cmp, len(args)+1))
+		return query, append(args, cursor.ID), nil
+	}
+
+	value := cursor.Value
+	if sort.column.isInt {
+		fv, ok := value.(float64)
+		if !ok {
+			return query, args, ErrInvalidCursor
+		}
+		value = int64(fv)
+	}
+
+	valIdx := len(args) + 1
+	args = append(args, value, cursor.ID)
+	query = appendWhereClause(query, fmt.Sprintf(
+		`(%s %s $%d or (%s = $%d and j.system_job_id %s $%d))`,
+		sort.expr, sort.cmp, valIdx, sort.expr, valIdx, sort.cmp, valIdx+1))
+	return query, args, nil
+}
+
 func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error) {
 
 	// Track DB connection for jobs list operation
@@ -318,21 +379,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 		delete(*f, `limit`)
 	}
 
-	// resolve sort column from whitelist; unknown falls back to system_job_id
-	orderKey := (*f)[`order_by`]
-	sortCol, sorted := jobsSortColumns[orderKey]
-	orderExpr := `j.system_job_id`
-	if sorted {
-		orderExpr = sortCol.expr
-	}
-	delete(*f, `order_by`)
-
-	direction := `desc`
-	cmp := `<`
-	if strings.EqualFold((*f)[`direction`], `asc`) {
-		direction, cmp = `asc`, `>`
-	}
-	delete(*f, `direction`)
+	sort := resolveSortColumns(f)
 
 	// decode opaque keyset cursor (absent = first page)
 	var cursor *jobsCursor
@@ -365,26 +412,10 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 	}
 
 	// keyset seek: rows after the cursor, sort column + system_job_id tiebreaker (no dropped/repeated rows)
-	if cursor != nil {
-		if sorted {
-			value := cursor.Value
-			if sortCol.isInt {
-				// JSON numbers decode to float64; restore the integer for compare
-				fv, ok := value.(float64)
-				if !ok {
-					return nil, ErrInvalidCursor
-				}
-				value = int64(fv)
-			}
-			valIdx := len(args) + 1
-			args = append(args, value, cursor.ID)
-			query = appendWhereClause(query, fmt.Sprintf(
-				`(%s %s $%d or (%s = $%d and j.system_job_id %s $%d))`,
-				orderExpr, cmp, valIdx, orderExpr, valIdx, cmp, valIdx+1))
-		} else {
-			query = appendWhereClause(query, fmt.Sprintf(`j.system_job_id %s $%d`, cmp, len(args)+1))
-			args = append(args, cursor.ID)
-		}
+	query, args, err = applyKeysetSeek(query, args, sort, cursor)
+	if err != nil {
+		getJobsMethod.LogAndCountError(err, "keyset_seek")
+		return nil, err
 	}
 
 	// swap in chosen ORDER BY (+ system_job_id tiebreaker); fetch one extra row to detect a next page
@@ -394,7 +425,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 	}
 	base := strings.TrimRight(query[:orderIdx], "\n; \t")
 	query = fmt.Sprintf("%s\norder by\n    %s %s, j.system_job_id %s\nlimit $%d",
-		base, orderExpr, direction, direction, len(args)+1)
+		base, sort.expr, sort.direction, sort.direction, len(args)+1)
 	args = append(args, pageSize+1)
 
 	rows, err := sess.Query(query, args...)
@@ -431,7 +462,7 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 	if len(result) > pageSize {
 		last := result[pageSize-1]
 		rs.HasMore = true
-		rs.NextCursor = encodeJobsCursor(jobSortValue(orderKey, last), last.SystemID)
+		rs.NextCursor = encodeJobsCursor(jobSortValue(sort.orderKey, last), last.SystemID)
 		rs.Data = result[:pageSize]
 	}
 
