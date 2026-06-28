@@ -13,6 +13,7 @@ const JobInformationPane = ({
   isLoading,
 }: JobDataTypesProps): React.JSX.Element => {
   const router = useRouter()
+  const extraJobAttributes = Object.entries(jobData?.extra_job_attributes ?? {})
   const jobdetailsData = [
     { label: 'Version', data: jobData?.version, check: !!jobData?.version },
     {
@@ -124,25 +125,31 @@ const JobInformationPane = ({
               ]}
               isTwoColumns
             />
-            {!!jobData?.spark_application_id && (
+            {extraJobAttributes.length > 0 && (
               <InformationPane.Section
-                data={[
-                  {
-                    label: '',
-                    data: (
-                      <Button
-                        styleType='text-blue'
-                        as='externalLink'
-                        href={`https://spark-history.data-platform.aws.pattern.com/history/${jobData?.spark_application_id}/jobs/`}
-                        className='gap-1'
-                      >
-                        <span>Spark History</span>
-                        <Icon icon='launch' color='dark-blue' iconSize='12px' />
-                      </Button>
-                    ),
-                    check: true,
-                  },
-                ]}
+                data={extraJobAttributes.map(([label, attr]) =>
+                  attr?.kind === 'link'
+                    ? {
+                        label: '',
+                        data: (
+                          <Button
+                            styleType='text-blue'
+                            as='externalLink'
+                            href={attr.value}
+                            className='gap-1'
+                          >
+                            <span>{label}</span>
+                            <Icon
+                              icon='launch'
+                              color='dark-blue'
+                              iconSize='12px'
+                            />
+                          </Button>
+                        ),
+                        check: true,
+                      }
+                    : { label, data: attr?.value, check: true },
+                )}
               />
             )}
           </div>

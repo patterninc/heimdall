@@ -3,6 +3,7 @@ package heimdall
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -11,6 +12,17 @@ import (
 	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/object/job/status"
 )
+
+func extraJobAttributesJSON(j *job.Job) string {
+	if len(j.ExtraJobAttributes) == 0 {
+		return ``
+	}
+	data, err := json.Marshal(j.ExtraJobAttributes)
+	if err != nil {
+		return ``
+	}
+	return string(data)
+}
 
 const (
 	formatErrUnknownCommand = "unknown command: %s"
@@ -118,7 +130,7 @@ func (h *Heimdall) runAsyncJob(ctx context.Context, j *job.Job) error {
 	}
 	defer sess.Close()
 
-	if _, err := sess.Exec(queryJobStatusUpdate, status.Running, ``, j.SparkApplicationID, j.SystemID); err != nil {
+	if _, err := sess.Exec(queryJobStatusUpdate, status.Running, ``, extraJobAttributesJSON(j), j.SystemID); err != nil {
 		return h.updateAsyncJobStatus(j, err)
 	}
 
@@ -154,7 +166,7 @@ func (h *Heimdall) updateAsyncJobStatus(j *job.Job, jobError error) error {
 	}
 	defer sess.Close()
 
-	if _, err := sess.Exec(queryJobStatusUpdate, j.Status, j.Error, j.SparkApplicationID, j.SystemID); err != nil {
+	if _, err := sess.Exec(queryJobStatusUpdate, j.Status, j.Error, extraJobAttributesJSON(j), j.SystemID); err != nil {
 		// TODO: implement proper logging
 		fmt.Println(`job status update error:`, err)
 	}

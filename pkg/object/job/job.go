@@ -11,19 +11,31 @@ import (
 
 type Job struct {
 	object.Object      `yaml:",inline" json:",inline"`
-	Status             status.Status    `yaml:"status,omitempty" json:"status,omitempty"`
-	IsSync             bool             `yaml:"is_sync,omitempty" json:"is_sync,omitempty"`
-	StoreResultSync    bool             `yaml:"store_result_sync,omitempty" json:"store_result_sync,omitempty"`
-	Error              string           `yaml:"error,omitempty" json:"error,omitempty"`
-	CommandCriteria    *set.Set[string] `yaml:"command_criteria,omitempty" json:"command_criteria,omitempty"`
-	ClusterCriteria    *set.Set[string] `yaml:"cluster_criteria,omitempty" json:"cluster_criteria,omitempty"`
-	CommandID          string           `yaml:"command_id,omitempty" json:"command_id,omitempty"`
-	CommandName        string           `yaml:"command_name,omitempty" json:"command_name,omitempty"`
-	ClusterID          string           `yaml:"cluster_id,omitempty" json:"cluster_id,omitempty"`
-	ClusterName        string           `yaml:"cluster_name,omitempty" json:"cluster_name,omitempty"`
-	CanceledBy         string           `yaml:"canceled_by,omitempty" json:"canceled_by,omitempty"`
-	SparkApplicationID string           `yaml:"spark_application_id,omitempty" json:"spark_application_id,omitempty"`
-	Result             *result.Result   `yaml:"result,omitempty" json:"result,omitempty"`
+	Status             status.Status        `yaml:"status,omitempty" json:"status,omitempty"`
+	IsSync             bool                 `yaml:"is_sync,omitempty" json:"is_sync,omitempty"`
+	StoreResultSync    bool                 `yaml:"store_result_sync,omitempty" json:"store_result_sync,omitempty"`
+	Error              string               `yaml:"error,omitempty" json:"error,omitempty"`
+	CommandCriteria    *set.Set[string]     `yaml:"command_criteria,omitempty" json:"command_criteria,omitempty"`
+	ClusterCriteria    *set.Set[string]     `yaml:"cluster_criteria,omitempty" json:"cluster_criteria,omitempty"`
+	CommandID          string               `yaml:"command_id,omitempty" json:"command_id,omitempty"`
+	CommandName        string               `yaml:"command_name,omitempty" json:"command_name,omitempty"`
+	ClusterID          string               `yaml:"cluster_id,omitempty" json:"cluster_id,omitempty"`
+	ClusterName        string               `yaml:"cluster_name,omitempty" json:"cluster_name,omitempty"`
+	CanceledBy         string               `yaml:"canceled_by,omitempty" json:"canceled_by,omitempty"`
+	ExtraJobAttributes map[string]Attribute `yaml:"extra_job_attributes,omitempty" json:"extra_job_attributes,omitempty"`
+	Result             *result.Result       `yaml:"result,omitempty" json:"result,omitempty"`
+}
+
+// Attribute kinds for ExtraJobAttributes. Kind tells the UI how to render Value.
+const (
+	AttributeKindLink = "link"
+	AttributeKindText = "text"
+)
+
+// Attribute is a generic, plugin-agnostic value surfaced on a job in the UI.
+type Attribute struct {
+	Kind  string `yaml:"kind,omitempty" json:"kind,omitempty"`
+	Value string `yaml:"value,omitempty" json:"value,omitempty"`
 }
 
 func (j *Job) Init() error {

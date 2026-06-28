@@ -207,15 +207,20 @@ func (h *Heimdall) getJob(ctx context.Context, j *jobRequest) (any, error) {
 		},
 	}
 
-	var jobContext string
+	var jobContext, extraJobAttributes string
 
 	if err := row.Scan(&r.SystemID, &r.Status, &r.Name, &r.Version, &r.Description, &jobContext, &r.Error, &r.User, &r.IsSync,
-		&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CanceledBy, &r.SparkApplicationID); err != nil {
+		&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CanceledBy, &extraJobAttributes); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrUnknownJobID
 		} else {
 			return nil, err
 		}
+	}
+
+	if err := parseExtraJobAttributes(r, extraJobAttributes); err != nil {
+		getJobMethod.LogAndCountError(err, "parse_extra_job_attributes")
+		return nil, err
 	}
 
 	if err := jobParseContextAndTags(r, jobContext, sess); err != nil {
@@ -310,12 +315,17 @@ func (h *Heimdall) getJobs(ctx context.Context, f *database.Filter) (any, error)
 
 	for rows.Next() {
 
-		jobContext := ``
+		jobContext, extraJobAttributes := ``, ``
 		r := &job.Job{}
 
 		if err := rows.Scan(&r.SystemID, &r.ID, &r.Status, &r.Name, &r.Version, &r.Description, &jobContext, &r.Error, &r.User, &r.IsSync,
-			&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CanceledBy, &r.SparkApplicationID); err != nil {
+			&r.CreatedAt, &r.UpdatedAt, &r.CommandID, &r.CommandName, &r.ClusterID, &r.ClusterName, &r.StoreResultSync, &r.CanceledBy, &extraJobAttributes); err != nil {
 			getJobsMethod.LogAndCountError(err, "scan")
+			return nil, err
+		}
+
+		if err := parseExtraJobAttributes(r, extraJobAttributes); err != nil {
+			getJobsMethod.LogAndCountError(err, "parse_extra_job_attributes")
 			return nil, err
 		}
 
@@ -375,6 +385,16 @@ func (h *Heimdall) getJobStatus(ctx context.Context, j *jobRequest) (any, error)
 	getJobStatusMethod.CountSuccess()
 	return r, nil
 
+}
+
+func parseExtraJobAttributes(j *job.Job, extraJobAttributes string) error {
+	if extraJobAttributes == `` || extraJobAttributes == `{}` {
+		return nil
+	}
+	if err := json.Unmarshal([]byte(extraJobAttributes), &j.ExtraJobAttributes); err != nil {
+		j.ExtraJobAttributes = nil
+	}
+	return nil
 }
 
 func jobParseContextAndTags(j *job.Job, jobContext string, sess *database.Session) (err error) {
