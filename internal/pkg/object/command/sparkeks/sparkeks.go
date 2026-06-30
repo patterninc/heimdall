@@ -43,7 +43,7 @@ const (
 	statusReportInterval      = 30 * time.Second
 	defaultNamespace          = "default"
 	applicationPrefix         = "spark-sql-job"
-	sparkHistoryAttribute     = "Spark History"
+	sparkApplicationIDOutput  = "spark_application_id"
 	awsRegionEnvVar           = "AWS_REGION"
 	s3Prefix                  = "s3://"
 	s3aPrefix                 = "s3a://"
@@ -120,7 +120,6 @@ type clusterContext struct {
 	KubernetesClusterName      *string           `yaml:"cluster_name,omitempty" json:"cluster_name,omitempty"`
 	SparkApplicationFile       string            `yaml:"spark_application_file,omitempty" json:"spark_application_file,omitempty"`
 	RequiredSparkSQLExtensions string            `yaml:"required_spark_sql_extensions,omitempty" json:"required_spark_sql_extensions,omitempty"`
-	SparkHistoryURL            string            `yaml:"spark_history_url,omitempty" json:"spark_history_url,omitempty"`
 }
 
 // executionContext holds the final resolved configuration and clients for a job execution.
@@ -932,14 +931,8 @@ func (e *executionContext) monitorJobAndCollectLogs(ctx context.Context) error {
 
 		finalSparkApp = sparkApp
 
-		if id := sparkApp.Status.SparkApplicationID; id != "" && e.clusterContext.SparkHistoryURL != "" {
-			if e.job.ExtraJobAttributes == nil {
-				e.job.ExtraJobAttributes = make(map[string]job.Attribute)
-			}
-			e.job.ExtraJobAttributes[sparkHistoryAttribute] = job.Attribute{
-				Kind:  job.AttributeKindLink,
-				Value: fmt.Sprintf("%s/history/%s/jobs/", e.clusterContext.SparkHistoryURL, id),
-			}
+		if id := sparkApp.Status.SparkApplicationID; id != "" {
+			e.job.SetOutput(sparkApplicationIDOutput, id)
 		}
 		state := sparkApp.Status.AppState.State
 

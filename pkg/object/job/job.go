@@ -24,6 +24,8 @@ type Job struct {
 	CanceledBy         string               `yaml:"canceled_by,omitempty" json:"canceled_by,omitempty"`
 	ExtraJobAttributes map[string]Attribute `yaml:"extra_job_attributes,omitempty" json:"extra_job_attributes,omitempty"`
 	Result             *result.Result       `yaml:"result,omitempty" json:"result,omitempty"`
+
+	outputs map[string]string
 }
 
 // Attribute kinds for ExtraJobAttributes. Kind tells the UI how to render Value.
@@ -53,4 +55,15 @@ func (j *Job) Init() error {
 
 	return nil
 
+}
+
+func (j *Job) SetOutput(key, value string) {
+	if j.outputs == nil {
+		j.outputs = make(map[string]string)
+	}
+	j.outputs[key] = value
+}
+
+func (j *Job) Outputs() map[string]string {
+	return j.outputs
 }
