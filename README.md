@@ -205,6 +205,25 @@ health_check:
 
 ---
 
+## Config-Driven Job Attributes (For Static or Runtime generated metadata)
+
+Surface extra links or text on a job in the UI with minimal change in plugin code - by declaring `attributes` on a cluster. Each attribute is a template that Heimdall renders after the job runs and stores in the job's `extra_job_attributes`, which the UI then displays. Check local.yaml for the example.
+
+Each entry is `label → { kind, value }`:
+
+- **`kind`** tells the UI how to render `value`: `link` (clickable hyperlink) or `text`.
+- **`value`** is a Go [`text/template`](https://pkg.go.dev/text/template) rendered over four namespaces:
+  - `.Job` — the job object (e.g. `.Job.ID`)
+  - `.Command` / `.Cluster` — the matched command's and cluster's `context` maps
+  - `.Outputs` — runtime values published by the plugin during execution
+
+Static attributes (built only from `.Job`, `.Command`, `.Cluster`) need no plugin changes. For runtime-discovered values, a plugin publishes to the outputs channel with a single call - for example,
+
+```go
+job.SetOutput("some_runtime_metadata", value)
+```
+---
+
 ## 👥 Credits
 
 **Heimdall** was created at **Pattern, Inc** by Stan Babourine, with contributions from Will Graham, Gaurav Warale and Josh Diaz.

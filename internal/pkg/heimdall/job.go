@@ -55,6 +55,13 @@ type commandOnCluster struct {
 	cluster *cluster.Cluster
 }
 
+type attributeTemplateData struct {
+	Job     *job.Job
+	Outputs map[string]string
+	Command map[string]any
+	Cluster map[string]any
+}
+
 func (h *Heimdall) submitJob(ctx context.Context, j *job.Job) (any, error) {
 
 	// set / add job properties
@@ -198,13 +205,6 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 	runJobMethod.CountSuccess(command.Name, cluster.Name)
 	return nil
 
-}
-
-type attributeTemplateData struct {
-	Job     *job.Job
-	Outputs map[string]string
-	Command map[string]any
-	Cluster map[string]any
 }
 
 func renderJobAttributes(j *job.Job, command *command.Command, cluster *cluster.Cluster) {

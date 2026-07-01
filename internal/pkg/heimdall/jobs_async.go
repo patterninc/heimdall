@@ -13,17 +13,6 @@ import (
 	"github.com/patterninc/heimdall/pkg/object/job/status"
 )
 
-func extraJobAttributesJSON(j *job.Job) string {
-	if len(j.ExtraJobAttributes) == 0 {
-		return ``
-	}
-	data, err := json.Marshal(j.ExtraJobAttributes)
-	if err != nil {
-		return ``
-	}
-	return string(data)
-}
-
 const (
 	formatErrUnknownCommand = "unknown command: %s"
 	formatErrUnknownCluster = "unknown cluster: %s"
@@ -46,6 +35,17 @@ var queryJobStatusUpdate string
 
 //go:embed queries/job/active_delete.sql
 var queryActiveJobDelete string
+
+func extraJobAttributesJSON(j *job.Job) string {
+	if len(j.ExtraJobAttributes) == 0 {
+		return ``
+	}
+	data, err := json.Marshal(j.ExtraJobAttributes)
+	if err != nil {
+		return ``
+	}
+	return string(data)
+}
 
 func (h *Heimdall) getAsyncJobs(limit int) ([]*job.Job, error) {
 

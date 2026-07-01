@@ -24,7 +24,6 @@ type Job struct {
 	CanceledBy         string               `yaml:"canceled_by,omitempty" json:"canceled_by,omitempty"`
 	ExtraJobAttributes map[string]Attribute `yaml:"extra_job_attributes,omitempty" json:"extra_job_attributes,omitempty"`
 	Result             *result.Result       `yaml:"result,omitempty" json:"result,omitempty"`
-
 	outputs map[string]string
 }
 
