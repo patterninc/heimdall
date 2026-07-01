@@ -126,31 +126,32 @@ const JobInformationPane = ({
               isTwoColumns
             />
             {extraJobAttributes.length > 0 && (
-              <InformationPane.Section
-                data={extraJobAttributes.map(([label, attr]) =>
-                  attr?.kind === 'link'
-                    ? {
-                        label: '',
-                        data: (
-                          <Button
-                            styleType='text-blue'
-                            as='externalLink'
-                            href={attr.value}
-                            className='gap-1'
-                          >
-                            <span>{label}</span>
-                            <Icon
-                              icon='launch'
-                              color='dark-blue'
-                              iconSize='12px'
-                            />
-                          </Button>
-                        ),
-                        check: true,
-                      }
-                    : { label, data: attr?.value, check: true },
-                )}
-              />
+              <>
+                <InformationPane.Divider />
+                <InformationPane.Section
+                  data={extraJobAttributes.map(([label, attr]) => ({
+                    label: '',
+                    data:
+                      attr?.kind === 'link' ? (
+                        <Button
+                          styleType='text-blue'
+                          as='externalLink'
+                          href={attr.value}
+                          className='gap-1'
+                        >
+                          <span>{label}</span>
+                          <Icon icon='launch' color='dark-blue' iconSize='12px' />
+                        </Button>
+                      ) : (
+                        <span>
+                          {label}: {attr?.value}
+                        </span>
+                      ),
+                    check: true,
+                  }))}
+                  isTwoColumns
+                />
+              </>
             )}
           </div>
         )}
