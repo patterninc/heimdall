@@ -8,22 +8,27 @@ import React, {
   useState,
 } from 'react'
 import {
+  Button,
   SortByProps,
   SortColumnProps,
   StandardTable,
 } from '@patterninc/react-ui'
 import { BreadcrumbContext } from '@/common/BreadCrumbsProvider/context'
 import { fetchJobs, getJobStatus } from '@/app/api/jobs/jobs'
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { ApiParams, JobType, useJobConfig } from './Helper'
+import { useQuery } from '@tanstack/react-query'
+import {
+  ApiParams,
+  JOBS_PAGE_SIZE,
+  TagPair,
+  parseTags,
+  serializeTags,
+  useJobConfig,
+} from './Helper'
 import { useQueryState } from 'nuqs'
 import { FilterStatesType } from '@patterninc/react-ui'
-import {
-  noDataAvailable,
-  noDataAvailableDescription,
-  sortData,
-} from '@/common/Services'
+import { noDataAvailable, noDataAvailableDescription } from '@/common/Services'
 import { AutoRefreshContext } from '@/common/AutoRefreshProvider/context'
+import TagFilter from './TagFilter'
 
 type FilterType = {
   id: string
@@ -33,6 +38,7 @@ type FilterType = {
   clusterId: string
   commandId: string
   status: string[]
+  tags: TagPair[]
 }
 
 const Jobs = (): React.JSX.Element => {
@@ -56,6 +62,11 @@ const Jobs = (): React.JSX.Element => {
     parse: (value) => (value ? value.split(',') : []),
     serialize: (value) => value?.join(',') ?? '',
   })
+  const [tags, setTags] = useQueryState<TagPair[]>('tags', {
+    defaultValue: [],
+    parse: (value) => (value ? parseTags(value) : []),
+    serialize: (value) => serializeTags(value),
+  })
 
   const [filter, setFilter] = useState<FilterType>({
     id: jobId,
@@ -65,6 +76,7 @@ const Jobs = (): React.JSX.Element => {
     clusterId: clusterId,
     commandId: commandId,
     status: status,
+    tags: tags,
   })
 
   useEffect(() => {
@@ -81,25 +93,15 @@ const Jobs = (): React.JSX.Element => {
     if (clusterId) params.cluster = clusterId
     if (commandId) params.command = commandId
     if (status.length > 0) params.status = status
+    const serializedTags = serializeTags(tags)
+    if (serializedTags) params.tags = serializedTags
     return params
-  }, [jobId, name, user, version, clusterId, commandId, status])
+  }, [jobId, name, user, version, clusterId, commandId, status, tags])
 
-  // Fetch Jobs with filters applied
-  const { data, isLoading, fetchNextPage, hasNextPage, isSuccess } =
-    useInfiniteQuery({
-      queryKey: ['jobs', filterParams],
-      queryFn: ({ pageParam }) => fetchJobs(filterParams, pageParam),
-      getNextPageParam: (lastPage) => lastPage?.nextPage,
-      enabled: !!filterParams,
-      initialPageParam: 1,
-      refetchInterval: refreshInterval.value,
-    })
+  const [pageIndex, setPageIndex] = useState(0)
+  const [cursors, setCursors] = useState<(string | null)[]>([null])
 
-  const { data: jobStatus } = useQuery({
-    queryKey: ['jobs'],
-    queryFn: getJobStatus,
-  })
-
+  // Sort state drives the server-side ORDER BY. `flip` is the descending flag.
   const [sortBy, setSort] = useState<SortByProps>({
     prop: 'created_at',
     flip: true,
@@ -113,16 +115,48 @@ const Jobs = (): React.JSX.Element => {
       prop: obj.activeColumn,
       flip: obj.direction,
     })
+    setPageIndex(0)
+    setCursors([null])
   }
 
-  const jobs = useMemo(() => data?.pages?.flatMap((page) => page) || [], [data])
+  // `placeholderData` keeps the previous page visible while the next one loads.
+  const { data, isLoading, isFetching, isSuccess } = useQuery({
+    queryKey: ['jobs', filterParams, sortBy, pageIndex, cursors[pageIndex]],
+    queryFn: () => fetchJobs(filterParams, cursors[pageIndex] ?? null, sortBy),
+    enabled: !!filterParams,
+    refetchInterval: refreshInterval.value,
+    placeholderData: (prev) => prev,
+  })
 
-  const sortedData: JobType[] = useMemo(() => {
-    return sortData(jobs, sortBy)
-  }, [jobs, sortBy])
+  const { data: jobStatus } = useQuery({
+    queryKey: ['jobs'],
+    queryFn: getJobStatus,
+  })
+
+  const jobs = useMemo(() => data?.data ?? [], [data])
+
+  const rowsSoFar = pageIndex * JOBS_PAGE_SIZE + jobs.length
+  const totalResults = data?.has_more ? `${rowsSoFar}+` : `${rowsSoFar}`
+
+  const goToNextPage = useCallback(() => {
+    const next = data?.next_cursor
+    if (!next) return
+    setCursors((prev) => {
+      const copy = [...prev]
+      copy[pageIndex + 1] = next
+      return copy
+    })
+    setPageIndex((i) => i + 1)
+  }, [data?.next_cursor, pageIndex])
+
+  const goToPrevPage = useCallback(() => {
+    setPageIndex((i) => Math.max(0, i - 1))
+  }, [])
 
   const updateFilter = useCallback(() => {
     const queryParams = new URLSearchParams()
+    setPageIndex(0)
+    setCursors([null])
     setJobId(filter.id)
     setName(filter.name)
     setUser(filter.user)
@@ -130,6 +164,7 @@ const Jobs = (): React.JSX.Element => {
     setClusterId(filter.clusterId)
     setCommandId(filter.commandId)
     setStatus(filter.status)
+    setTags(filter.tags)
 
     if (filter?.user) queryParams.append('user', filter.user)
     if (filter?.name) queryParams.append('name', filter.name)
@@ -140,6 +175,8 @@ const Jobs = (): React.JSX.Element => {
     if (filter?.status && filter.status.length > 0) {
       queryParams.append('status', filter.status.join(','))
     }
+    const serializedTags = serializeTags(filter.tags)
+    if (serializedTags) queryParams.append('tags', serializedTags)
     updateBreadcrumbs({
       name: 'Jobs',
       link: `/jobs?${queryParams.toString()}`,
@@ -151,6 +188,7 @@ const Jobs = (): React.JSX.Element => {
     filter.id,
     filter.name,
     filter.status,
+    filter.tags,
     filter.user,
     filter.version,
     setClusterId,
@@ -158,6 +196,7 @@ const Jobs = (): React.JSX.Element => {
     setJobId,
     setName,
     setStatus,
+    setTags,
     setUser,
     setVersion,
     updateBreadcrumbs,
@@ -257,6 +296,8 @@ const Jobs = (): React.JSX.Element => {
   )
 
   const resetFilters = useCallback(() => {
+    setPageIndex(0)
+    setCursors([null])
     setJobId(null)
     setName(null)
     setUser(null)
@@ -264,6 +305,7 @@ const Jobs = (): React.JSX.Element => {
     setClusterId(null)
     setCommandId(null)
     setStatus(null)
+    setTags(null)
     setFilter({
       id: '',
       name: '',
@@ -272,6 +314,7 @@ const Jobs = (): React.JSX.Element => {
       clusterId: '',
       commandId: '',
       status: [],
+      tags: [],
     })
   }, [
     setJobId,
@@ -281,6 +324,7 @@ const Jobs = (): React.JSX.Element => {
     setClusterId,
     setCommandId,
     setStatus,
+    setTags,
   ])
 
   // Compute applied filter count
@@ -293,8 +337,18 @@ const Jobs = (): React.JSX.Element => {
       commandId,
       clusterId,
       status.length > 0,
+      tags.length > 0,
     ].filter(Boolean).length
-  }, [jobId, name, user, version, commandId, clusterId, status.length])
+  }, [
+    jobId,
+    name,
+    user,
+    version,
+    commandId,
+    clusterId,
+    status.length,
+    tags.length,
+  ])
 
   const updateFormField = useCallback(
     (...params: unknown[]) => {
@@ -308,17 +362,19 @@ const Jobs = (): React.JSX.Element => {
     [setFilter],
   )
 
+  const updateTags = useCallback((newTags: TagPair[]) => {
+    setFilter((prevFilter) => ({ ...prevFilter, tags: newTags }))
+  }, [])
+
   return (
     <div className='pt-4'>
       <StandardTable
-        data={sortedData ?? []}
+        data={jobs}
         config={useJobConfig({ sortBy })}
         stickyTableConfig={{ right: 1 }}
         dataKey={'id'}
         hasData={jobs.length > 0}
         successStatus={isSuccess}
-        getData={fetchNextPage}
-        hasMore={!!hasNextPage}
         loading={isLoading}
         tableId='tableId'
         sort={setSortBy}
@@ -330,7 +386,7 @@ const Jobs = (): React.JSX.Element => {
         tableHeaderProps={{
           header: {
             name: 'Results',
-            value: jobs?.length > 100 ? '100+' : jobs?.length,
+            value: totalResults,
           },
           pageFilterProps: {
             filterStates: filters,
@@ -339,9 +395,29 @@ const Jobs = (): React.JSX.Element => {
             resetCallout: resetFilters,
             cancelCallout: () => {},
             onChangeCallout: updateFormField,
+            children: () => (
+              <TagFilter tags={filter.tags} onChange={updateTags} />
+            ),
           },
         }}
       />
+      <div className='flex items-center justify-end gap-2 pt-3'>
+        <Button
+          styleType='secondary'
+          onClick={goToPrevPage}
+          disabled={pageIndex === 0 || isFetching}
+        >
+          Previous
+        </Button>
+        <span className='fw-semi-bold'>Page {pageIndex + 1}</span>
+        <Button
+          styleType='secondary'
+          onClick={goToNextPage}
+          disabled={!data?.next_cursor || isFetching}
+        >
+          Next
+        </Button>
+      </div>
     </div>
   )
 }
