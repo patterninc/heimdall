@@ -3,6 +3,7 @@ package heimdall
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -34,6 +35,17 @@ var queryJobStatusUpdate string
 
 //go:embed queries/job/active_delete.sql
 var queryActiveJobDelete string
+
+func jobAttributesJSON(j *job.Job) string {
+	if len(j.JobAttributes) == 0 {
+		return ``
+	}
+	data, err := json.Marshal(j.JobAttributes)
+	if err != nil {
+		return ``
+	}
+	return string(data)
+}
 
 func (h *Heimdall) getAsyncJobs(limit int) ([]*job.Job, error) {
 
@@ -118,7 +130,7 @@ func (h *Heimdall) runAsyncJob(ctx context.Context, j *job.Job) error {
 	}
 	defer sess.Close()
 
-	if _, err := sess.Exec(queryJobStatusUpdate, status.Running, ``, j.SystemID); err != nil {
+	if _, err := sess.Exec(queryJobStatusUpdate, status.Running, ``, jobAttributesJSON(j), j.SystemID); err != nil {
 		return h.updateAsyncJobStatus(j, err)
 	}
 
@@ -154,7 +166,7 @@ func (h *Heimdall) updateAsyncJobStatus(j *job.Job, jobError error) error {
 	}
 	defer sess.Close()
 
-	if _, err := sess.Exec(queryJobStatusUpdate, j.Status, j.Error, j.SystemID); err != nil {
+	if _, err := sess.Exec(queryJobStatusUpdate, j.Status, j.Error, jobAttributesJSON(j), j.SystemID); err != nil {
 		// TODO: implement proper logging
 		fmt.Println(`job status update error:`, err)
 	}

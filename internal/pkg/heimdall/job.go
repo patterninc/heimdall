@@ -6,10 +6,12 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/babourine/x/pkg/set"
@@ -42,6 +44,7 @@ var (
 	ErrCallerNotAllowed           = fmt.Errorf(`caller is not allowed to run this command`)
 	runJobMethod                  = telemetry.NewMethod("runJob", "heimdall")
 	cancelJobMethod               = telemetry.NewMethod("db_connection", "cancel_job")
+	renderAttributesMethod        = telemetry.NewMethod("renderAttributes", "heimdall")
 )
 
 //go:embed queries/job/status_cancel_update.sql
@@ -50,6 +53,13 @@ var queryJobCancelUpdate string
 type commandOnCluster struct {
 	command *command.Command
 	cluster *cluster.Cluster
+}
+
+type attributeTemplateData struct {
+	Job     *job.Job
+	Outputs map[string]string
+	Command map[string]any
+	Cluster map[string]any
 }
 
 func (h *Heimdall) submitJob(ctx context.Context, j *job.Job) (any, error) {
@@ -174,6 +184,8 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 		return nil
 	}
 
+	renderJobAttributes(j, command, cluster)
+
 	// Handle plugin execution result (only if not canceled)
 	if jobErr != nil {
 		j.Status = jobStatus.Failed
@@ -192,6 +204,47 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 
 	runJobMethod.CountSuccess(command.Name, cluster.Name)
 	return nil
+
+}
+
+func renderJobAttributes(j *job.Job, command *command.Command, cluster *cluster.Cluster) {
+
+	if len(cluster.Attributes) == 0 {
+		return
+	}
+
+	data := attributeTemplateData{Job: j, Outputs: j.Outputs()}
+	if data.Outputs == nil {
+		data.Outputs = map[string]string{}
+	}
+	if command.Context != nil {
+		data.Command = map[string]any(*command.Context)
+	}
+	if cluster.Context != nil {
+		data.Cluster = map[string]any(*cluster.Context)
+	}
+
+	for label, attr := range cluster.Attributes {
+
+		parsed, err := template.New(`attribute`).Parse(attr.Value)
+		if err != nil {
+			renderAttributesMethod.LogAndCountError(fmt.Errorf("attribute %q: invalid template: %w", label, err))
+			continue
+		}
+
+		var value strings.Builder
+		if err := parsed.Option(`missingkey=error`).Execute(&value, data); err != nil {
+			if structuralErr := parsed.Option(`missingkey=zero`).Execute(io.Discard, data); structuralErr != nil {
+				renderAttributesMethod.LogAndCountError(fmt.Errorf("attribute %q: %w", label, structuralErr))
+			}
+			continue
+		}
+
+		if j.JobAttributes == nil {
+			j.JobAttributes = make(map[string]job.Attribute)
+		}
+		j.JobAttributes[label] = job.Attribute{Kind: attr.Kind, Value: value.String()}
+	}
 
 }
 

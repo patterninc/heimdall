@@ -77,6 +77,7 @@ export type JobType = {
   cluster_id: string
   cluster_name: string
   canceled_by?: string
+  job_attributes?: Record<string, { kind?: string; value?: string }>
   error?: string
   context?: {
     properties: {

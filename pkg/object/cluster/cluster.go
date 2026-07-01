@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/patterninc/heimdall/pkg/object"
+	"github.com/patterninc/heimdall/pkg/object/job"
 	"github.com/patterninc/heimdall/pkg/object/status"
 	"github.com/patterninc/heimdall/pkg/rbac"
 )
@@ -14,10 +15,11 @@ var (
 
 type Cluster struct {
 	object.Object `yaml:",inline" json:",inline"`
-	Status        status.Status `yaml:"status,omitempty" json:"status,omitempty"`
-	HealthCheck   bool          `yaml:"health_check,omitempty" json:"health_check,omitempty"`
-	RBACNames     []string      `yaml:"rbacs,omitempty" json:"rbacs,omitempty"`
-	RBACs         []rbac.RBAC   `yaml:"-" json:"-"`
+	Status        status.Status            `yaml:"status,omitempty" json:"status,omitempty"`
+	HealthCheck   bool                     `yaml:"health_check,omitempty" json:"health_check,omitempty"`
+	RBACNames     []string                 `yaml:"rbacs,omitempty" json:"rbacs,omitempty"`
+	RBACs         []rbac.RBAC              `yaml:"-" json:"-"`
+	Attributes    map[string]job.Attribute `yaml:"attributes,omitempty" json:"attributes,omitempty"`
 }
 
 type Clusters map[string]*Cluster

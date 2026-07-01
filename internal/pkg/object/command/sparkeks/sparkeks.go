@@ -43,6 +43,7 @@ const (
 	statusReportInterval      = 30 * time.Second
 	defaultNamespace          = "default"
 	applicationPrefix         = "spark-sql-job"
+	sparkApplicationIDOutput  = "spark_application_id"
 	awsRegionEnvVar           = "AWS_REGION"
 	s3Prefix                  = "s3://"
 	s3aPrefix                 = "s3a://"
@@ -929,6 +930,10 @@ func (e *executionContext) monitorJobAndCollectLogs(ctx context.Context) error {
 		}
 
 		finalSparkApp = sparkApp
+
+		if id := sparkApp.Status.SparkApplicationID; id != "" {
+			e.job.SetOutput(sparkApplicationIDOutput, id)
+		}
 		state := sparkApp.Status.AppState.State
 
 		if time.Since(lastReport) >= statusReportInterval || isTerminalState(state) {
