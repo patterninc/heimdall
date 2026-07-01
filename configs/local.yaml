@@ -42,10 +42,10 @@ clusters:
     attributes:
       Test Link Label:
         kind: link
-        value: "{{ .Cluster.test_url }}/complete_path"
+        value: "{{ .Cluster.test_url }}/remaining_static_or_runtime_generated_path"
       Test Text Label:
         kind: text
-        value: "{{ .Cluster.test_url }}/complete_path"
+        value: "static_or_runtime_generated_value_via_templating"
     status: active
     version: 0.0.1
     description: Just a localhost
