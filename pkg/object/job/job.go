@@ -22,12 +22,12 @@ type Job struct {
 	ClusterID          string               `yaml:"cluster_id,omitempty" json:"cluster_id,omitempty"`
 	ClusterName        string               `yaml:"cluster_name,omitempty" json:"cluster_name,omitempty"`
 	CanceledBy         string               `yaml:"canceled_by,omitempty" json:"canceled_by,omitempty"`
-	ExtraJobAttributes map[string]Attribute `yaml:"extra_job_attributes,omitempty" json:"extra_job_attributes,omitempty"`
+	JobAttributes map[string]Attribute `yaml:"job_attributes,omitempty" json:"job_attributes,omitempty"`
 	Result             *result.Result       `yaml:"result,omitempty" json:"result,omitempty"`
-	outputs map[string]string
+	outputs            map[string]string
 }
 
-// Attribute kinds for ExtraJobAttributes. Kind tells the UI how to render Value.
+// Attribute kinds for JobAttributes. Kind tells the UI how to render Value.
 const (
 	AttributeKindLink = "link"
 	AttributeKindText = "text"

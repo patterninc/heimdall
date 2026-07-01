@@ -36,11 +36,11 @@ var queryJobStatusUpdate string
 //go:embed queries/job/active_delete.sql
 var queryActiveJobDelete string
 
-func extraJobAttributesJSON(j *job.Job) string {
-	if len(j.ExtraJobAttributes) == 0 {
+func jobAttributesJSON(j *job.Job) string {
+	if len(j.JobAttributes) == 0 {
 		return ``
 	}
-	data, err := json.Marshal(j.ExtraJobAttributes)
+	data, err := json.Marshal(j.JobAttributes)
 	if err != nil {
 		return ``
 	}
@@ -130,7 +130,7 @@ func (h *Heimdall) runAsyncJob(ctx context.Context, j *job.Job) error {
 	}
 	defer sess.Close()
 
-	if _, err := sess.Exec(queryJobStatusUpdate, status.Running, ``, extraJobAttributesJSON(j), j.SystemID); err != nil {
+	if _, err := sess.Exec(queryJobStatusUpdate, status.Running, ``, jobAttributesJSON(j), j.SystemID); err != nil {
 		return h.updateAsyncJobStatus(j, err)
 	}
 
@@ -166,7 +166,7 @@ func (h *Heimdall) updateAsyncJobStatus(j *job.Job, jobError error) error {
 	}
 	defer sess.Close()
 
-	if _, err := sess.Exec(queryJobStatusUpdate, j.Status, j.Error, extraJobAttributesJSON(j), j.SystemID); err != nil {
+	if _, err := sess.Exec(queryJobStatusUpdate, j.Status, j.Error, jobAttributesJSON(j), j.SystemID); err != nil {
 		// TODO: implement proper logging
 		fmt.Println(`job status update error:`, err)
 	}

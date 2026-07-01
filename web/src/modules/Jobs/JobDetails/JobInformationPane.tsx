@@ -13,7 +13,7 @@ const JobInformationPane = ({
   isLoading,
 }: JobDataTypesProps): React.JSX.Element => {
   const router = useRouter()
-  const extraJobAttributes = Object.entries(jobData?.extra_job_attributes ?? {})
+  const jobAttributes = Object.entries(jobData?.job_attributes ?? {})
   const jobdetailsData = [
     { label: 'Version', data: jobData?.version, check: !!jobData?.version },
     {
@@ -125,11 +125,11 @@ const JobInformationPane = ({
               ]}
               isTwoColumns
             />
-            {extraJobAttributes.length > 0 && (
+            {jobAttributes.length > 0 && (
               <>
                 <InformationPane.Divider />
                 <InformationPane.Section
-                  data={extraJobAttributes.map(([label, attr]) => ({
+                  data={jobAttributes.map(([label, attr]) => ({
                     label: '',
                     data:
                       attr?.kind === 'link' ? (
@@ -140,7 +140,11 @@ const JobInformationPane = ({
                           className='gap-1'
                         >
                           <span>{label}</span>
-                          <Icon icon='launch' color='dark-blue' iconSize='12px' />
+                          <Icon
+                            icon='launch'
+                            color='dark-blue'
+                            iconSize='12px'
+                          />
                         </Button>
                       ) : (
                         <span>

@@ -21,7 +21,7 @@ create table if not exists jobs
 
 alter table jobs add column if not exists store_result_sync boolean not null default false;
 alter table jobs add column if not exists canceled_by varchar(64) null;
-alter table jobs add column if not exists extra_job_attributes jsonb not null default '{}'::jsonb;
+alter table jobs add column if not exists job_attributes jsonb not null default '{}'::jsonb;
 
 -- Originally had "cancelled_by" column and "cancelling" status, but we aren't british. Whoops.
 do $$ begin

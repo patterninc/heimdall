@@ -207,7 +207,7 @@ health_check:
 
 ## Config-Driven Job Attributes (For Static or Runtime generated metadata)
 
-Surface extra links or text on a job in the UI with minimal change in plugin code - by declaring `attributes` on a cluster. Each attribute is a template that Heimdall renders after the job runs and stores in the job's `extra_job_attributes`, which the UI then displays. Check local.yaml for the example.
+Surface extra links or text on a job in the UI with minimal change in plugin code - by declaring `attributes` on a cluster. Each attribute is a template that Heimdall renders after the job runs and stores in the job's `job_attributes`, which the UI then displays. Check local.yaml for the example.
 
 Each entry is `label → { kind, value }`:
 

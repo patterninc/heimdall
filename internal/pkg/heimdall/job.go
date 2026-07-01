@@ -240,10 +240,10 @@ func renderJobAttributes(j *job.Job, command *command.Command, cluster *cluster.
 			continue
 		}
 
-		if j.ExtraJobAttributes == nil {
-			j.ExtraJobAttributes = make(map[string]job.Attribute)
+		if j.JobAttributes == nil {
+			j.JobAttributes = make(map[string]job.Attribute)
 		}
-		j.ExtraJobAttributes[label] = job.Attribute{Kind: attr.Kind, Value: value.String()}
+		j.JobAttributes[label] = job.Attribute{Kind: attr.Kind, Value: value.String()}
 	}
 
 }
