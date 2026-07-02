@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httputil"
+	"net/http/pprof"
 	"net/url"
 	"os"
 	"strings"
@@ -198,6 +199,9 @@ func (h *Heimdall) Start() error {
 	// metrics endpoint - proxy to metrics service
 	router.Path(`/metrics`).HandlerFunc(metricsRouteHandler)
 
+	if os.Getenv("ENABLE_DEBUG") == "true" {
+		router.PathPrefix(`/debug/pprof/`).HandlerFunc(pprof.Index)
+	}
 	// catch all for APIs
 	apiRouter.PathPrefix(`/`).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, fmt.Errorf("unknown endpoint: %s %s", r.Method, r.URL.Path), nil)
