@@ -22,9 +22,7 @@ const ClustersDetailsHeader = ({
           isLoading ? (
             <ListLoading />
           ) : (
-            <div
-              className='rounded overflow-auto bg-white border-t border-medium-purple'
-            >
+            <div className='border-medium-purple overflow-auto rounded border-t bg-white'>
               <div className='flex flex-col gap-4 p-4'>
                 {data?.context?.properties ? (
                   <div>
