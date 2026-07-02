@@ -45,9 +45,14 @@ jobs:
           fi
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
+        env:
+          DOCKER_BUILD_SUMMARY: false         
+          DOCKER_BUILD_RECORD_UPLOAD: false          
         with:
           context: .
           push: true
           tags: patternoss/heimdall:${{ env.DOCKER_TAG }}
           platforms: linux/amd64,linux/arm64
+          cache-from: type=registry,ref=patternoss/heimdall:buildcache
+          cache-to: type=registry,ref=patternoss/heimdall:buildcache,mode=max         
