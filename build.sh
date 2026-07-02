@@ -25,7 +25,7 @@ mkdir -p ${OUTPUT_DIR}/web ${OUTPUT_DIR}/plugins
 (cd ${WORKING_DIR} && for item in ${COMMANDS}; do go build -ldflags "${LDFLAGS}" -o dist/$item cmd/$item/$item.go; done)
 
 # build plugins
-(cd ${WORKING_DIR} && for item in ${PLUGINS}; do go build -buildmode=plugin -ldflags "${LDFLAGS}" -o dist/plugins/$item.so plugins/$item/$item.go; done)
+(cd ${WORKING_DIR} && echo "${PLUGINS}" | xargs -P 0 -I {} bash -c 'echo "building plugin: {}" && go build -buildmode=plugin -ldflags "${LDFLAGS}" -o dist/plugins/{}.so plugins/{}/{}.go')
 
 # build web
 (cd ${WORKING_DIR}/web && rm -rf node_modules > /dev/null 2>&1 && corepack enable && pnpm install --frozen-lockfile --ignore-scripts && pnpm run build)
