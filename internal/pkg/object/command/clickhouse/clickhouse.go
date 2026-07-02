@@ -66,6 +66,14 @@ func (cmd *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *jo
 		handleMethod.LogAndCountError(err, "create_job_context")
 		return err
 	}
+	// clickhouse.Open returns a connection pool backed by goroutines and sockets;
+	// it must be closed on every exit path or each job leaks a pool (goroutine + fd growth).
+	// driver.Conn.Close is safe to call on an already-closed pool.
+	defer func() {
+		if jobContext.conn != nil {
+			_ = jobContext.conn.Close()
+		}
+	}()
 
 	rows, err := jobContext.execute(ctx)
 	if err != nil {

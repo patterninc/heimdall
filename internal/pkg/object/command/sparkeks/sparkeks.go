@@ -451,6 +451,11 @@ func (e *executionContext) getAndStoreResults(ctx context.Context) error {
 
 // uploadFileToS3 uploads content to S3.
 func uploadFileToS3(ctx context.Context, awsConfig aws.Config, fileURI, content string) error {
+	return uploadStreamToS3(ctx, awsConfig, fileURI, strings.NewReader(content))
+}
+
+// uploadStreamToS3 uploads an io.Reader stream directly to S3 without buffering.
+func uploadStreamToS3(ctx context.Context, awsConfig aws.Config, fileURI string, body io.Reader) error {
 	s3Parts := rxS3.FindAllStringSubmatch(fileURI, -1)
 	if len(s3Parts) == 0 || len(s3Parts[0]) < 3 {
 		return fmt.Errorf("unexpected S3 URI format: %s", fileURI)
@@ -462,7 +467,7 @@ func uploadFileToS3(ctx context.Context, awsConfig aws.Config, fileURI, content 
 	_, err := uploader.Upload(ctx, &s3.PutObjectInput{
 		Bucket: &bucket,
 		Key:    &key,
-		Body:   strings.NewReader(content),
+		Body:   body,
 	})
 	return err
 }
@@ -561,20 +566,27 @@ func getAndUploadPodContainerLogs(ctx context.Context, execCtx *executionContext
 	}
 	defer logs.Close()
 
-	logContent, err := io.ReadAll(logs)
-	if err != nil {
-		return
-	}
-	if string(logContent) != "" {
-		// Write to stderr if requested and this is stdout logs (not previous/stderr logs)
-		if writeToStderr && !previous && logType == stdoutLogSuffix {
-			writeDriverLogsToStderr(execCtx, pod, string(logContent))
+	logURI := fmt.Sprintf("%s/%s-%s", execCtx.logURI, pod.Name, logType)
+	shouldWriteToStderr := writeToStderr && !previous && logType == stdoutLogSuffix && strings.Contains(pod.Name, "driver")
+
+	if shouldWriteToStderr {
+		var buf bytes.Buffer
+		if _, err := io.Copy(&buf, logs); err != nil {
+			return
 		}
 
-		logURI := fmt.Sprintf("%s/%s-%s", execCtx.logURI, pod.Name, logType)
-		if err := uploadFileToS3(ctx, execCtx.awsConfig, logURI, string(logContent)); err != nil {
-			execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Pod %s, container %s: %s upload error: %v\n", pod.Name, container.Name, logType, err))
+		logContent := buf.String()
+		if logContent != "" {
+			writeDriverLogsToStderr(execCtx, pod, logContent)
+			if err := uploadFileToS3(ctx, execCtx.awsConfig, logURI, logContent); err != nil {
+				execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Pod %s, container %s: %s upload error: %v\n", pod.Name, container.Name, logType, err))
+			}
 		}
+		return
+	}
+
+	if err := uploadStreamToS3(ctx, execCtx.awsConfig, logURI, logs); err != nil {
+		execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Pod %s, container %s: %s upload error: %v\n", pod.Name, container.Name, logType, err))
 	}
 }
 
