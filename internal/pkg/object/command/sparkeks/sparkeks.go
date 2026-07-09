@@ -561,7 +561,7 @@ func getAndUploadPodContainerLogs(ctx context.Context, execCtx *executionContext
 	}
 	defer logs.Close()
 
-	shouldWriteToStderr := writeToStderr && !previous && logType == stdoutLogSuffix && strings.Contains(pod.Name, "driver")
+	shouldWriteToStderr := writeToStderr && !previous && logType == stdoutLogSuffix
 
 	if shouldWriteToStderr {
 		var buf bytes.Buffer
