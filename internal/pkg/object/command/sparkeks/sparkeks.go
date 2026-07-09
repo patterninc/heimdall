@@ -451,11 +451,6 @@ func (e *executionContext) getAndStoreResults(ctx context.Context) error {
 
 // uploadFileToS3 uploads content to S3.
 func uploadFileToS3(ctx context.Context, awsConfig aws.Config, fileURI, content string) error {
-	return uploadStreamToS3(ctx, awsConfig, fileURI, strings.NewReader(content))
-}
-
-// uploadStreamToS3 uploads an io.Reader stream directly to S3 without buffering.
-func uploadStreamToS3(ctx context.Context, awsConfig aws.Config, fileURI string, body io.Reader) error {
 	s3Parts := rxS3.FindAllStringSubmatch(fileURI, -1)
 	if len(s3Parts) == 0 || len(s3Parts[0]) < 3 {
 		return fmt.Errorf("unexpected S3 URI format: %s", fileURI)
@@ -467,7 +462,7 @@ func uploadStreamToS3(ctx context.Context, awsConfig aws.Config, fileURI string,
 	_, err := uploader.Upload(ctx, &s3.PutObjectInput{
 		Bucket: &bucket,
 		Key:    &key,
-		Body:   body,
+		Body:   strings.NewReader(content),
 	})
 	return err
 }
