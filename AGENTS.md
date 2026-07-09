@@ -17,7 +17,7 @@ Adopt a persona when it fits the task:
 
 | Persona           | Use for                 | Profile                                                                           |
 | ----------------- | ----------------------- | --------------------------------------------------------------------------------- |
-| Frontend reviewer | UI-only`web/` changes | [`.agents/personas/frontend-reviewer.md`](.agents/personas/frontend-reviewer.md) |
+| Frontend reviewer | UI-only `web/` changes | [`.agents/personas/frontend-reviewer.md`](.agents/personas/frontend-reviewer.md) |
 
 ## Setup (one-time, per machine)
 
