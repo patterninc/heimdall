@@ -561,19 +561,21 @@ func getAndUploadPodContainerLogs(ctx context.Context, execCtx *executionContext
 	}
 	defer logs.Close()
 
-	logContent, err := io.ReadAll(logs)
-	if err != nil {
-		return
-	}
-	if string(logContent) != "" {
-		// Write to stderr if requested and this is stdout logs (not previous/stderr logs)
-		if writeToStderr && !previous && logType == stdoutLogSuffix {
-			writeDriverLogsToStderr(execCtx, pod, string(logContent))
+	shouldWriteToStderr := writeToStderr && !previous && logType == stdoutLogSuffix
+
+	if shouldWriteToStderr {
+		var buf bytes.Buffer
+		if _, err := io.Copy(&buf, logs); err != nil {
+			return
 		}
 
 		logURI := fmt.Sprintf("%s/%s-%s", execCtx.logURI, pod.Name, logType)
-		if err := uploadFileToS3(ctx, execCtx.awsConfig, logURI, string(logContent)); err != nil {
-			execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Pod %s, container %s: %s upload error: %v\n", pod.Name, container.Name, logType, err))
+		logContent := buf.String()
+		if logContent != "" {
+			writeDriverLogsToStderr(execCtx, pod, logContent)
+			if err := uploadFileToS3(ctx, execCtx.awsConfig, logURI, logContent); err != nil {
+				execCtx.runtime.Stderr.WriteString(fmt.Sprintf("Pod %s, container %s: %s upload error: %v\n", pod.Name, container.Name, logType, err))
+			}
 		}
 	}
 }
