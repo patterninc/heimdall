@@ -85,6 +85,21 @@ GET /api/v1/job/<job_id>/stderr
 
 ---
 
+## 🛠️ Building from Source
+
+`build.sh` compiles the Go binaries + plugins and builds the web UI. It builds **only what you ask for** via flags (no defaults):
+
+```bash
+./build.sh --go          # build Go binaries (cmd/*) + plugins (plugins/*.so)
+./build.sh --ui          # build the Next.js web UI
+./build.sh --test        # run the Go test suites
+./build.sh --go --ui --test   # do everything (what CI runs)
+```
+
+Passing no flag builds nothing. Unknown flags fail fast. Outputs land in `dist/` (binaries in `dist/`, plugins in `dist/plugins/`).
+
+---
+
 ## 🔌 Supported Plugins
 
 Heimdall supports a growing set of pluggable command types:
