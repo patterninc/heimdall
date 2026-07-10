@@ -115,9 +115,11 @@ Browser verification (required below) needs a browser-automation tool. This proj
 
 Do **not** skip this — a passing type-check does not prove the UI renders. (Step 0 must be satisfied.)
 
-1. Navigate to the relevant page (e.g. `http://127.0.0.1:9090/jobs/<seeded-id>`, or `:4000` with the
-   dev server).
-2. Screenshot; confirm the change renders as intended — element present/absent, text correct,
+1. Open **every view your change affects** — whichever feature area it lives in (Jobs, Clusters,
+   Commands, …) and whichever view types apply (list, detail, …). If the change is in a **shared
+   component** (react-ui wrappers, panes, table cells), verify **each** view it renders on, not only
+   the one you edited. Serve at `http://127.0.0.1:9090/...` (or `:4000` with the dev server).
+2. Screenshot each; confirm the change renders as intended — element present/absent, text correct,
    layout not broken, alignment/spacing sane.
 3. Check the browser **console** for new errors/warnings (a change can pass `tsc` and still throw).
 4. If the change is responsive, check key widths (mobile ~375px, tablet ~768px, desktop).
