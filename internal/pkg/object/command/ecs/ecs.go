@@ -40,6 +40,9 @@ type commandContext struct {
 	Timeout                duration.Duration         `yaml:"timeout,omitempty" json:"timeout,omitempty"`
 	MaxFailCount           int                       `yaml:"max_fail_count,omitempty" json:"max_fail_count,omitempty"` // max failures before giving up
 	Tags                   map[string]string         `yaml:"tags,omitempty" json:"tags,omitempty"`
+
+	ecsClient  *ecs.Client
+	logsClient *cloudwatchlogs.Client
 }
 
 // ECS cluster context structure
@@ -154,6 +157,13 @@ func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 			return nil, err
 		}
 	}
+
+	cfg, err := config.LoadDefaultConfig(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	e.ecsClient = ecs.NewFromConfig(cfg)
+	e.logsClient = cloudwatchlogs.NewFromConfig(cfg)
 
 	return e, nil
 
@@ -450,7 +460,7 @@ func (execCtx *executionContext) pollForCompletion(ctx context.Context) error {
 
 }
 
-func buildExecutionContext(ctx context.Context, commandCtx *commandContext, j *job.Job, c *cluster.Cluster, runtime *plugin.Runtime) (*executionContext, error) {
+func buildExecutionContext(_ context.Context, commandCtx *commandContext, j *job.Job, c *cluster.Cluster, runtime *plugin.Runtime) (*executionContext, error) {
 
 	execCtx := &executionContext{
 		tasks:   make(map[string]*taskTracker),
@@ -501,12 +511,8 @@ func buildExecutionContext(ctx context.Context, commandCtx *commandContext, j *j
 		return nil, err
 	}
 
-	// initialize AWS session
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	execCtx.ecsClient = ecs.NewFromConfig(cfg)
+	execCtx.ecsClient = commandCtx.ecsClient
+	execCtx.logsClient = commandCtx.logsClient
 
 	return execCtx, nil
 
@@ -754,7 +760,7 @@ func (execCtx *executionContext) retrieveLogs(ctx context.Context) error {
 		case types.LogDriverAwslogs:
 			logGroup := logInfo.options["awslogs-group"]
 			logStream := fmt.Sprintf("%s/%s/%s", logInfo.options["awslogs-stream-prefix"], logInfo.containerName, taskID)
-			if err := heimdallAws.PullLogs(ctx, writer, logGroup, logStream, maxLogChunkSize, maxLogMemoryBytes); err != nil {
+			if err := heimdallAws.PullLogs(ctx, execCtx.logsClient, writer, logGroup, logStream, maxLogChunkSize, maxLogMemoryBytes); err != nil {
 				return err
 			}
 		default:
