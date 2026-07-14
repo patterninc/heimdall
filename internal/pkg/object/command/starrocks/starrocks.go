@@ -159,7 +159,7 @@ func dialFlightClient(ctx context.Context, endpoint string, useTLS bool) (*fligh
 
 	var creds credentials.TransportCredentials
 	if useTLS {
-		creds = credentials.NewTLS(&tls.Config{})
+		creds = credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS13})
 	} else {
 		creds = insecure.NewCredentials()
 	}
