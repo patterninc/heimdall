@@ -35,14 +35,23 @@ RUN ./build.sh --ui
 
 FROM node:20-bookworm-slim AS runtime
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && \
+      apt-get install -y curl && \
+      apt-get install -y --no-install-recommends \
       ca-certificates \
       awscli \
       jq \
+      build-essential \
  && corepack enable && corepack prepare pnpm@10.28.2 --activate \
  && rm -rf /var/lib/apt/lists/*
 
+COPY --from=go-builder /usr/local/go /usr/local/go
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV CGO_ENABLED=1
+
 WORKDIR /go/src/github.com/patterninc/heimdall
+
+COPY --from=go-builder /go/src/github.com/patterninc/heimdall .
 
 # Rarely-changing runtime files first, frequently-changing build outputs last.
 COPY configs/local.yaml /etc/heimdall/heimdall.yaml
