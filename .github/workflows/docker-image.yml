@@ -104,8 +104,8 @@ jobs:
       - name: Create and push manifest list
         working-directory: /tmp/digests
         run: |
-          docker buildx imagetools create -t ${{ env.IMAGE }}:${{ steps.tagger.outputs.tag }} \
+          docker buildx imagetools create -t ${{ env.IMAGE }}:$${{ env.DOCKER_TAG }} \
             $(printf '${{ env.IMAGE }}@sha256:%s ' *)
 
       - name: Inspect
-        run: docker buildx imagetools inspect ${{ env.IMAGE }}:${{ steps.tagger.outputs.tag }}
+        run: docker buildx imagetools inspect ${{ env.IMAGE }}:$${{ env.DOCKER_TAG }}
