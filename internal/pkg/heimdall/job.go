@@ -46,6 +46,7 @@ var (
 	runJobMethod                  = telemetry.NewMethod("runJob", "heimdall")
 	cancelJobMethod               = telemetry.NewMethod("db_connection", "cancel_job")
 	renderAttributesMethod        = telemetry.NewMethod("renderAttributes", "heimdall")
+	getJobFileMethod              = telemetry.NewMethod("getJobFile", "heimdall")
 )
 
 //go:embed queries/job/status_cancel_update.sql
@@ -357,7 +358,11 @@ func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(`Content-Length`, strconv.FormatInt(contentLength, 10))
 		}
 		w.WriteHeader(http.StatusOK)
-		io.Copy(w, body)
+		if _, err := io.Copy(w, body); err != nil {
+			// the 200 status is already on the wire at this point, so the client sees a
+			// truncated body -- at minimum, record the failure server-side.
+			getJobFileMethod.LogAndCountError(err, "stream_s3_body")
+		}
 		return
 	}
 
