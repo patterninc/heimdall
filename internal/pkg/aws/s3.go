@@ -46,44 +46,9 @@ func WriteToS3(ctx context.Context, name string, data []byte, _ os.FileMode) err
 
 }
 
-func ReadFromS3(ctx context.Context, name string) ([]byte, error) {
-
-	bucket, key, err := parseS3Path(name)
-	if err != nil {
-		return nil, err
-	}
-
-	// upload file
-	awsConfig, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create an S3 client
-	svc := s3.NewFromConfig(awsConfig)
-
-	// Create a PutObject request to upload the file
-	getObjectOutput, err := svc.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: &bucket,
-		Key:    &key,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if getObjectOutput != nil && getObjectOutput.Body != nil {
-		defer getObjectOutput.Body.Close()
-		return io.ReadAll(getObjectOutput.Body)
-	}
-
-	return nil, nil
-
-}
-
-// GetS3ObjectReader returns a streaming reader for an S3 object plus its content length,
-// so callers can copy the body directly to a destination (e.g. an HTTP response) without
-// buffering the whole object into memory. The caller is responsible for closing the reader.
-func GetS3ObjectReader(ctx context.Context, name string) (io.ReadCloser, int64, error) {
+// ReadFromS3 returns the object body as a streaming reader plus its content length.
+// The caller is responsible for closing the reader.
+func ReadFromS3(ctx context.Context, name string) (io.ReadCloser, int64, error) {
 
 	bucket, key, err := parseS3Path(name)
 	if err != nil {

@@ -339,10 +339,8 @@ func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
 
 	filenamePath := fmt.Sprintf(jobFileFormat, sourceDirectory, jobID, filename)
 
-	// S3-backed files are streamed directly to the response instead of being buffered
-	// into memory -- these can be multi-hundred-MB job logs / results.
 	if strings.HasPrefix(filenamePath, s3Prefix) {
-		body, contentLength, err := aws.GetS3ObjectReader(r.Context(), filenamePath)
+		body, contentLength, err := aws.ReadFromS3(r.Context(), filenamePath)
 		if err != nil {
 			writeAPIError(w, err, nil)
 			return
@@ -358,9 +356,8 @@ func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(`Content-Length`, strconv.FormatInt(contentLength, 10))
 		}
 		w.WriteHeader(http.StatusOK)
+		// status is already written, so a copy error can't change the response -- just record it.
 		if _, err := io.Copy(w, body); err != nil {
-			// the 200 status is already on the wire at this point, so the client sees a
-			// truncated body -- at minimum, record the failure server-side.
 			getJobFileMethod.LogAndCountError(err, "stream_s3_body")
 		}
 		return
