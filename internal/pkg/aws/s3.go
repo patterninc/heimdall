@@ -80,6 +80,44 @@ func ReadFromS3(ctx context.Context, name string) ([]byte, error) {
 
 }
 
+// GetS3ObjectReader returns a streaming reader for an S3 object plus its content length,
+// so callers can copy the body directly to a destination (e.g. an HTTP response) without
+// buffering the whole object into memory. The caller is responsible for closing the reader.
+func GetS3ObjectReader(ctx context.Context, name string) (io.ReadCloser, int64, error) {
+
+	bucket, key, err := parseS3Path(name)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	awsConfig, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	svc := s3.NewFromConfig(awsConfig)
+
+	getObjectOutput, err := svc.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: &bucket,
+		Key:    &key,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if getObjectOutput == nil || getObjectOutput.Body == nil {
+		return nil, 0, nil
+	}
+
+	contentLength := int64(0)
+	if getObjectOutput.ContentLength != nil {
+		contentLength = *getObjectOutput.ContentLength
+	}
+
+	return getObjectOutput.Body, contentLength, nil
+
+}
+
 func parseS3Path(name string) (string, string, error) {
 
 	// let's parse name
