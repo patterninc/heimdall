@@ -1,12 +1,10 @@
 package result
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
 	"regexp"
 	"strconv"
@@ -136,49 +134,69 @@ func FromAvro(uri string) (*Result, error) {
 
 	for _, c := range listObjectsOutput.Contents {
 		if key := *c.Key; strings.HasSuffix(key, avroExtension) {
-			data, err := getS3Object(svc, &s3Parts[0][1], c.Key)
-			if err != nil {
+			if err := readAvroObject(svc, &s3Parts[0][1], c.Key, r); err != nil {
 				return nil, err
-			}
-			ocf, err := goavro.NewOCFReader(bytes.NewReader(data))
-			if err != nil {
-				return nil, err
-			}
-			// if we do not have columns metadata, let's pull it....
-			if len(r.Columns) == 0 {
-				fields := &avroFields{}
-				if err := json.Unmarshal([]byte(ocf.Codec().Schema()), fields); err != nil {
-					return nil, err
-				}
-				r.Columns = fields.Fields
-			}
-			// now let's process data
-			for ocf.Scan() {
-				recordObject, err := ocf.Read()
-				if err != nil {
-					return nil, err
-				}
-				row := make([]any, 0, len(r.Columns))
-				record, ok := recordObject.(map[string]any)
-				if !ok {
-					return nil, fmt.Errorf("failed to parse record. unexpected type: %T", recordObject)
-				}
-				for _, c := range r.Columns {
-					val := record[c.Name]
-					if m, ok := val.(map[string]any); ok && len(m) == 1 {
-						val = extractUnionValue(m, c)
-					}
-					if c.IsDecimal() {
-						val = decodeDecimal(val, c.Scale)
-					}
-					row = append(row, val)
-				}
-				r.Data = append(r.Data, row)
 			}
 		}
 	}
 
 	return r, nil
+
+}
+
+// readAvroObject streams a single Avro object's records directly from its S3 body into r,
+// without buffering the object into memory first -- goavro.NewOCFReader reads sequentially
+// off an io.Reader, so there is no need to materialize the whole file as []byte.
+func readAvroObject(svc *s3.Client, bucket, key *string, r *Result) error {
+
+	resp, err := svc.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: bucket,
+		Key:    key,
+	})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	ocf, err := goavro.NewOCFReader(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	// if we do not have columns metadata, let's pull it....
+	if len(r.Columns) == 0 {
+		fields := &avroFields{}
+		if err := json.Unmarshal([]byte(ocf.Codec().Schema()), fields); err != nil {
+			return err
+		}
+		r.Columns = fields.Fields
+	}
+
+	// now let's process data
+	for ocf.Scan() {
+		recordObject, err := ocf.Read()
+		if err != nil {
+			return err
+		}
+		row := make([]any, 0, len(r.Columns))
+		record, ok := recordObject.(map[string]any)
+		if !ok {
+			return fmt.Errorf("failed to parse record. unexpected type: %T", recordObject)
+		}
+		for _, c := range r.Columns {
+			val := record[c.Name]
+			if m, ok := val.(map[string]any); ok && len(m) == 1 {
+				val = extractUnionValue(m, c)
+			}
+			if c.IsDecimal() {
+				val = decodeDecimal(val, c.Scale)
+			}
+			row = append(row, val)
+		}
+		r.Data = append(r.Data, row)
+	}
+
+	return nil
 
 }
 
@@ -288,20 +306,4 @@ func decodeDecimal(val any, scale int) any {
 	divisor := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(scale)), nil))
 	result, _ := new(big.Float).Quo(new(big.Float).SetInt(unscaled), divisor).Float64()
 	return result
-}
-
-func getS3Object(svc *s3.Client, bucket, key *string) ([]byte, error) {
-
-	resp, err := svc.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: bucket,
-		Key:    key,
-	})
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	// Read the file content
-	return io.ReadAll(resp.Body)
-
 }

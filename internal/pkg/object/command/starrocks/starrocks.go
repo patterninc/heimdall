@@ -187,9 +187,11 @@ func (cmd *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) 
 	defer beClients.closeAll()
 
 	for _, endpoint := range info.Endpoint {
-		if _, err := fetchEndpoint(ctx, beClients, endpoint); err != nil {
+		reader, err := fetchEndpoint(ctx, beClients, endpoint)
+		if err != nil {
 			return err
 		}
+		reader.Release()
 	}
 
 	return nil

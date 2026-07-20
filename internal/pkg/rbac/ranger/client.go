@@ -164,8 +164,6 @@ func (c *client) executeRequest(method string, endpoint string, v interface{}, r
 
 	executeRequestMethod.CountSuccess()
 
-	vals, _ := io.ReadAll(resp.Body)
-	resp.Body = io.NopCloser(bytes.NewReader(vals))
 	if v != nil {
 		return json.NewDecoder(resp.Body).Decode(v)
 	}

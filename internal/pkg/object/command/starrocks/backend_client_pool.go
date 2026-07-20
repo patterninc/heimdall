@@ -78,7 +78,10 @@ func (p *backendClientPool) closeAll() {
 	}
 }
 
-func fetchEndpoint(ctx context.Context, beClients *backendClientPool, endpoint *flight.FlightEndpoint) ([][]any, error) {
+// fetchEndpoint redeems a single BE endpoint's ticket and returns the raw Flight
+// reader so the caller can stream record batches directly instead of draining
+// the whole stream into memory here first.
+func fetchEndpoint(ctx context.Context, beClients *backendClientPool, endpoint *flight.FlightEndpoint) (*flight.Reader, error) {
 
 	client, err := beClients.clientFor(ctx, endpoint)
 	if err != nil {
@@ -89,18 +92,8 @@ func fetchEndpoint(ctx context.Context, beClients *backendClientPool, endpoint *
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch result stream: %v", err)
 	}
-	defer reader.Release()
 
-	rows := make([][]any, 0, 128)
-	for reader.Next() {
-		rows = append(rows, recordToRows(reader.Record())...)
-	}
-
-	if err := reader.Err(); err != nil {
-		return nil, fmt.Errorf("error reading result stream: %v", err)
-	}
-
-	return rows, nil
+	return reader, nil
 
 }
 

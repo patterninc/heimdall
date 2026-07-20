@@ -3,6 +3,7 @@ package starrocks
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/apache/arrow-go/v18/arrow/flight"
 	"github.com/apache/arrow-go/v18/arrow/flight/flightsql"
@@ -69,18 +70,35 @@ func collectResults(ctx context.Context, feClient *flightsql.Client, info *fligh
 	beClients := newBackendClientPool(feClient, dialedEndpoint, useTLS)
 	defer beClients.closeAll()
 
-	// endpoints redeem independently, so fan DoGet out across goroutines
-	// instead of draining them one at a time.
-	rowsByEndpoint := make([][][]any, len(info.Endpoint))
+	out := &result.Result{
+		Columns: columnsFromSchema(schema),
+		Data:    make([][]any, 0, 128),
+	}
+	var mu sync.Mutex
 
+	// endpoints redeem independently, so fan DoGet out across goroutines; each
+	// reader is streamed record-batch by record-batch straight into out.Data
+	// instead of being drained into a per-endpoint buffer first.
 	g, gctx := errgroup.WithContext(ctx)
-	for i, endpoint := range info.Endpoint {
+	for _, endpoint := range info.Endpoint {
 		g.Go(func() error {
-			rows, err := fetchEndpoint(gctx, beClients, endpoint)
+			reader, err := fetchEndpoint(gctx, beClients, endpoint)
 			if err != nil {
 				return err
 			}
-			rowsByEndpoint[i] = rows
+			defer reader.Release()
+
+			for reader.Next() {
+				rows := recordToRows(reader.Record())
+				mu.Lock()
+				out.Data = append(out.Data, rows...)
+				mu.Unlock()
+			}
+
+			if err := reader.Err(); err != nil {
+				return fmt.Errorf("error reading result stream: %v", err)
+			}
+
 			return nil
 		})
 	}
@@ -88,14 +106,6 @@ func collectResults(ctx context.Context, feClient *flightsql.Client, info *fligh
 	if err := g.Wait(); err != nil {
 		collectResultsMethod.CountError("do_get")
 		return nil, err
-	}
-
-	out := &result.Result{
-		Columns: columnsFromSchema(schema),
-		Data:    make([][]any, 0, 128),
-	}
-	for _, rows := range rowsByEndpoint {
-		out.Data = append(out.Data, rows...)
 	}
 
 	return out, nil

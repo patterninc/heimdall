@@ -200,6 +200,13 @@ func (h *Heimdall) Start() error {
 	router.Path(`/metrics`).HandlerFunc(metricsRouteHandler)
 
 	if os.Getenv("ENABLE_DEBUG") == "true" {
+		// pprof.Index only serves the lookup-based profiles (heap, goroutine, allocs, ...);
+		// cmdline/profile/symbol/trace need their own dedicated handlers registered explicitly,
+		// otherwise CPU profiling (/debug/pprof/profile) 404s.
+		router.HandleFunc(`/debug/pprof/cmdline`, pprof.Cmdline)
+		router.HandleFunc(`/debug/pprof/profile`, pprof.Profile)
+		router.HandleFunc(`/debug/pprof/symbol`, pprof.Symbol)
+		router.HandleFunc(`/debug/pprof/trace`, pprof.Trace)
 		router.PathPrefix(`/debug/pprof/`).HandlerFunc(pprof.Index)
 	}
 	// catch all for APIs

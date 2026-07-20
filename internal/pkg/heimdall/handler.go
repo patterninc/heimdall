@@ -20,6 +20,7 @@ const (
 	idKey            = `id`
 	errorKey         = `error`
 	jsonUserKey      = `user`
+	maxPayloadBytes  = 10 << 20 // 10MB cap on inbound job/command/cluster payloads
 )
 
 var (
@@ -72,7 +73,7 @@ func payloadHandler[T any](fn func(context.Context, *T) (any, error)) http.Handl
 		// API request count
 		payloadHandlerMethod.CountRequest()
 
-		data, err := io.ReadAll(r.Body)
+		data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxPayloadBytes))
 		if err != nil {
 			writeAPIError(w, err, nil)
 			return

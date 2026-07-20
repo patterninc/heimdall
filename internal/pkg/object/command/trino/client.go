@@ -115,18 +115,16 @@ func (r *request) api(req *http.Request) error {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
 	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("unexpected status code [%d]: %s", resp.StatusCode, string(body))
 	}
 
+	// stream-decode the response instead of buffering the full body -- Trino statement-API
+	// responses can carry large result pages and this is polled repeatedly per job.
 	output := &response{}
-	if err := json.Unmarshal(body, output); err != nil {
-		return fmt.Errorf("error [%s]: %s", err, string(body))
+	if err := json.NewDecoder(resp.Body).Decode(output); err != nil {
+		return fmt.Errorf("error decoding trino response: %w", err)
 	}
 
 	// do we have an error?
