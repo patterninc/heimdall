@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -33,8 +34,17 @@ func GetTableMetadata(ctx context.Context, catalogID, tableName string) ([]byte,
 		return nil, err
 	}
 
-	// let's pull the file content
-	return ReadFromS3(ctx, location)
+	// table metadata is a small JSON file, so it's fine to read it fully here
+	body, _, err := ReadFromS3(ctx, location)
+	if err != nil {
+		return nil, err
+	}
+	if body == nil {
+		return nil, nil
+	}
+	defer body.Close()
+
+	return io.ReadAll(body)
 
 }
 

@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -45,6 +46,7 @@ var (
 	runJobMethod                  = telemetry.NewMethod("runJob", "heimdall")
 	cancelJobMethod               = telemetry.NewMethod("db_connection", "cancel_job")
 	renderAttributesMethod        = telemetry.NewMethod("renderAttributes", "heimdall")
+	getJobFileMethod              = telemetry.NewMethod("getJobFile", "heimdall")
 )
 
 //go:embed queries/job/status_cancel_update.sql
@@ -335,17 +337,34 @@ func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
 		sourceDirectory = h.ResultDirectory
 	}
 
-	// get the file content
-	readFileFunc := os.ReadFile
 	filenamePath := fmt.Sprintf(jobFileFormat, sourceDirectory, jobID, filename)
+
 	if strings.HasPrefix(filenamePath, s3Prefix) {
-		readFileFunc = func(path string) ([]byte, error) {
-			return aws.ReadFromS3(r.Context(), path)
+		body, contentLength, err := aws.ReadFromS3(r.Context(), filenamePath)
+		if err != nil {
+			writeAPIError(w, err, nil)
+			return
 		}
+		if body == nil {
+			writeAPIError(w, fmt.Errorf(formatFileNotFound, filename), nil)
+			return
+		}
+		defer body.Close()
+
+		w.Header().Add(contentTypeKey, contentType)
+		if contentLength > 0 {
+			w.Header().Add(`Content-Length`, strconv.FormatInt(contentLength, 10))
+		}
+		w.WriteHeader(http.StatusOK)
+		// status is already written, so a copy error can't change the response -- just record it.
+		if _, err := io.Copy(w, body); err != nil {
+			getJobFileMethod.LogAndCountError(err, "stream_s3_body")
+		}
+		return
 	}
 
 	// get file's content
-	data, err := readFileFunc(filenamePath)
+	data, err := os.ReadFile(filenamePath)
 	if err != nil {
 		writeAPIError(w, err, nil)
 		return
