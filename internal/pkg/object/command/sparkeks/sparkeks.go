@@ -52,6 +52,14 @@ const (
 	defaultSparkAppAPIVersion = "sparkoperator.k8s.io/v1beta2"
 	defaultSparkAppKind       = "SparkApplication"
 
+	// jarApplicationType is the SparkApplication.Spec.Type used for JAR/--class entrypoint
+	// jobs (Parameters.EntryPoint set). Chipmunk's Writer is Scala; if a Java JAR entrypoint
+	// is ever needed this would need to become configurable — see bolt-01's open questions.
+	jarApplicationType = v1beta2.SparkApplicationTypeScala
+	// defaultApplicationType is applied when neither the loaded template nor the JAR branch
+	// set Spec.Type, so the CRD's required enum field is never submitted empty (see Gap 4).
+	defaultApplicationType = v1beta2.SparkApplicationTypePython
+
 	queriesPath = "queries"
 	resultsPath = "results"
 	logsPath    = "logs"
@@ -104,12 +112,23 @@ type commandContext struct {
 
 type jobParameters struct {
 	Properties map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
+	// EntryPoint is the fully-qualified main class for a JAR-based (Java/Scala) Spark
+	// application. When set, the plugin submits a Type:Scala SparkApplication with
+	// MainClass=EntryPoint and MainApplicationFile pointed at the command's `wrapper_uri`
+	// jar, instead of the default SQL-wrapper (Type:Python) path. Mirrors the `spark`
+	// (EMR) plugin's sparkSubmitParameters.EntryPoint
+	// (internal/pkg/object/command/spark/spark.go).
+	EntryPoint string `yaml:"entry_point,omitempty" json:"entry_point,omitempty"`
 }
 
 type jobContext struct {
 	Query        string         `yaml:"query,omitempty" json:"query,omitempty"`
 	Parameters   *jobParameters `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	ReturnResult bool           `yaml:"return_result,omitempty" json:"return_result,omitempty"`
+	// Arguments carries extra positional args appended after the standard
+	// [appName, user, query] prefix in JAR mode (Parameters.EntryPoint set). Ignored when
+	// not in JAR mode. E.g. for chipmunk: ["s3://pattern-dl/chipmunk/collections/<name>/v<version>"].
+	Arguments []string `yaml:"arguments,omitempty" json:"arguments,omitempty"`
 }
 
 type clusterContext struct {
@@ -727,18 +746,44 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	sparkApp.ObjectMeta.Name = execCtx.appName
 	sparkApp.ObjectMeta.Namespace = execCtx.commandContext.KubeNamespace
 
-	// Set main application file and arguments
+	// Set main application file and arguments.
+	//
+	// Two entrypoint styles share commandContext.WrapperURI:
+	//   - JAR/--class (Parameters.EntryPoint set): wrapper_uri points at a .jar; the
+	//     application's main() receives [appName, user, query, ...Arguments, (resultURI)].
+	//     This is the contract chipmunk's com.pattern.chipmunk.Writer expects: args(0)=appName,
+	//     args(1)=user, args(2)=<literal SQL text, NOT a URI>, args(3)=s3 target, optional
+	//     args(4)=resultURI.
+	//   - SQL-wrapper (Parameters.EntryPoint unset — existing behavior, byte-for-byte
+	//     unchanged below): wrapper_uri points at a .py wrapper that reads the query from
+	//     queryURI.
 	if execCtx.commandContext.WrapperURI != "" {
 		s3aWrapperURI := updateS3ToS3aURI(execCtx.commandContext.WrapperURI)
-		s3aQueryURI := updateS3ToS3aURI(execCtx.queryURI)
 		s3aResultURI := updateS3ToS3aURI(execCtx.resultURI)
 		mainAppFile := s3aWrapperURI
-		if jobContext.ReturnResult {
-			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User, s3aResultURI}
-		} else {
-			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User}
-		}
 		sparkApp.Spec.MainApplicationFile = &mainAppFile
+
+		if jobContext.Parameters != nil && jobContext.Parameters.EntryPoint != "" {
+			// JAR / --class entrypoint path (e.g. chipmunk Writer).
+			entryPoint := jobContext.Parameters.EntryPoint
+			sparkApp.Spec.MainClass = &entryPoint
+			sparkApp.Spec.Type = jarApplicationType
+
+			args := []string{execCtx.appName, execCtx.job.User, jobContext.Query}
+			args = append(args, jobContext.Arguments...)
+			if jobContext.ReturnResult {
+				args = append(args, s3aResultURI)
+			}
+			sparkApp.Spec.Arguments = args
+		} else {
+			// Existing SQL-wrapper path — unchanged.
+			s3aQueryURI := updateS3ToS3aURI(execCtx.queryURI)
+			if jobContext.ReturnResult {
+				sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User, s3aResultURI}
+			} else {
+				sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User}
+			}
+		}
 	}
 
 	if sparkApp.Spec.SparkConf == nil {
@@ -843,6 +888,18 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	}
 	for k, v := range jobContext.Parameters.Properties {
 		sparkApp.Spec.SparkConf[k] = v
+	}
+
+	// Gap 4 (defensive): SparkApplication.Spec.Type has no `omitempty` and is a required,
+	// enum-validated CRD field ({Java,Python,Scala,R}); submitting it empty is rejected by
+	// the API server. The JAR branch above always sets it explicitly. The inline default
+	// template built in loadTemplate() when no spark_application_file is configured never
+	// sets Type, so without this fallback a templateless SQL-wrapper job would submit an
+	// invalid empty Type. Every cluster configured today already sets Type explicitly via
+	// its template, so this is a no-op in production today and only guards future
+	// templateless configs.
+	if sparkApp.Spec.Type == "" {
+		sparkApp.Spec.Type = defaultApplicationType
 	}
 }
 
