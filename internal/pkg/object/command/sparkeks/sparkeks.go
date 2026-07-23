@@ -967,7 +967,12 @@ func (e *executionContext) monitorJobAndCollectLogs(ctx context.Context) error {
 			if state == v1beta2.ApplicationStateUnknown {
 				msg = sparkAppUnknownStateMsg
 			}
-			return fmt.Errorf("%s", msg)
+			errorMessage := sparkApp.Status.AppState.ErrorMessage
+			if errorMessage == "" {
+				errorMessage = unknownErrorMsg
+			}
+			e.runtime.Stderr.WriteString(fmt.Sprintf("%s: %s\n", msg, errorMessage))
+			return fmt.Errorf("%s: %s", msg, errorMessage)
 		}
 	}
 }
