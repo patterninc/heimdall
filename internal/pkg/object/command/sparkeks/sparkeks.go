@@ -855,10 +855,10 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	}
 
 	for k, v := range clusterContext.Properties {
-		sparkApp.Spec.SparkConf[k] = v
+		sparkApp.Spec.SparkConf[k] = updateS3ToS3aURI(v)
 	}
 	for k, v := range jobContext.Parameters.Properties {
-		sparkApp.Spec.SparkConf[k] = v
+		sparkApp.Spec.SparkConf[k] = updateS3ToS3aURI(v)
 	}
 
 	// Gap 4 (defensive): SparkApplication.Spec.Type has no `omitempty` and is a required,
