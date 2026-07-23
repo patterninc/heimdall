@@ -8,7 +8,9 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	sf "github.com/snowflakedb/gosnowflake"
 
 	heimdallContext "github.com/patterninc/heimdall/pkg/context"
@@ -21,21 +23,24 @@ import (
 const (
 	privateKeyType      = `PRIVATE KEY`
 	snowflakeDriverName = `snowflake`
+	oauthTokenTTL       = time.Hour
+	oauthScope          = `session:role-any`
 )
 
 var (
 	ErrFailedToDecodePEMBlock = fmt.Errorf(`failed to decode PEM block`)
 	ErrInvalidKeyType         = fmt.Errorf(`invalid key type`)
+	ErrMissingOAuthConfig     = fmt.Errorf(`impersonate_user requires oauth_private_key, oauth_issuer, and oauth_audience`)
+	ErrMissingJobUser         = fmt.Errorf(`impersonate_user is enabled but job has no user identity`)
 )
 
-// commandContext represents command-level configuration from the YAML config file.
-// Role is defined here for security - users cannot override
 type commandContext struct {
-	Role string `yaml:"role,omitempty" json:"role,omitempty"`
+	DefaultRole string `yaml:"default_role,omitempty" json:"default_role,omitempty"`
 }
 
 type jobContext struct {
 	Query string `yaml:"query,omitempty" json:"query,omitempty"`
+	Role  string `yaml:"role,omitempty" json:"role,omitempty"`
 }
 
 type clusterContext struct {
@@ -43,7 +48,15 @@ type clusterContext struct {
 	User       string `yaml:"user,omitempty" json:"user,omitempty"`
 	Database   string `yaml:"database,omitempty" json:"database,omitempty"`
 	Warehouse  string `yaml:"warehouse,omitempty" json:"warehouse,omitempty"`
-	PrivateKey string `yaml:"private_key,omitempty" json:"private_key,omitempty"`
+	PrivateKey      string `yaml:"private_key,omitempty" json:"private_key,omitempty"`
+	ImpersonateUser bool   `yaml:"impersonate_user,omitempty" json:"impersonate_user,omitempty"`
+	// OAuthPrivateKey is a path to the PEM-encoded RSA private key used to mint OAuth tokens.
+	// Only required when impersonate_user is true.
+	OAuthPrivateKey string `yaml:"oauth_private_key,omitempty" json:"oauth_private_key,omitempty"`
+	// OAuthIssuer must match the EXTERNAL_OAUTH_ISSUER configured in Snowflake.
+	OAuthIssuer string `yaml:"oauth_issuer,omitempty" json:"oauth_issuer,omitempty"`
+	// OAuthAudience is the token audience, typically the Snowflake account URL.
+	OAuthAudience string `yaml:"oauth_audience,omitempty" json:"oauth_audience,omitempty"`
 }
 
 func parsePrivateKey(privateKeyBytes []byte) (*rsa.PrivateKey, error) {
@@ -68,6 +81,31 @@ func parsePrivateKey(privateKeyBytes []byte) (*rsa.PrivateKey, error) {
 
 	return rsaPrivateKey, nil
 
+}
+
+func (c *clusterContext) mintOAuthToken(username string) (string, error) {
+	privateKeyBytes, err := os.ReadFile(c.OAuthPrivateKey)
+	if err != nil {
+		return "", err
+	}
+
+	privateKey, err := parsePrivateKey(privateKeyBytes)
+	if err != nil {
+		return "", err
+	}
+
+	now := time.Now()
+	claims := jwt.MapClaims{
+		"sub": username,
+		"iss": c.OAuthIssuer,
+		"aud": jwt.ClaimStrings{c.OAuthAudience},
+		"iat": now.Unix(),
+		"exp": now.Add(oauthTokenTTL).Unix(),
+		"scp": oauthScope,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	return token.SignedString(privateKey)
 }
 
 func New(cmdCtx *heimdallContext.Context) (plugin.Handler, error) {
@@ -99,31 +137,65 @@ func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 		return err
 	}
 
-	// prepare snowflake config
-	privateKeyBytes, err := os.ReadFile(clusterContext.PrivateKey)
-	if err != nil {
-		return err
-	}
+	// build snowflake DSN — either OAuth impersonation or key-pair JWT
+	var dsn string
+	if clusterContext.ImpersonateUser {
+		if clusterContext.OAuthPrivateKey == `` || clusterContext.OAuthIssuer == `` || clusterContext.OAuthAudience == `` {
+			return ErrMissingOAuthConfig
+		}
+		if j.User == `` {
+			return ErrMissingJobUser
+		}
 
-	// Parse the private key
-	privateKey, err := parsePrivateKey(privateKeyBytes)
-	if err != nil {
-		return err
-	}
+		oauthToken, err := clusterContext.mintOAuthToken(j.User)
+		if err != nil {
+			return err
+		}
 
-	// s.Role from command context; empty string = Snowflake uses user's default role
-	dsn, err := sf.DSN(&sf.Config{
-		Account:       clusterContext.Account,
-		User:          clusterContext.User,
-		Database:      clusterContext.Database,
-		Warehouse:     clusterContext.Warehouse,
-		Role:          s.Role,
-		Authenticator: sf.AuthTypeJwt,
-		PrivateKey:    privateKey,
-		Application:   r.UserAgent,
-	})
-	if err != nil {
-		return err
+		role := s.DefaultRole
+		if jobContext.Role != `` {
+			role = jobContext.Role
+		}
+
+		dsn, err = sf.DSN(&sf.Config{
+			Account:       clusterContext.Account,
+			User:          j.User,
+			Authenticator: sf.AuthTypeOAuth,
+			Token:         oauthToken,
+			Application:   r.UserAgent,
+			Database:      clusterContext.Database,
+			Warehouse:     clusterContext.Warehouse,
+			Role:          role,
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		// standard key-pair JWT auth as Heimdall service account
+		privateKeyBytes, err := os.ReadFile(clusterContext.PrivateKey)
+		if err != nil {
+			return err
+		}
+
+		privateKey, err := parsePrivateKey(privateKeyBytes)
+		if err != nil {
+			return err
+		}
+
+		// s.DefaultRole from command context; empty string = Snowflake uses user's default role
+		dsn, err = sf.DSN(&sf.Config{
+			Account:       clusterContext.Account,
+			User:          clusterContext.User,
+			Database:      clusterContext.Database,
+			Warehouse:     clusterContext.Warehouse,
+			Role:          s.DefaultRole,
+			Authenticator: sf.AuthTypeJwt,
+			PrivateKey:    privateKey,
+			Application:   r.UserAgent,
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	// open connection
@@ -170,7 +242,7 @@ func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) er
 		User:          clusterCtx.User,
 		Database:      clusterCtx.Database,
 		Warehouse:     clusterCtx.Warehouse,
-		Role:          s.Role,
+		Role:          s.DefaultRole,
 		Authenticator: sf.AuthTypeJwt,
 		PrivateKey:    privateKey,
 	})
