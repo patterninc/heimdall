@@ -54,7 +54,7 @@ const (
 
 	// defaultApplicationType is applied when neither the loaded template nor the JAR branch
 	// set Spec.Type, so the CRD's required enum field is never submitted empty (see Gap 4).
-	// The JAR type (jarApplicationType) lives in entrypoint.go alongside its strategy.
+	// JAR application types (jarApplicationTypes / resolveJarApplicationType) live in entrypoint.go.
 	defaultApplicationType = v1beta2.SparkApplicationTypePython
 
 	queriesPath = "queries"
@@ -109,13 +109,18 @@ type commandContext struct {
 
 type jobParameters struct {
 	Properties map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
-	// EntryPoint is the fully-qualified main class for a JAR-based (Java/Scala) Spark
-	// application. When set, the plugin submits a Type:Scala SparkApplication with
-	// MainClass=EntryPoint and MainApplicationFile pointed at the command's `wrapper_uri`
-	// jar, instead of the default SQL-wrapper (Type:Python) path. Mirrors the `spark`
-	// (EMR) plugin's sparkSubmitParameters.EntryPoint
-	// (internal/pkg/object/command/spark/spark.go).
+	// EntryPoint is the fully-qualified main class for a JAR Spark application. The JAR
+	// entrypoint strategy — selected when the command's `wrapper_uri` ends in `.jar` (dispatch
+	// lives in entrypoint.go) — submits a JVM SparkApplication (Spec.Type resolved from
+	// ApplicationType, default Scala) with MainClass=EntryPoint, instead of the default
+	// SQL-wrapper (`.py`, Type:Python) path. Mirrors the `spark` (EMR) plugin's
+	// sparkSubmitParameters.EntryPoint (internal/pkg/object/command/spark/spark.go).
 	EntryPoint string `yaml:"entry_point,omitempty" json:"entry_point,omitempty"`
+	// ApplicationType selects the JVM SparkApplication type for a JAR job: e.g. "Scala" or
+	// "Java" (case-insensitive). Used only by the JAR entrypoint strategy. Defaults to Scala
+	// when empty or unrecognized. Resolution lives in entrypoint.go (jarApplicationTypes /
+	// resolveJarApplicationType).
+	ApplicationType string `yaml:"application_type,omitempty" json:"application_type,omitempty"`
 }
 
 type jobContext struct {
