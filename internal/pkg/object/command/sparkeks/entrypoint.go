@@ -41,17 +41,15 @@ type entrypointStrategy interface {
 }
 
 // jarEntrypointStrategy runs a custom-class JVM (Java/Scala) JAR. Its main() receives
-// [appName, user, query, ...arguments, (resultURI)] — the contract chipmunk's
-// com.pattern.chipmunk.Writer expects: args(0)=appName, args(1)=user, args(2)=<literal SQL
-// text, NOT a URI>, args(3)=s3 target, optional args(4)=resultURI. appType is the resolved
-// SparkApplication type (Scala/Java/...).
+// [appName, queryURI, user, (resultURI)] — the deployed com.pattern.chipmunk.Writer's actual
+// contract (same argument shape as the SQL wrapper; only Type/MainClass differ). appType is
+// the resolved SparkApplication type (Scala/Java/...).
 type jarEntrypointStrategy struct {
 	appType      v1beta2.SparkApplicationType
 	mainClass    string
 	appName      string
+	queryURI     string
 	user         string
-	query        string
-	arguments    []string
 	resultURI    string
 	returnResult bool
 }
@@ -61,12 +59,11 @@ func (s jarEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) {
 	spec.Type = s.appType
 	spec.MainClass = &mainClass
 
-	args := []string{s.appName, s.user, s.query}
-	args = append(args, s.arguments...)
 	if s.returnResult {
-		args = append(args, s.resultURI)
+		spec.Arguments = []string{s.appName, s.queryURI, s.user, s.resultURI}
+	} else {
+		spec.Arguments = []string{s.appName, s.queryURI, s.user}
 	}
-	spec.Arguments = args
 }
 
 // sqlWrapperEntrypointStrategy runs the default .py SQL wrapper, whose main() receives
@@ -129,10 +126,9 @@ func newJarEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
 		appType:      resolveJarApplicationType(applicationType),
 		mainClass:    mainClass,
 		appName:      execCtx.appName,
+		queryURI:     execCtx.s3aQueryURI,
 		user:         execCtx.job.User,
-		query:        jobContext.Query,
-		arguments:    jobContext.Arguments,
-		resultURI:    updateS3ToS3aURI(execCtx.resultURI),
+		resultURI:    execCtx.s3aResultURI,
 		returnResult: jobContext.ReturnResult,
 	}
 }
@@ -142,9 +138,9 @@ func newSQLWrapperEntrypointStrategy(execCtx *executionContext) entrypointStrate
 
 	return sqlWrapperEntrypointStrategy{
 		appName:      execCtx.appName,
-		queryURI:     updateS3ToS3aURI(execCtx.queryURI),
+		queryURI:     execCtx.s3aQueryURI,
 		user:         execCtx.job.User,
-		resultURI:    updateS3ToS3aURI(execCtx.resultURI),
+		resultURI:    execCtx.s3aResultURI,
 		returnResult: jobContext.ReturnResult,
 	}
 }

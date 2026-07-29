@@ -75,6 +75,8 @@ const (
 	sparkExecutorMemoryKey                = "spark.executor.memory"
 	sparkAppLabelSelectorFormat           = "sparkoperator.k8s.io/app-name"
 	sparkSqlExtensions                    = "spark.sql.extensions"
+	sparkDriverPodTemplateFileKey         = "spark.kubernetes.driver.podTemplateFile"
+	sparkExecutorPodTemplateFileKey       = "spark.kubernetes.executor.podTemplateFile"
 
 	unknownErrorMsg             = "Unknown error"
 	sparkJobSubmissionFailedMsg = "spark job submission failed"
@@ -127,9 +129,12 @@ type jobContext struct {
 	Query        string         `yaml:"query,omitempty" json:"query,omitempty"`
 	Parameters   *jobParameters `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	ReturnResult bool           `yaml:"return_result,omitempty" json:"return_result,omitempty"`
-	// Arguments carries extra positional args appended after the standard
-	// [appName, user, query] prefix in JAR mode (Parameters.EntryPoint set). Ignored when
-	// not in JAR mode. E.g. for chipmunk: ["s3://pattern-dl/chipmunk/collections/<name>/v<version>"].
+	// Arguments is currently ignored by every entrypoint strategy. Both the JAR and the
+	// SQL-wrapper strategies submit exactly [appName, queryURI, user, (resultURI)], so there is
+	// no positional slot left to append to. Job-specific inputs that used to ride here — e.g.
+	// chipmunk's collection output path — are passed as SparkConf properties instead (see
+	// hadoopPathProperties and spark.chipmunk.output.path). Retained for config compatibility;
+	// setting it has no effect.
 	Arguments []string `yaml:"arguments,omitempty" json:"arguments,omitempty"`
 }
 
@@ -160,6 +165,8 @@ type executionContext struct {
 	appName      string
 	queryURI     string
 	resultURI    string
+	s3aQueryURI  string
+	s3aResultURI string
 	logURI       string
 	sparkApp     *v1beta2.SparkApplication
 	submittedApp *v1beta2.SparkApplication
@@ -391,6 +398,8 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 	execCtx.appName = fmt.Sprintf("%s-%s", applicationPrefix, j.ID)
 	execCtx.queryURI = fmt.Sprintf("%s/%s/%s/%s", s.JobsURI, j.ID, queriesPath, queryFileName)
 	execCtx.resultURI = fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, resultsPath)
+	execCtx.s3aQueryURI = updateS3ToS3aURI(execCtx.queryURI)
+	execCtx.s3aResultURI = updateS3ToS3aURI(execCtx.resultURI)
 	execCtx.logURI = fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, logsPath)
 
 	// Upload query to S3
@@ -491,6 +500,15 @@ func uploadFileToS3(ctx context.Context, awsConfig aws.Config, fileURI, content 
 // updateS3ToS3aURI replaces s3:// with s3a:// for Hadoop FS compliance.
 func updateS3ToS3aURI(uri string) string {
 	return strings.ReplaceAll(uri, s3Prefix, s3aPrefix)
+}
+
+// hadoopPathProperties are the only SparkConf keys read via Hadoop's FileSystem abstraction
+// (and therefore need s3a://). Everything else in Properties is passed through verbatim —
+// e.g. app-specific keys like spark.chipmunk.output.path are read by application code via
+// the plain AWS SDK, which expects the literal s3:// scheme.
+var hadoopPathProperties = map[string]bool{
+	sparkDriverPodTemplateFileKey:   true,
+	sparkExecutorPodTemplateFileKey: true,
 }
 
 // getS3FileURI finds a file in an S3 directory that matches the given extension.
@@ -752,8 +770,8 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	// entrypoint-specific spec (Type / MainClass / Arguments) to a strategy: JAR/--class vs the
 	// default SQL wrapper (see entrypointStrategy above).
 	if execCtx.commandContext.WrapperURI != "" {
-		mainAppFile := updateS3ToS3aURI(execCtx.commandContext.WrapperURI)
-		sparkApp.Spec.MainApplicationFile = &mainAppFile
+		s3aWrapperURI := updateS3ToS3aURI(execCtx.commandContext.WrapperURI)
+		sparkApp.Spec.MainApplicationFile = &s3aWrapperURI
 		newEntrypointStrategy(execCtx).apply(&sparkApp.Spec)
 	}
 
@@ -766,8 +784,8 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 
 	// Set spark event log directory for spark history server
 	if execCtx.commandContext.EventLogURI != "" {
-		eventLogURI := updateS3ToS3aURI(execCtx.commandContext.EventLogURI)
-		sparkApp.Spec.SparkConf[sparkEventLogDirProperty] = eventLogURI
+		s3aEventLogURI := updateS3ToS3aURI(execCtx.commandContext.EventLogURI)
+		sparkApp.Spec.SparkConf[sparkEventLogDirProperty] = s3aEventLogURI
 	}
 
 	if sparkSubmitParams := getSparkSubmitParameters(jobContext); sparkSubmitParams != nil {
@@ -855,20 +873,18 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	}
 
 	for k, v := range clusterContext.Properties {
-		sparkApp.Spec.SparkConf[k] = updateS3ToS3aURI(v)
+		if hadoopPathProperties[k] {
+			v = updateS3ToS3aURI(v)
+		}
+		sparkApp.Spec.SparkConf[k] = v
 	}
 	for k, v := range jobContext.Parameters.Properties {
-		sparkApp.Spec.SparkConf[k] = updateS3ToS3aURI(v)
+		if hadoopPathProperties[k] {
+			v = updateS3ToS3aURI(v)
+		}
+		sparkApp.Spec.SparkConf[k] = v
 	}
 
-	// Gap 4 (defensive): SparkApplication.Spec.Type has no `omitempty` and is a required,
-	// enum-validated CRD field ({Java,Python,Scala,R}); submitting it empty is rejected by
-	// the API server. The JAR branch above always sets it explicitly. The inline default
-	// template built in loadTemplate() when no spark_application_file is configured never
-	// sets Type, so without this fallback a templateless SQL-wrapper job would submit an
-	// invalid empty Type. Every cluster configured today already sets Type explicitly via
-	// its template, so this is a no-op in production today and only guards future
-	// templateless configs.
 	if sparkApp.Spec.Type == "" {
 		sparkApp.Spec.Type = defaultApplicationType
 	}
