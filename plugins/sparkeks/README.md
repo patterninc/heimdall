@@ -10,6 +10,7 @@ The Spark EKS plugin enables submitting Spark jobs to an AWS EKS cluster using t
 - Supports custom SparkApplication YAML templates
 - IAM role assumption for cross-account EKS access
 - Configurable Spark job resources and properties
+- **JAR / `--class` entrypoints** — run a JVM (Scala/Java) application by main class, alongside the default Python SQL wrapper
 
 ## Configuration
 
@@ -56,6 +57,42 @@ The Spark EKS plugin enables submitting Spark jobs to an AWS EKS cluster using t
     "spark.some.config": "value"
   },
   "kube_namespace": "default"
+}
+```
+
+## Entrypoints: SQL wrapper vs JAR
+
+The plugin picks an entrypoint from the **file extension of the command's `wrapper_uri`**. The wrapper
+file itself is always submitted as `MainApplicationFile`; only `Type`, `MainClass`, and `Arguments`
+differ between the two.
+
+| `wrapper_uri` ends in | Entrypoint | `Spec.Type` | `Spec.MainClass` |
+|---|---|---|---|
+| `.py` | Python SQL wrapper (default, pre-existing behavior) | `Python` | not set |
+| `.jar` | JVM JAR, run by main class | `Scala` or `Java` | `entry_point` |
+| anything else | falls back to the SQL wrapper | `Python` | not set |
+
+### JAR configuration
+
+Set on the **job context** under `parameters`:
+
+| Field | Required | Description |
+|---|---|---|
+| `entry_point` | yes (for JAR) | Fully-qualified main class, e.g. `com.org.customapplication.main`. Becomes `--class`. |
+| `application_type` | no | `Scala` or `Java`, case-insensitive. Defaults to `Scala` when empty or unrecognized. |
+
+```json
+{
+  "query": "SELECT key, value FROM my_table",
+  "wrapper_uri": "s3://mybucket/application-assembly.jar",
+  "parameters": {
+    "entry_point": "com.org.customapplication.main",
+    "application_type": "Scala",
+    "properties": {
+      "spark.application.custom.path": "s3://mybucket/output/v1" //custom param to be used in jar
+    }
+  },  
+  "return_result": false
 }
 ```
 

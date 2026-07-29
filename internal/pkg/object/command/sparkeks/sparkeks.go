@@ -52,6 +52,11 @@ const (
 	defaultSparkAppAPIVersion = "sparkoperator.k8s.io/v1beta2"
 	defaultSparkAppKind       = "SparkApplication"
 
+	// defaultApplicationType is applied when neither the loaded template nor the JAR branch
+	// set Spec.Type, so the CRD's required enum field is never submitted empty (see Gap 4).
+	// JAR application types (jarApplicationTypes / resolveJarApplicationType) live in entrypoint.go.
+	defaultApplicationType = v1beta2.SparkApplicationTypePython
+
 	queriesPath = "queries"
 	resultsPath = "results"
 	logsPath    = "logs"
@@ -104,6 +109,8 @@ type commandContext struct {
 
 type jobParameters struct {
 	Properties map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
+	EntryPoint string `yaml:"entry_point,omitempty" json:"entry_point,omitempty"`
+	ApplicationType string `yaml:"application_type,omitempty" json:"application_type,omitempty"`
 }
 
 type jobContext struct {
@@ -139,6 +146,8 @@ type executionContext struct {
 	appName      string
 	queryURI     string
 	resultURI    string
+	s3aQueryURI  string
+	s3aResultURI string
 	logURI       string
 	sparkApp     *v1beta2.SparkApplication
 	submittedApp *v1beta2.SparkApplication
@@ -370,6 +379,8 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 	execCtx.appName = fmt.Sprintf("%s-%s", applicationPrefix, j.ID)
 	execCtx.queryURI = fmt.Sprintf("%s/%s/%s/%s", s.JobsURI, j.ID, queriesPath, queryFileName)
 	execCtx.resultURI = fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, resultsPath)
+	execCtx.s3aQueryURI = updateS3ToS3aURI(execCtx.queryURI)
+	execCtx.s3aResultURI = updateS3ToS3aURI(execCtx.resultURI)
 	execCtx.logURI = fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, logsPath)
 
 	// Upload query to S3
@@ -471,6 +482,7 @@ func uploadFileToS3(ctx context.Context, awsConfig aws.Config, fileURI, content 
 func updateS3ToS3aURI(uri string) string {
 	return strings.ReplaceAll(uri, s3Prefix, s3aPrefix)
 }
+
 
 // getS3FileURI finds a file in an S3 directory that matches the given extension.
 func getS3FileURI(ctx context.Context, awsConfig aws.Config, directoryURI, matchingExtension string) (string, error) {
@@ -727,18 +739,14 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	sparkApp.ObjectMeta.Name = execCtx.appName
 	sparkApp.ObjectMeta.Namespace = execCtx.commandContext.KubeNamespace
 
-	// Set main application file and arguments
+	// Set the main application file (common to both entrypoint styles), then delegate the
+	// entrypoint-specific spec (Type / MainClass / Arguments) to a strategy: JAR/--class vs the
+	// default SQL wrapper (see entrypointStrategy above).
 	if execCtx.commandContext.WrapperURI != "" {
 		s3aWrapperURI := updateS3ToS3aURI(execCtx.commandContext.WrapperURI)
-		s3aQueryURI := updateS3ToS3aURI(execCtx.queryURI)
-		s3aResultURI := updateS3ToS3aURI(execCtx.resultURI)
-		mainAppFile := s3aWrapperURI
-		if jobContext.ReturnResult {
-			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User, s3aResultURI}
-		} else {
-			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User}
-		}
-		sparkApp.Spec.MainApplicationFile = &mainAppFile
+		sparkApp.Spec.MainApplicationFile = &s3aWrapperURI
+		// Type / MainClass / Arguments are set by the entrypoint strategy.
+		newEntrypointStrategy(execCtx).apply(&sparkApp.Spec)
 	}
 
 	if sparkApp.Spec.SparkConf == nil {
@@ -750,8 +758,8 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 
 	// Set spark event log directory for spark history server
 	if execCtx.commandContext.EventLogURI != "" {
-		eventLogURI := updateS3ToS3aURI(execCtx.commandContext.EventLogURI)
-		sparkApp.Spec.SparkConf[sparkEventLogDirProperty] = eventLogURI
+		s3aEventLogURI := updateS3ToS3aURI(execCtx.commandContext.EventLogURI)
+		sparkApp.Spec.SparkConf[sparkEventLogDirProperty] = s3aEventLogURI
 	}
 
 	if sparkSubmitParams := getSparkSubmitParameters(jobContext); sparkSubmitParams != nil {
@@ -843,6 +851,10 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	}
 	for k, v := range jobContext.Parameters.Properties {
 		sparkApp.Spec.SparkConf[k] = v
+	}
+
+	if sparkApp.Spec.Type == "" {
+		sparkApp.Spec.Type = defaultApplicationType
 	}
 }
 
@@ -967,7 +979,12 @@ func (e *executionContext) monitorJobAndCollectLogs(ctx context.Context) error {
 			if state == v1beta2.ApplicationStateUnknown {
 				msg = sparkAppUnknownStateMsg
 			}
-			return fmt.Errorf("%s", msg)
+			errorMessage := sparkApp.Status.AppState.ErrorMessage
+			if errorMessage == "" {
+				errorMessage = unknownErrorMsg
+			}
+			e.runtime.Stderr.WriteString(fmt.Sprintf("%s: %s\n", msg, errorMessage))
+			return fmt.Errorf("%s: %s", msg, errorMessage)
 		}
 	}
 }
