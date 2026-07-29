@@ -75,8 +75,6 @@ const (
 	sparkExecutorMemoryKey                = "spark.executor.memory"
 	sparkAppLabelSelectorFormat           = "sparkoperator.k8s.io/app-name"
 	sparkSqlExtensions                    = "spark.sql.extensions"
-	sparkDriverPodTemplateFileKey         = "spark.kubernetes.driver.podTemplateFile"
-	sparkExecutorPodTemplateFileKey       = "spark.kubernetes.executor.podTemplateFile"
 
 	unknownErrorMsg             = "Unknown error"
 	sparkJobSubmissionFailedMsg = "spark job submission failed"
@@ -111,17 +109,7 @@ type commandContext struct {
 
 type jobParameters struct {
 	Properties map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
-	// EntryPoint is the fully-qualified main class for a JAR Spark application. The JAR
-	// entrypoint strategy — selected when the command's `wrapper_uri` ends in `.jar` (dispatch
-	// lives in entrypoint.go) — submits a JVM SparkApplication (Spec.Type resolved from
-	// ApplicationType, default Scala) with MainClass=EntryPoint, instead of the default
-	// SQL-wrapper (`.py`, Type:Python) path. Mirrors the `spark` (EMR) plugin's
-	// sparkSubmitParameters.EntryPoint (internal/pkg/object/command/spark/spark.go).
 	EntryPoint string `yaml:"entry_point,omitempty" json:"entry_point,omitempty"`
-	// ApplicationType selects the JVM SparkApplication type for a JAR job: e.g. "Scala" or
-	// "Java" (case-insensitive). Used only by the JAR entrypoint strategy. Defaults to Scala
-	// when empty or unrecognized. Resolution lives in entrypoint.go (jarApplicationTypes /
-	// resolveJarApplicationType).
 	ApplicationType string `yaml:"application_type,omitempty" json:"application_type,omitempty"`
 }
 
@@ -129,13 +117,6 @@ type jobContext struct {
 	Query        string         `yaml:"query,omitempty" json:"query,omitempty"`
 	Parameters   *jobParameters `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	ReturnResult bool           `yaml:"return_result,omitempty" json:"return_result,omitempty"`
-	// Arguments is currently ignored by every entrypoint strategy. Both the JAR and the
-	// SQL-wrapper strategies submit exactly [appName, queryURI, user, (resultURI)], so there is
-	// no positional slot left to append to. Job-specific inputs that used to ride here — e.g.
-	// chipmunk's collection output path — are passed as SparkConf properties instead (see
-	// hadoopPathProperties and spark.chipmunk.output.path). Retained for config compatibility;
-	// setting it has no effect.
-	Arguments []string `yaml:"arguments,omitempty" json:"arguments,omitempty"`
 }
 
 type clusterContext struct {
@@ -502,14 +483,6 @@ func updateS3ToS3aURI(uri string) string {
 	return strings.ReplaceAll(uri, s3Prefix, s3aPrefix)
 }
 
-// hadoopPathProperties are the only SparkConf keys read via Hadoop's FileSystem abstraction
-// (and therefore need s3a://). Everything else in Properties is passed through verbatim —
-// e.g. app-specific keys like spark.chipmunk.output.path are read by application code via
-// the plain AWS SDK, which expects the literal s3:// scheme.
-var hadoopPathProperties = map[string]bool{
-	sparkDriverPodTemplateFileKey:   true,
-	sparkExecutorPodTemplateFileKey: true,
-}
 
 // getS3FileURI finds a file in an S3 directory that matches the given extension.
 func getS3FileURI(ctx context.Context, awsConfig aws.Config, directoryURI, matchingExtension string) (string, error) {
@@ -772,6 +745,7 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	if execCtx.commandContext.WrapperURI != "" {
 		s3aWrapperURI := updateS3ToS3aURI(execCtx.commandContext.WrapperURI)
 		sparkApp.Spec.MainApplicationFile = &s3aWrapperURI
+		// Type / MainClass / Arguments are set by the entrypoint strategy.
 		newEntrypointStrategy(execCtx).apply(&sparkApp.Spec)
 	}
 
@@ -873,15 +847,9 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	}
 
 	for k, v := range clusterContext.Properties {
-		if hadoopPathProperties[k] {
-			v = updateS3ToS3aURI(v)
-		}
 		sparkApp.Spec.SparkConf[k] = v
 	}
 	for k, v := range jobContext.Parameters.Properties {
-		if hadoopPathProperties[k] {
-			v = updateS3ToS3aURI(v)
-		}
 		sparkApp.Spec.SparkConf[k] = v
 	}
 

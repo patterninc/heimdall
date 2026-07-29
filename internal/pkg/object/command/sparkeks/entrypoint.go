@@ -8,17 +8,14 @@ import (
 )
 
 // --- JAR application type (JVM language) resolution ---
+// Add an entry to support another JVM application type.
+//e.g. Combination: applicationType (Java) -> EntrypointStrategy (JAR) + (Class name)
 
-// jarApplicationTypes maps a configured application-type name (lower-cased) to its
-// SparkApplication type. A JAR entrypoint is a JVM job, so only Java and Scala apply
-// (Python/R are not JAR-based). Add an entry to support another JVM application type.
 var jarApplicationTypes = map[string]v1beta2.SparkApplicationType{
 	"scala": v1beta2.SparkApplicationTypeScala,
 	"java":  v1beta2.SparkApplicationTypeJava,
 }
 
-// defaultJarApplicationType is used when a JAR job does not set Parameters.ApplicationType, or
-// sets one that isn't recognized. Chipmunk's Writer is Scala.
 const defaultJarApplicationType = v1beta2.SparkApplicationTypeScala
 
 // resolveJarApplicationType maps an optional configured application type (e.g. "Java", "Scala",
@@ -31,19 +28,20 @@ func resolveJarApplicationType(applicationType string) v1beta2.SparkApplicationT
 	return defaultJarApplicationType
 }
 
-// --- Entrypoint strategies ---
-
-// entrypointStrategy configures the entrypoint-specific fields of a SparkApplication spec
-// (Type, MainClass, Arguments) — the part that differs between a JAR/--class job and the
-// default SQL-wrapper job. MainApplicationFile is common to both and set by the caller.
 type entrypointStrategy interface {
 	apply(spec *v1beta2.SparkApplicationSpec)
 }
 
-// jarEntrypointStrategy runs a custom-class JVM (Java/Scala) JAR. Its main() receives
-// [appName, queryURI, user, (resultURI)] — the deployed com.pattern.chipmunk.Writer's actual
-// contract (same argument shape as the SQL wrapper; only Type/MainClass differ). appType is
-// the resolved SparkApplication type (Scala/Java/...).
+// buildArguments returns the positional args passed to the Spark app; both entrypoints
+// share this shape, appending the result URI only when the job asks for results back.
+func buildArguments(appName, queryURI, user, resultURI string, returnResult bool) []string {
+	args := []string{appName, queryURI, user}
+	if returnResult {
+		args = append(args, resultURI)
+	}
+	return args
+}
+
 type jarEntrypointStrategy struct {
 	appType      v1beta2.SparkApplicationType
 	mainClass    string
@@ -59,16 +57,9 @@ func (s jarEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) {
 	spec.Type = s.appType
 	spec.MainClass = &mainClass
 
-	if s.returnResult {
-		spec.Arguments = []string{s.appName, s.queryURI, s.user, s.resultURI}
-	} else {
-		spec.Arguments = []string{s.appName, s.queryURI, s.user}
-	}
+	spec.Arguments = buildArguments(s.appName, s.queryURI, s.user, s.resultURI, s.returnResult)
 }
 
-// sqlWrapperEntrypointStrategy runs the default .py SQL wrapper, whose main() receives
-// [appName, queryURI, user, (resultURI)] and reads the query from queryURI. This is the
-// existing (pre-JAR-support) behavior, preserved byte-for-byte.
 type sqlWrapperEntrypointStrategy struct {
 	appName      string
 	queryURI     string
@@ -78,11 +69,7 @@ type sqlWrapperEntrypointStrategy struct {
 }
 
 func (s sqlWrapperEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) {
-	if s.returnResult {
-		spec.Arguments = []string{s.appName, s.queryURI, s.user, s.resultURI}
-	} else {
-		spec.Arguments = []string{s.appName, s.queryURI, s.user}
-	}
+	spec.Arguments = buildArguments(s.appName, s.queryURI, s.user, s.resultURI, s.returnResult)
 }
 
 // --- Extension-based strategy selection ---
@@ -90,20 +77,13 @@ func (s sqlWrapperEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) 
 // entrypointFactory builds the entrypoint strategy for a job from its execution context.
 type entrypointFactory func(execCtx *executionContext) entrypointStrategy
 
-// entrypointStrategiesByExt maps a wrapper-file extension (from commandContext.WrapperURI) to
-// the entrypoint strategy that runs it. Add an entry to support a new wrapper type.
 var entrypointStrategiesByExt = map[string]entrypointFactory{
 	".jar": newJarEntrypointStrategy,
 	".py":  newSQLWrapperEntrypointStrategy,
 }
 
-// defaultEntrypointFactory runs when the wrapper extension is unrecognized: the existing
-// SQL-wrapper behavior (a safe default — it never sets a JAR MainClass/Type).
 var defaultEntrypointFactory entrypointFactory = newSQLWrapperEntrypointStrategy
-
-// newEntrypointStrategy selects the entrypoint strategy from the wrapper file's extension
-// (e.g. ".jar" -> JAR/--class, ".py" -> SQL wrapper), falling back to the SQL wrapper for any
-// unrecognized extension.
+ 
 func newEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
 	ext := strings.ToLower(path.Ext(execCtx.commandContext.WrapperURI))
 	factory, ok := entrypointStrategiesByExt[ext]
