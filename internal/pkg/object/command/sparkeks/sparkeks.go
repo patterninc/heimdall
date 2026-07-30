@@ -52,9 +52,6 @@ const (
 	defaultSparkAppAPIVersion = "sparkoperator.k8s.io/v1beta2"
 	defaultSparkAppKind       = "SparkApplication"
 
-	// defaultApplicationType is applied when neither the loaded template nor the JAR branch
-	// set Spec.Type, so the CRD's required enum field is never submitted empty (see Gap 4).
-	// JAR application types (jarApplicationTypes / resolveJarApplicationType) live in entrypoint.go.
 	defaultApplicationType = v1beta2.SparkApplicationTypePython
 
 	queriesPath = "queries"
@@ -740,9 +737,7 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	sparkApp.ObjectMeta.Name = execCtx.appName
 	sparkApp.ObjectMeta.Namespace = execCtx.commandContext.KubeNamespace
 
-	// Set the main application file (common to both entrypoint styles), then delegate the
-	// entrypoint-specific spec (Type / MainClass / Arguments) to a strategy: JAR/--class vs the
-	// default SQL wrapper (see entrypointStrategy above).
+	// Set main application file and arguments
 	if execCtx.commandContext.WrapperURI != "" {
 		s3aWrapperURI := updateS3ToS3aURI(execCtx.commandContext.WrapperURI)
 		sparkApp.Spec.MainApplicationFile = &s3aWrapperURI

@@ -75,8 +75,6 @@ func (s sqlWrapperEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) 
 	spec.Arguments = buildArguments(s.arguments, s.appName, s.queryURI, s.user, s.resultURI, s.returnResult)
 }
 
-// --- Extension-based strategy selection ---
-
 // entrypointFactory builds the entrypoint strategy for a job from its execution context.
 type entrypointFactory func(execCtx *executionContext) entrypointStrategy
 
