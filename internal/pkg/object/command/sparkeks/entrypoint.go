@@ -29,7 +29,7 @@ func resolveJarApplicationType(applicationType string) v1beta2.SparkApplicationT
 }
 
 type entrypointStrategy interface {
-	apply(spec *v1beta2.SparkApplicationSpec)
+	apply(spec *v1beta2.SparkApplicationSpec) error
 }
 
 func buildArguments(override []string, appName, queryURI, user, resultURI string, returnResult bool) []string {
@@ -54,12 +54,16 @@ type jarEntrypointStrategy struct {
 	arguments    []string
 }
 
-func (s jarEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) {
-	mainClass := s.mainClass
+func (s jarEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) error {
+	mainClass := strings.TrimSpace(s.mainClass)
+	if mainClass == "" {
+		return ErrMissingEntryPoint
+	}
 	spec.Type = s.appType
 	spec.MainClass = &mainClass
 
 	spec.Arguments = buildArguments(s.arguments, s.appName, s.queryURI, s.user, s.resultURI, s.returnResult)
+	return nil
 }
 
 type sqlWrapperEntrypointStrategy struct {
@@ -71,8 +75,9 @@ type sqlWrapperEntrypointStrategy struct {
 	arguments    []string
 }
 
-func (s sqlWrapperEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) {
+func (s sqlWrapperEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) error {
 	spec.Arguments = buildArguments(s.arguments, s.appName, s.queryURI, s.user, s.resultURI, s.returnResult)
+	return nil
 }
 
 // entrypointFactory builds the entrypoint strategy for a job from its execution context.

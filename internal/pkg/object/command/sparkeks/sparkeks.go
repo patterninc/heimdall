@@ -94,6 +94,7 @@ var (
 	ErrKubeConfig           = fmt.Errorf("failed to configure Kubernetes client: ensure EKS cluster access is properly configured")
 	ErrApplicationSpec      = fmt.Errorf("failed to load or parse SparkApplication template")
 	ErrSparkApplicationFile = fmt.Errorf("failed to read SparkApplication application template file: check file path and permissions")
+	ErrMissingEntryPoint    = fmt.Errorf("entry_point is required for .jar wrapper_uri: set parameters.entry_point to the fully-qualified main class")
 )
 
 type commandContext struct {
@@ -728,7 +729,7 @@ func updateKubeConfig(ctx context.Context, execCtx *executionContext) (string, e
 }
 
 // applySparkOperatorConfig consolidates all Spark Operator configuration updates and overrides.
-func applySparkOperatorConfig(execCtx *executionContext) {
+func applySparkOperatorConfig(execCtx *executionContext) error {
 	sparkApp := execCtx.sparkApp
 	jobContext := execCtx.jobContext
 	clusterContext := execCtx.clusterContext
@@ -742,7 +743,9 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 		s3aWrapperURI := updateS3ToS3aURI(execCtx.commandContext.WrapperURI)
 		sparkApp.Spec.MainApplicationFile = &s3aWrapperURI
 		// Type / MainClass / Arguments are set by the entrypoint strategy.
-		newEntrypointStrategy(execCtx).apply(&sparkApp.Spec)
+		if err := newEntrypointStrategy(execCtx).apply(&sparkApp.Spec); err != nil {
+			return err
+		}
 	}
 
 	if sparkApp.Spec.SparkConf == nil {
@@ -852,6 +855,8 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	if sparkApp.Spec.Type == "" {
 		sparkApp.Spec.Type = defaultApplicationType
 	}
+
+	return nil
 }
 
 // generateSparkApp generates the Spark application from the template.
@@ -864,7 +869,9 @@ func generateSparkApp(execCtx *executionContext) error {
 	execCtx.sparkApp = sparkApp
 
 	// Apply all configurations and overrides from contexts
-	applySparkOperatorConfig(execCtx)
+	if err := applySparkOperatorConfig(execCtx); err != nil {
+		return err
+	}
 
 	return nil
 }
