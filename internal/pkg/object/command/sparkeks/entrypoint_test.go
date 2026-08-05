@@ -49,7 +49,7 @@ func TestNewEntrypointStrategy_Selection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			execCtx := newTestExecutionContext(tt.wrapperURI, &jobContext{}, "alice")
+			execCtx := newTestExecutionContext(tt.wrapperURI, &jobContext{}, "alice", "result_uri")
 			strategy := newEntrypointStrategy(execCtx)
 			if got := reflect.TypeOf(strategy); got != tt.expectedType {
 				t.Errorf("newEntrypointStrategy(%q) type = %v, want %v", tt.wrapperURI, got, tt.expectedType)
@@ -66,7 +66,7 @@ func TestNewJarEntrypointStrategy_Apply(t *testing.T) {
 			ApplicationType: "java",
 		},
 	}
-	execCtx := newTestExecutionContext("s3://bucket/app.jar", jobCtx, "alice")
+	execCtx := newTestExecutionContext("s3://bucket/app.jar", jobCtx, "alice", "result_uri")
 
 	strategy := newEntrypointStrategy(execCtx)
 	spec := &v1beta2.SparkApplicationSpec{}
@@ -80,15 +80,15 @@ func TestNewJarEntrypointStrategy_Apply(t *testing.T) {
 	if spec.MainClass == nil || *spec.MainClass != "com.example.Main" {
 		t.Errorf("spec.MainClass = %v, want com.example.Main", spec.MainClass)
 	}
-	expectedArgs := []string{"spark-sql-job-test", "s3a://bucket/query.sql", "alice", "s3a://bucket/result"}
+	expectedArgs := []string{"spark-sql-job-test", "s3a://bucket/query.sql", "alice", "result_uri"}
 	if !reflect.DeepEqual(spec.Arguments, expectedArgs) {
 		t.Errorf("spec.Arguments = %v, want %v", spec.Arguments, expectedArgs)
 	}
 }
 
 func TestNewSQLWrapperEntrypointStrategy_Apply(t *testing.T) {
-	jobCtx := &jobContext{ReturnResult: false}
-	execCtx := newTestExecutionContext("s3://bucket/wrapper.py", jobCtx, "bob")
+	jobCtx := &jobContext{ReturnResult: true}
+	execCtx := newTestExecutionContext("s3://bucket/wrapper.py", jobCtx, "bob", "result_uri")
 
 	strategy := newEntrypointStrategy(execCtx)
 	spec := &v1beta2.SparkApplicationSpec{}
@@ -154,7 +154,7 @@ func TestJarEntrypointStrategy_Apply_MissingEntryPoint(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			execCtx := newTestExecutionContext("s3://bucket/app.jar", tt.jobCtx, "alice")
+			execCtx := newTestExecutionContext("s3://bucket/app.jar", tt.jobCtx, "alice", "result_uri")
 			strategy := newEntrypointStrategy(execCtx)
 			spec := &v1beta2.SparkApplicationSpec{}
 			err := strategy.apply(spec)
@@ -169,7 +169,7 @@ func TestJarEntrypointStrategy_Apply_MissingEntryPoint(t *testing.T) {
 }
 
 func TestSQLWrapperEntrypointStrategy_Apply_NoEntryPointRequired(t *testing.T) {
-	execCtx := newTestExecutionContext("s3://bucket/wrapper.py", &jobContext{}, "alice")
+	execCtx := newTestExecutionContext("s3://bucket/wrapper.py", &jobContext{}, "alice", "result_uri")
 	strategy := newEntrypointStrategy(execCtx)
 	spec := &v1beta2.SparkApplicationSpec{}
 	if err := strategy.apply(spec); err != nil {
@@ -177,7 +177,7 @@ func TestSQLWrapperEntrypointStrategy_Apply_NoEntryPointRequired(t *testing.T) {
 	}
 }
 
-func newTestExecutionContext(wrapperURI string, jobCtx *jobContext, user string) *executionContext {
+func newTestExecutionContext(wrapperURI string, jobCtx *jobContext, user string, resultURI string) *executionContext {
 	return &executionContext{
 		job: &job.Job{
 			Object: object.Object{User: user},
@@ -186,6 +186,6 @@ func newTestExecutionContext(wrapperURI string, jobCtx *jobContext, user string)
 		jobContext:     jobCtx,
 		appName:        "spark-sql-job-test",
 		s3aQueryURI:    "s3a://bucket/query.sql",
-		s3aResultURI:   "s3a://bucket/result",
+		s3aResultURI:   resultURI,
 	}
 }
