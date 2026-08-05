@@ -99,9 +99,46 @@ func TestNewSQLWrapperEntrypointStrategy_Apply(t *testing.T) {
 	if spec.MainClass != nil {
 		t.Errorf("spec.MainClass = %v, want nil for sql wrapper", spec.MainClass)
 	}
-	expectedArgs := []string{"spark-sql-job-test", "s3a://bucket/query.sql", "bob"}
+	expectedArgs := []string{"spark-sql-job-test", "s3a://bucket/query.sql", "bob", "result_uri"}
 	if !reflect.DeepEqual(spec.Arguments, expectedArgs) {
 		t.Errorf("spec.Arguments = %v, want %v", spec.Arguments, expectedArgs)
+	}
+}
+
+// Caller-supplied arguments extend the managed prefix rather than replacing it: user keeps slot 2
+// and extras keep a stable index regardless of return_result.
+func TestBuildArguments_ExtrasAppendedAtStableIndex(t *testing.T) {
+	tests := []struct {
+		name         string
+		returnResult bool
+		expected     []string
+	}{
+		{
+			name:         "with result",
+			returnResult: true,
+			expected:     []string{"app", "s3a://bucket/query.sql", "alice", "s3a://bucket/result", "s3://bucket/prefix/", "--flag"},
+		},
+		{
+			name:         "without result holds the slot",
+			returnResult: false,
+			expected:     []string{"app", "s3a://bucket/query.sql", "alice", "", "s3://bucket/prefix/", "--flag"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			extra := []string{"s3://bucket/prefix/", "--flag"}
+			got := buildArguments(extra, "app", "s3a://bucket/query.sql", "alice", "s3a://bucket/result", tt.returnResult)
+			if !reflect.DeepEqual(got, tt.expected) {
+				t.Fatalf("buildArguments() = %v, want %v", got, tt.expected)
+			}
+			if got[2] != "alice" {
+				t.Errorf("user = %q, want alice at index 2", got[2])
+			}
+			if got[4] != extra[0] {
+				t.Errorf("first extra = %q, want %q at index 4", got[4], extra[0])
+			}
+		})
 	}
 }
 

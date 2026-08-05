@@ -32,15 +32,11 @@ type entrypointStrategy interface {
 	apply(spec *v1beta2.SparkApplicationSpec) error
 }
 
-func buildArguments(override []string, appName, queryURI, user, resultURI string, returnResult bool) []string {
-	if len(override) > 0 {
-		return override
+func buildArguments(extra []string, appName, queryURI, user, resultURI string, returnResult bool) []string {
+	if !returnResult {
+		resultURI = ``
 	}
-	args := []string{appName, queryURI, user}
-	if returnResult {
-		args = append(args, resultURI)
-	}
-	return args
+	return append([]string{appName, queryURI, user, resultURI}, extra...)
 }
 
 type jarEntrypointStrategy struct {
@@ -89,7 +85,7 @@ var entrypointStrategiesByExt = map[string]entrypointFactory{
 }
 
 var defaultEntrypointFactory entrypointFactory = newSQLWrapperEntrypointStrategy
- 
+
 func newEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
 	ext := strings.ToLower(path.Ext(execCtx.commandContext.WrapperURI))
 	factory, ok := entrypointStrategiesByExt[ext]

@@ -98,15 +98,20 @@ Set on the **job context** under `parameters`:
 
 ### Arguments
 
-If the job context sets `arguments`, that list is passed to the app **verbatim** and the managed
-list is not used — letting callers match an app's exact CLI contract (e.g. an app that expects
-`[app_name, user, query, s3_path]`). Jobs that set no `arguments` keep the managed behavior, so
-existing contracts are unchanged.
+`arguments` **extends** the managed argument list, it does not replace it.
 
+| index | value |
+|---|---|
+| 0 | `app_name` |
+| 1 | `query_uri` — `s3a://` path to the uploaded `query.sql`; the app reads the SQL from it |
+| 2 | `user` — the authenticated caller; set `kyuubi.session.user` from this |
+| 3 | `result_uri`, or `""` when `return_result` is false |
+| 4+ | the job context's `arguments`, in order |
 
-#### Example 1 — context provided 
+The indices are the same in both supportedruntimes: Scala `args(i)` and Python `sys.argv[i+1]` both map to
+slot `i`.
 
-No `arguments`; the SQL travels as an uploaded `queryURI`:
+#### Example 1 — no extras
 
 ```json
 {
@@ -117,20 +122,17 @@ No `arguments`; the SQL travels as an uploaded `queryURI`:
 }
 ```
 
-The app receives `[appName, query, user, resultURI]`.
+The app receives `[app_name, query_uri, user, result_uri]`.
 
-#### Example 2 — verbatim override
+#### Example 2 — app-specific extras
 
-`arguments` supplies the app's exact CLI shape (here `[app_name, user, query, s3_path]`); the
-managed list is ignored:
+An app needing its own output prefix passes it as an extra; the managed slots are untouched:
 
 ```json
 {
   "context": {
+    "query": "SELECT key, value FROM my_table",
     "arguments": [
-      "my-app",
-      "some_user",
-      "SELECT key, value FROM my_table",
       "s3://mybucket/output/v1"
     ],
     "parameters": {
@@ -141,8 +143,7 @@ managed list is ignored:
 }
 ```
 
-Here the app receives exactly those four strings. The SQL is passed inline, so mind arg-length
-limits for very large queries.
+The app receives `[app_name, query_uri, user, result_uri, "s3://mybucket/output/v1"]`
 
 ## Usage
 
