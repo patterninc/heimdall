@@ -10,6 +10,7 @@ The Spark EKS plugin enables submitting Spark jobs to an AWS EKS cluster using t
 - Supports custom SparkApplication YAML templates
 - IAM role assumption for cross-account EKS access
 - Configurable Spark job resources and properties
+- **JAR / `--class` entrypoints** — run a JVM (Scala/Java) application by main class, alongside the default Python SQL wrapper
 
 ## Configuration
 
@@ -58,6 +59,91 @@ The Spark EKS plugin enables submitting Spark jobs to an AWS EKS cluster using t
   "kube_namespace": "default"
 }
 ```
+
+## Entrypoints: SQL wrapper vs JAR
+
+The plugin picks an entrypoint from the **file extension of the command's `wrapper_uri`**. The wrapper
+file itself is always submitted as `MainApplicationFile`; only `Type`, `MainClass`, and `Arguments`
+differ between the two.
+
+| `wrapper_uri` ends in | Entrypoint | `Spec.Type` | `Spec.MainClass` |
+|---|---|---|---|
+| `.py` | Python SQL wrapper (default, pre-existing behavior) | `Python` | not set |
+| `.jar` | JVM JAR, run by main class | `Scala` or `Java` | `entry_point` |
+| anything else | falls back to the SQL wrapper | `Python` | not set |
+
+### JAR configuration
+
+Set on the **job context** under `parameters`:
+
+| Field | Required | Description |
+|---|---|---|
+| `entry_point` | yes (for JAR) | Fully-qualified main class, e.g. `com.org.customapplication.main`. Becomes `--class`. |
+| `application_type` | no | `Scala` or `Java`, case-insensitive. Defaults to `Scala` when empty or unrecognized. |
+
+```json
+{
+  "query": "SELECT key, value FROM my_table",
+  "wrapper_uri": "s3://mybucket/application-assembly.jar",
+  "parameters": {
+    "entry_point": "com.org.customapplication.main",
+    "application_type": "Scala",
+    "properties": {
+      //sparkeks properties
+    }
+  },  
+  "return_result": false
+}
+```
+
+### Arguments
+
+`arguments` **extends** the managed argument list, it does not replace it.
+
+| index | value |
+|---|---|
+| 0 | `app_name` |
+| 1 | `query_uri` — `s3a://` path to the uploaded `query.sql`; the app reads the SQL from it |
+| 2 | `user` — the authenticated caller; set `kyuubi.session.user` from this |
+| 3 | `result_uri`, or `""` when `return_result` is false |
+| 4+ | the job context's `arguments`, in order |
+
+The indices are the same in both supportedruntimes: Scala `args(i)` and Python `sys.argv[i+1]` both map to
+slot `i`.
+
+#### Example 1 — no extras
+
+```json
+{
+  "context": {
+    "query": "SELECT * FROM my_table LIMIT 10;",
+    "return_result": true
+  }
+}
+```
+
+The app receives `[app_name, query_uri, user, result_uri]`.
+
+#### Example 2 — app-specific extras
+
+An app needing its own output prefix passes it as an extra; the managed slots are untouched:
+
+```json
+{
+  "context": {
+    "query": "SELECT key, value FROM my_table",
+    "arguments": [
+      "s3://mybucket/output/v1"
+    ],
+    "parameters": {
+      "entry_point": "com.org.customapplication.main",
+      "application_type": "Scala"
+    }
+  }
+}
+```
+
+The app receives `[app_name, query_uri, user, result_uri, "s3://mybucket/output/v1"]`
 
 ## Usage
 

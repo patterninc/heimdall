@@ -52,6 +52,8 @@ const (
 	defaultSparkAppAPIVersion = "sparkoperator.k8s.io/v1beta2"
 	defaultSparkAppKind       = "SparkApplication"
 
+	defaultApplicationType = v1beta2.SparkApplicationTypePython
+
 	queriesPath = "queries"
 	resultsPath = "results"
 	logsPath    = "logs"
@@ -92,6 +94,7 @@ var (
 	ErrKubeConfig           = fmt.Errorf("failed to configure Kubernetes client: ensure EKS cluster access is properly configured")
 	ErrApplicationSpec      = fmt.Errorf("failed to load or parse SparkApplication template")
 	ErrSparkApplicationFile = fmt.Errorf("failed to read SparkApplication application template file: check file path and permissions")
+	ErrMissingEntryPoint    = fmt.Errorf("entry_point is required for .jar wrapper_uri: set parameters.entry_point to the fully-qualified main class")
 )
 
 type commandContext struct {
@@ -104,10 +107,13 @@ type commandContext struct {
 
 type jobParameters struct {
 	Properties map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
+	EntryPoint string `yaml:"entry_point,omitempty" json:"entry_point,omitempty"`
+	ApplicationType string `yaml:"application_type,omitempty" json:"application_type,omitempty"`
 }
 
 type jobContext struct {
 	Query        string         `yaml:"query,omitempty" json:"query,omitempty"`
+	Arguments    []string       `yaml:"arguments,omitempty" json:"arguments,omitempty"`
 	Parameters   *jobParameters `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	ReturnResult bool           `yaml:"return_result,omitempty" json:"return_result,omitempty"`
 }
@@ -139,6 +145,8 @@ type executionContext struct {
 	appName      string
 	queryURI     string
 	resultURI    string
+	s3aQueryURI  string
+	s3aResultURI string
 	logURI       string
 	sparkApp     *v1beta2.SparkApplication
 	submittedApp *v1beta2.SparkApplication
@@ -370,6 +378,8 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 	execCtx.appName = fmt.Sprintf("%s-%s", applicationPrefix, j.ID)
 	execCtx.queryURI = fmt.Sprintf("%s/%s/%s/%s", s.JobsURI, j.ID, queriesPath, queryFileName)
 	execCtx.resultURI = fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, resultsPath)
+	execCtx.s3aQueryURI = updateS3ToS3aURI(execCtx.queryURI)
+	execCtx.s3aResultURI = updateS3ToS3aURI(execCtx.resultURI)
 	execCtx.logURI = fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, logsPath)
 
 	// Upload query to S3
@@ -471,6 +481,7 @@ func uploadFileToS3(ctx context.Context, awsConfig aws.Config, fileURI, content 
 func updateS3ToS3aURI(uri string) string {
 	return strings.ReplaceAll(uri, s3Prefix, s3aPrefix)
 }
+
 
 // getS3FileURI finds a file in an S3 directory that matches the given extension.
 func getS3FileURI(ctx context.Context, awsConfig aws.Config, directoryURI, matchingExtension string) (string, error) {
@@ -718,7 +729,7 @@ func updateKubeConfig(ctx context.Context, execCtx *executionContext) (string, e
 }
 
 // applySparkOperatorConfig consolidates all Spark Operator configuration updates and overrides.
-func applySparkOperatorConfig(execCtx *executionContext) {
+func applySparkOperatorConfig(execCtx *executionContext) error {
 	sparkApp := execCtx.sparkApp
 	jobContext := execCtx.jobContext
 	clusterContext := execCtx.clusterContext
@@ -730,15 +741,11 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	// Set main application file and arguments
 	if execCtx.commandContext.WrapperURI != "" {
 		s3aWrapperURI := updateS3ToS3aURI(execCtx.commandContext.WrapperURI)
-		s3aQueryURI := updateS3ToS3aURI(execCtx.queryURI)
-		s3aResultURI := updateS3ToS3aURI(execCtx.resultURI)
-		mainAppFile := s3aWrapperURI
-		if jobContext.ReturnResult {
-			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User, s3aResultURI}
-		} else {
-			sparkApp.Spec.Arguments = []string{execCtx.appName, s3aQueryURI, execCtx.job.User}
+		sparkApp.Spec.MainApplicationFile = &s3aWrapperURI
+		// Type / MainClass / Arguments are set by the entrypoint strategy.
+		if err := newEntrypointStrategy(execCtx).apply(&sparkApp.Spec); err != nil {
+			return err
 		}
-		sparkApp.Spec.MainApplicationFile = &mainAppFile
 	}
 
 	if sparkApp.Spec.SparkConf == nil {
@@ -844,6 +851,12 @@ func applySparkOperatorConfig(execCtx *executionContext) {
 	for k, v := range jobContext.Parameters.Properties {
 		sparkApp.Spec.SparkConf[k] = v
 	}
+
+	if sparkApp.Spec.Type == "" {
+		sparkApp.Spec.Type = defaultApplicationType
+	}
+
+	return nil
 }
 
 // generateSparkApp generates the Spark application from the template.
@@ -856,7 +869,9 @@ func generateSparkApp(execCtx *executionContext) error {
 	execCtx.sparkApp = sparkApp
 
 	// Apply all configurations and overrides from contexts
-	applySparkOperatorConfig(execCtx)
+	if err := applySparkOperatorConfig(execCtx); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -967,7 +982,12 @@ func (e *executionContext) monitorJobAndCollectLogs(ctx context.Context) error {
 			if state == v1beta2.ApplicationStateUnknown {
 				msg = sparkAppUnknownStateMsg
 			}
-			return fmt.Errorf("%s", msg)
+			errorMessage := sparkApp.Status.AppState.ErrorMessage
+			if errorMessage == "" {
+				errorMessage = unknownErrorMsg
+			}
+			e.runtime.Stderr.WriteString(fmt.Sprintf("%s: %s\n", msg, errorMessage))
+			return fmt.Errorf("%s: %s", msg, errorMessage)
 		}
 	}
 }
