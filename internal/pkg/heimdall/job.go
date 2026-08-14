@@ -206,18 +206,9 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 	}
 
 	if j.StoreResultSync || !j.IsSync {
-		if err := h.storeResults(runtime, j); err != nil {
-			j.Status = jobStatus.Failed
-			j.Error = err.Error()
-			runJobMethod.LogAndCountError(err, command.Name, cluster.Name)
-			return err
-		}
+		h.storeResults(runtime, j)
 	} else {
-		go func() {
-			if err := h.storeResults(runtime, j); err != nil {
-				runJobMethod.LogAndCountError(err, command.Name, cluster.Name)
-			}
-		}()
+		go h.storeResults(runtime, j)
 	}
 
 	j.Status = jobStatus.Succeeded
