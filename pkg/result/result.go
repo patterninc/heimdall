@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	dataInitialSize   = 10000
 	messageColumn     = `message`
 	messageColumnType = `string`
 	avroExtension     = `.avro`
@@ -41,14 +40,15 @@ type avroFields struct {
 	Fields []*column.Column `yaml:"fields,omitempty" json:"fields,omitempty"`
 }
 
-func FromRows(rows *sql.Rows) (*Result, error) {
+// StreamRows writes the same shape FromRows/json.Marshal would, one row at a time instead of buffering into a Result first.
+func StreamRows(w io.Writer, rows *sql.Rows) error {
 
 	defer rows.Close()
 
 	// let's get columns metadata
 	columnsTypes, err := rows.ColumnTypes()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	columns := make([]*column.Column, 0, len(columnsTypes))
@@ -62,8 +62,10 @@ func FromRows(rows *sql.Rows) (*Result, error) {
 	// let's get columns count
 	columnsCount := len(columns)
 
-	// let's pull data
-	data := make([][]any, 0, dataInitialSize)
+	rw := NewRowWriter(w)
+	if err := rw.WriteColumns(columns); err != nil {
+		return err
+	}
 
 	for rows.Next() {
 		row := make([]any, columnsCount)
@@ -71,15 +73,18 @@ func FromRows(rows *sql.Rows) (*Result, error) {
 			row[i] = new(interface{})
 		}
 		if err := rows.Scan(row...); err != nil {
-			return nil, err
+			return err
 		}
-		data = append(data, row)
+		if err := rw.WriteRow(row); err != nil {
+			return err
+		}
 	}
 
-	return &Result{
-		Columns: columns,
-		Data:    data,
-	}, nil
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	return rw.Close()
 
 }
 

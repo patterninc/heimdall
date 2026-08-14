@@ -2,7 +2,9 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 
@@ -37,6 +39,10 @@ func New(_ *pkgcontext.Context) (plugin.Handler, error) {
 
 // Handler for the PostgreSQL query execution.
 func (p *postgresCommandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+	return fmt.Errorf("postgres: Execute not implemented for job %q -- this plugin only supports StreamResult", j.ID)
+}
+
+func (p *postgresCommandContext) StreamResult(ctx context.Context, w io.Writer, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 	jobContext, err := validateJobContext(j)
 	if err != nil {
 		return err
@@ -50,9 +56,14 @@ func (p *postgresCommandContext) Execute(ctx context.Context, r *plugin.Runtime,
 	db := &database.Database{ConnectionString: clusterContext.ConnectionString}
 
 	if jobContext.ReturnResult {
-		return executeSyncQuery(db, jobContext.Query, j)
+		return executeSyncQuery(w, db, jobContext.Query)
 	}
-	return p.executeAsyncQueries(db, jobContext.Query, j)
+
+	if err := p.executeAsyncQueries(db, jobContext.Query, j); err != nil {
+		return err
+	}
+	defer func() { j.Result = nil }() // already written below; don't also retain it
+	return json.NewEncoder(w).Encode(j.Result)
 }
 
 func validateJobContext(j *job.Job) (*postgresJobContext, error) {
@@ -81,7 +92,7 @@ func validateClusterContext(c *cluster.Cluster) (*postgresClusterContext, error)
 	return clusterContext, nil
 }
 
-func executeSyncQuery(db *database.Database, query string, j *job.Job) error {
+func executeSyncQuery(w io.Writer, db *database.Database, query string) error {
 	// Allow a single query, even if it ends with a semicolon
 	queries := splitAndTrimQueries(query)
 	if len(queries) != 1 {
@@ -98,15 +109,8 @@ func executeSyncQuery(db *database.Database, query string, j *job.Job) error {
 	if err != nil {
 		return fmt.Errorf("PostgreSQL query execution failed: %w", err)
 	}
-	defer rows.Close()
 
-	rowsResult, err := result.FromRows(rows)
-	if err != nil {
-		return fmt.Errorf("failed to process PostgreSQL query results: %w", err)
-	}
-
-	j.Result = rowsResult
-	return nil
+	return result.StreamRows(w, rows)
 }
 
 func (p *postgresCommandContext) executeAsyncQueries(db *database.Database, query string, j *job.Job) error {
