@@ -72,7 +72,10 @@ func StreamRows(w io.Writer, rows *sql.Rows) error {
 		if err != nil {
 			return err
 		}
-		if _, err := fmt.Fprintf(bw, `"columns":%s`, columnsJSON); err != nil {
+		if _, err := bw.WriteString(`"columns":`); err != nil {
+			return err
+		}
+		if _, err := bw.Write(columnsJSON); err != nil {
 			return err
 		}
 	}
@@ -98,7 +101,10 @@ func StreamRows(w io.Writer, rows *sql.Rows) error {
 		case rowCount == 0:
 			prefix = `"data":[`
 		}
-		if _, err := fmt.Fprintf(bw, "%s%s", prefix, rowJSON); err != nil {
+		if _, err := bw.WriteString(prefix); err != nil {
+			return err
+		}
+		if _, err := bw.Write(rowJSON); err != nil {
 			return err
 		}
 		rowCount++
