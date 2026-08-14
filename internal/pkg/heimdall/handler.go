@@ -103,7 +103,7 @@ func payloadHandler[T any](fn func(context.Context, *T) (any, error)) http.Handl
 		w.Header().Add(contentTypeKey, contentTypeJSON)
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(result); err != nil {
-			writeAPIError(w, err, result)
+			// status is already committed and the body may be partially written -- writeAPIError would just corrupt it further, so log and stop.
 			payloadHandlerMethod.LogAndCountError(err)
 			return
 		}
