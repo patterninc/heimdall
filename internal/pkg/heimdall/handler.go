@@ -35,12 +35,6 @@ func writeAPIError(w http.ResponseWriter, err error, obj any) {
 	// API request error count
 	payloadHandlerMethod.LogAndCountError(err)
 
-	w.Header().Add(contentTypeKey, contentTypeJSON)
-	w.WriteHeader(statusForError(err))
-	w.Write(errorPayload(err, obj))
-}
-
-func errorPayload(err error, obj any) []byte {
 	response := map[string]string{
 		errorKey: err.Error(),
 	}
@@ -50,7 +44,10 @@ func errorPayload(err error, obj any) []byte {
 	}
 
 	responseJSON, _ := json.Marshal(response)
-	return responseJSON
+
+	w.Header().Add(contentTypeKey, contentTypeJSON)
+	w.WriteHeader(statusForError(err))
+	w.Write(responseJSON)
 }
 
 func statusForError(err error) int {
@@ -106,11 +103,16 @@ func payloadHandler[T any](fn func(context.Context, *T) (any, error)) http.Handl
 		w.Header().Add(contentTypeKey, contentTypeJSON)
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(result); err != nil {
-			// status is already committed to 200, so WriteHeader here would be a no-op -- but Encode failures are
-			// almost always marshal errors caught before any body bytes went out, so the error message itself
+			// status is already committed to 200, so WriteHeader here would be a no-op -- but Encode failures
+			// are almost always marshal errors caught before any body bytes went out, so the error message itself
 			// isn't lost yet; write it directly instead of going through writeAPIError's WriteHeader call.
 			payloadHandlerMethod.LogAndCountError(err)
-			w.Write(errorPayload(err, result))
+			response := map[string]string{errorKey: err.Error()}
+			if objectWithID, ok := result.(hasID); ok {
+				response[idKey] = objectWithID.GetID()
+			}
+			responseJSON, _ := json.Marshal(response)
+			w.Write(responseJSON)
 			return
 		}
 
