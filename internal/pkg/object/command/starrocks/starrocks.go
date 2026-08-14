@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow/flight"
@@ -19,6 +18,7 @@ import (
 	heimdallContext "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
+	"github.com/patterninc/heimdall/pkg/object/job/status"
 	"github.com/patterninc/heimdall/pkg/plugin"
 )
 
@@ -59,10 +59,6 @@ func New(commandCtx *heimdallContext.Context) (plugin.Handler, error) {
 
 // Execute implements the plugin.Handler interface
 func (cmd *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
-	return fmt.Errorf("starrocks: Execute not implemented for job %q -- this plugin only supports StreamResult", j.ID)
-}
-
-func (cmd *commandContext) StreamResult(ctx context.Context, w io.Writer, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	handleMethod.CountRequest()
 	defer handleMethod.RecordLatency(time.Now())
@@ -74,10 +70,13 @@ func (cmd *commandContext) StreamResult(ctx context.Context, w io.Writer, r *plu
 	}
 	defer jobContext.close()
 
-	if err := jobContext.execute(ctx, w); err != nil {
+	res, err := jobContext.execute(ctx)
+	if err != nil {
 		handleMethod.LogAndCountError(err, "execute")
 		return err
 	}
+	j.Result = res
+	j.Status = status.Succeeded
 
 	handleMethod.CountSuccess()
 	return nil
