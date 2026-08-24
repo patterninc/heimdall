@@ -43,6 +43,7 @@ var (
 	ErrCommandClusterPairNotFound = fmt.Errorf(`command-cluster pair is not found`)
 	ErrJobCancelFailed            = fmt.Errorf(`async job unrecognized or already in final state`)
 	ErrCallerNotAllowed           = fmt.Errorf(`caller is not allowed to run this command`)
+	ErrResultNotReady             = fmt.Errorf(`result is not available until the job has succeeded`)
 	runJobMethod                  = telemetry.NewMethod("runJob", "heimdall")
 	cancelJobMethod               = telemetry.NewMethod("db_connection", "cancel_job")
 	renderAttributesMethod        = telemetry.NewMethod("renderAttributes", "heimdall")
@@ -143,7 +144,15 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 	go func() {
 		defer close(cancelMonitorDone) // signal monitoring to stop
 		handler := h.commandHandlers[command.ID]
-		err := handler.Execute(pluginCtx, runtime, j, cluster)
+
+		var err error
+		if rs, ok := handler.(plugin.ResultStreamer); ok {
+			err = h.writeResultToDestination(pluginCtx, runtime, func(w io.Writer) error {
+				return rs.StreamResult(pluginCtx, w, runtime, j, cluster)
+			})
+		} else {
+			err = handler.Execute(pluginCtx, runtime, j, cluster)
+		}
 		jobDone <- err
 	}()
 
@@ -256,26 +265,39 @@ func (h *Heimdall) storeResults(runtime *plugin.Runtime, j *job.Job) error {
 		return nil
 	}
 
-	// prepare result
-	data, err := json.Marshal(j.Result)
-	if err != nil {
+	return h.writeResultToDestination(context.Background(), runtime, func(w io.Writer) error {
+		return json.NewEncoder(w).Encode(j.Result)
+	})
+}
 
-		return err
-	}
+func (h *Heimdall) writeResultToDestination(ctx context.Context, runtime *plugin.Runtime, write func(io.Writer) error) error {
 
 	// write result
-	writeFileFunc := os.WriteFile
+	writeFileFunc := writeFileStreamed
 	if strings.HasPrefix(runtime.ResultDirectory, s3Prefix) {
-		writeFileFunc = func(name string, data []byte, perm os.FileMode) error {
-			return aws.WriteToS3(context.Background(), name, data, perm)
+		writeFileFunc = func(name string, write func(io.Writer) error) error {
+			return aws.StreamToS3(ctx, name, write)
 		}
 	}
-	if err := writeFileFunc(runtime.ResultDirectory+separator+resultFilename, data, 0600); err != nil {
 
+	return writeFileFunc(runtime.ResultDirectory+separator+resultFilename, write)
+}
+
+func writeFileStreamed(name string, write func(io.Writer) error) error {
+
+	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
 		return err
 	}
 
-	return nil
+	writeErr := write(f)
+	closeErr := f.Close()
+
+	if writeErr != nil {
+		return writeErr
+	}
+	return closeErr
+
 }
 
 func (h *Heimdall) cancelJob(ctx context.Context, req *jobRequest) (any, error) {
@@ -322,9 +344,17 @@ func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// let's validate jobID we got
-	if _, err := h.getJobStatus(r.Context(), &jobRequest{ID: jobID}); err != nil {
+	jobStatusResult, err := h.getJobStatus(r.Context(), &jobRequest{ID: jobID})
+	if err != nil {
 		writeAPIError(w, err, nil)
 		return
+	}
+
+	if filename == resultFile {
+		if j, ok := jobStatusResult.(*job.Job); !ok || j.Status != jobStatus.Succeeded {
+			writeAPIError(w, ErrResultNotReady, nil)
+			return
+		}
 	}
 
 	// set context of the requested file
