@@ -56,6 +56,8 @@ func statusForError(err error) int {
 		return http.StatusForbidden
 	case errors.Is(err, ErrNoCaller):
 		return http.StatusUnauthorized
+	case errors.Is(err, ErrResultNotReady):
+		return http.StatusNotFound
 	default:
 		return http.StatusInternalServerError
 	}
