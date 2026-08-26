@@ -344,23 +344,27 @@ func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// let's validate jobID we got
-	jobStatusResult, err := h.getJobStatus(r.Context(), &jobRequest{ID: jobID})
+	jobResult, err := h.getJob(r.Context(), &jobRequest{ID: jobID})
 	if err != nil {
 		writeAPIError(w, err, nil)
 		return
 	}
 
+	j, ok := jobResult.(*job.Job)
+	if !ok {
+		writeAPIError(w, ErrUnknownJobID, nil)
+		return
+	}
+
 	// only allow same user to access the job files
-	if j, ok := jobStatusResult.(*job.Job); !ok || j.User != getUsername(r) {
+	if j.User != getUsername(r) {
 		writeAPIError(w, ErrCallerNotAllowed, nil)
 		return
 	}
 
-	if filename == resultFile {
-		if j, ok := jobStatusResult.(*job.Job); !ok || j.Status != jobStatus.Succeeded {
-			writeAPIError(w, ErrResultNotReady, nil)
-			return
-		}
+	if filename == resultFile && j.Status != jobStatus.Succeeded {
+		writeAPIError(w, ErrResultNotReady, nil)
+		return
 	}
 
 	// set context of the requested file
