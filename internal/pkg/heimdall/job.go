@@ -344,13 +344,13 @@ func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// let's validate jobID we got
-	jobResult, err := h.getJobStatus(r.Context(), &jobRequest{ID: jobID})
+	jobStatusResult, err := h.getJobStatus(r.Context(), &jobRequest{ID: jobID})
 	if err != nil {
 		writeAPIError(w, err, nil)
 		return
 	}
 
-	j, ok := jobResult.(*job.Job)
+	j, ok := jobStatusResult.(*job.Job)
 	if !ok {
 		writeAPIError(w, ErrUnknownJobID, nil)
 		return
@@ -362,6 +362,7 @@ func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, ErrCallerNotAllowed, nil)
 			return
 		}
+		// if failed, we don't have a result file to return
 		if j.Status != jobStatus.Succeeded {
 			writeAPIError(w, ErrResultNotReady, nil)
 			return
