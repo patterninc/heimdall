@@ -517,7 +517,7 @@ func (h *Heimdall) getJobStatus(ctx context.Context, j *jobRequest) (any, error)
 
 	r := &job.Job{}
 
-	if err := row.Scan(&r.Status, &r.Error, &r.UpdatedAt); err != nil {
+	if err := row.Scan(&r.Status, &r.Error, &r.UpdatedAt, &r.User); err != nil {
 		if err == sql.ErrNoRows {
 			getJobStatusMethod.LogAndCountError(ErrUnknownJobID, "query")
 			return nil, ErrUnknownJobID
