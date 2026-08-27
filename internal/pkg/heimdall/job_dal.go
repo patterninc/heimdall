@@ -248,12 +248,12 @@ type sortColumn struct {
 }
 
 type resolvedSort struct {
-	orderKey  string     
-	column    sortColumn 
-	sorted    bool       
-	expr      string     
-	direction string     
-	cmp       string     
+	orderKey  string
+	column    sortColumn
+	sorted    bool
+	expr      string
+	direction string
+	cmp       string
 }
 
 func resolveSortColumns(f *database.Filter) resolvedSort {

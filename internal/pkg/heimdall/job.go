@@ -356,15 +356,16 @@ func (h *Heimdall) getJobFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// only allow same user to access the job files
-	if j.User != getUsername(r) {
-		writeAPIError(w, ErrCallerNotAllowed, nil)
-		return
-	}
-
-	if filename == resultFile && j.Status != jobStatus.Succeeded {
-		writeAPIError(w, ErrResultNotReady, nil)
-		return
+	if filename == resultFile {
+		// only allow same user to access the job result file
+		if j.User != getUsername(r) {
+			writeAPIError(w, ErrCallerNotAllowed, nil)
+			return
+		}
+		if j.Status != jobStatus.Succeeded {
+			writeAPIError(w, ErrResultNotReady, nil)
+			return
+		}
 	}
 
 	// set context of the requested file
