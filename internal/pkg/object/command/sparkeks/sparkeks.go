@@ -106,9 +106,9 @@ type commandContext struct {
 }
 
 type jobParameters struct {
-	Properties map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
-	EntryPoint string `yaml:"entry_point,omitempty" json:"entry_point,omitempty"`
-	ApplicationType string `yaml:"application_type,omitempty" json:"application_type,omitempty"`
+	Properties      map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
+	EntryPoint      string            `yaml:"entry_point,omitempty" json:"entry_point,omitempty"`
+	ApplicationType string            `yaml:"application_type,omitempty" json:"application_type,omitempty"`
 }
 
 type jobContext struct {
@@ -481,7 +481,6 @@ func uploadFileToS3(ctx context.Context, awsConfig aws.Config, fileURI, content 
 func updateS3ToS3aURI(uri string) string {
 	return strings.ReplaceAll(uri, s3Prefix, s3aPrefix)
 }
-
 
 // getS3FileURI finds a file in an S3 directory that matches the given extension.
 func getS3FileURI(ctx context.Context, awsConfig aws.Config, directoryURI, matchingExtension string) (string, error) {
