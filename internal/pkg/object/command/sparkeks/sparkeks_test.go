@@ -87,3 +87,23 @@ func TestPrintState(t *testing.T) {
 	printState(f, "RUNNING")
 	// Optionally check file contents if needed
 }
+
+func TestImageForJob(t *testing.T) {
+	clusterImg := "cluster.example/spark:v4.1.1"
+	cluster := &clusterContext{Image: &clusterImg}
+
+	got := imageForJob(&commandContext{Image: "ds.example/spark-ds:v4.1.1"}, cluster)
+	if got == nil || *got != "ds.example/spark-ds:v4.1.1" {
+		t.Fatalf("command image should win, got %v", got)
+	}
+
+	got = imageForJob(&commandContext{}, cluster)
+	if got == nil || *got != clusterImg {
+		t.Fatalf("empty command image should fall back to cluster, got %v", got)
+	}
+
+	got = imageForJob(&commandContext{}, &clusterContext{})
+	if got != nil {
+		t.Fatalf("no images set, got %v", got)
+	}
+}

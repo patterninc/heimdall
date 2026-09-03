@@ -95,11 +95,17 @@ var (
 	ErrApplicationSpec      = fmt.Errorf("failed to load or parse SparkApplication template")
 	ErrSparkApplicationFile = fmt.Errorf("failed to read SparkApplication application template file: check file path and permissions")
 	ErrMissingEntryPoint    = fmt.Errorf("entry_point is required for .jar wrapper_uri: set parameters.entry_point to the fully-qualified main class")
+	ErrMissingBundleVersion = fmt.Errorf("parameters.bundle_version is required when the command sets bundle_uri")
+	ErrMissingBundleEntry   = fmt.Errorf("parameters.entry_point is required when the command sets bundle_uri")
+	ErrInvalidScriptURI          = fmt.Errorf("parameters.script_uri must be an s3:// or s3a:// .py object under the command bundle_uri prefix")
+	ErrConflictingPySparkSource  = fmt.Errorf("parameters.script_uri and parameters.bundle_version are mutually exclusive")
 )
 
 type commandContext struct {
-	JobsURI       string            `yaml:"jobs_uri,omitempty" json:"jobs_uri,omitempty"`
-	WrapperURI    string            `yaml:"wrapper_uri,omitempty" json:"wrapper_uri,omitempty"`
+	JobsURI    string `yaml:"jobs_uri,omitempty" json:"jobs_uri,omitempty"`
+	WrapperURI string `yaml:"wrapper_uri,omitempty" json:"wrapper_uri,omitempty"`
+	BundleURI string `yaml:"bundle_uri,omitempty" json:"bundle_uri,omitempty"`
+	Image         string            `yaml:"image,omitempty" json:"image,omitempty"`
 	EventLogURI   string            `yaml:"event_log_uri,omitempty" json:"event_log_uri,omitempty"`
 	Properties    map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 	KubeNamespace string            `yaml:"kube_namespace,omitempty" json:"kube_namespace,omitempty"`
@@ -109,6 +115,8 @@ type jobParameters struct {
 	Properties      map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 	EntryPoint      string            `yaml:"entry_point,omitempty" json:"entry_point,omitempty"`
 	ApplicationType string            `yaml:"application_type,omitempty" json:"application_type,omitempty"`
+	BundleVersion   string            `yaml:"bundle_version,omitempty" json:"bundle_version,omitempty"`
+	ScriptURI       string            `yaml:"script_uri,omitempty" json:"script_uri,omitempty"`
 }
 
 type jobContext struct {
@@ -339,6 +347,19 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 		}
 	}
 	execCtx.jobContext = jobContext
+
+	if s.BundleURI != "" && jobContext.Parameters != nil {
+		scriptURI := strings.TrimSpace(jobContext.Parameters.ScriptURI)
+		bundleVersion := strings.TrimSpace(jobContext.Parameters.BundleVersion)
+		if scriptURI != "" && bundleVersion != "" {
+			return nil, ErrConflictingPySparkSource
+		}
+		if scriptURI != "" {
+			if err := validateScriptURI(scriptURI, s.BundleURI); err != nil {
+				return nil, err
+			}
+		}
+	}
 
 	// Parse cluster context
 	clusterContext := &clusterContext{}
@@ -727,6 +748,17 @@ func updateKubeConfig(ctx context.Context, execCtx *executionContext) (string, e
 	return kubeconfigPath, nil
 }
 
+// imageForJob prefers the command-pinned image (DS CI) over the cluster default (SQL image).
+func imageForJob(cmd *commandContext, cluster *clusterContext) *string {
+	if cmd != nil && cmd.Image != "" {
+		return &cmd.Image
+	}
+	if cluster != nil {
+		return cluster.Image
+	}
+	return nil
+}
+
 // applySparkOperatorConfig consolidates all Spark Operator configuration updates and overrides.
 func applySparkOperatorConfig(execCtx *executionContext) error {
 	sparkApp := execCtx.sparkApp
@@ -766,8 +798,8 @@ func applySparkOperatorConfig(execCtx *executionContext) error {
 		}
 	}
 
-	if clusterContext.Image != nil {
-		sparkApp.Spec.Image = clusterContext.Image
+	if img := imageForJob(execCtx.commandContext, clusterContext); img != nil {
+		sparkApp.Spec.Image = img
 	}
 
 	if clusterContext.Region != nil {
@@ -775,41 +807,6 @@ func applySparkOperatorConfig(execCtx *executionContext) error {
 			sparkApp.Spec.Driver.EnvVars = make(map[string]string)
 		}
 		sparkApp.Spec.Driver.EnvVars[awsRegionEnvVar] = *clusterContext.Region
-	}
-
-	// Handle required Spark SQL extensions
-	if clusterContext.RequiredSparkSQLExtensions != "" {
-		existingExtensions := sparkApp.Spec.SparkConf[sparkSqlExtensions]
-		if existingExtensions == "" {
-			// No existing extensions, just set the required ones
-			sparkApp.Spec.SparkConf[sparkSqlExtensions] = clusterContext.RequiredSparkSQLExtensions
-		} else {
-			// Merge required extensions with existing ones, avoiding duplicates
-			extensionSet := make(map[string]bool)
-
-			// Add existing extensions to the set
-			for _, ext := range strings.Split(existingExtensions, ",") {
-				ext = strings.TrimSpace(ext)
-				if ext != "" {
-					extensionSet[ext] = true
-				}
-			}
-
-			// Add required extensions to the set
-			for _, ext := range strings.Split(clusterContext.RequiredSparkSQLExtensions, ",") {
-				ext = strings.TrimSpace(ext)
-				if ext != "" {
-					extensionSet[ext] = true
-				}
-			}
-
-			// Build the final extension list
-			var extensions []string
-			for ext := range extensionSet {
-				extensions = append(extensions, ext)
-			}
-			sparkApp.Spec.SparkConf[sparkSqlExtensions] = strings.Join(extensions, ",")
-		}
 	}
 
 	// Driver and Executor resources are handled by deleting from job properties after use
@@ -849,6 +846,38 @@ func applySparkOperatorConfig(execCtx *executionContext) error {
 	}
 	for k, v := range jobContext.Parameters.Properties {
 		sparkApp.Spec.SparkConf[k] = v
+	}
+
+	// Required Spark SQL extensions must win over job/cluster properties, so this
+	// merge runs last: a caller can otherwise submit spark.sql.extensions="" and
+	// disable the Ranger authorization extension entirely.
+	if clusterContext.RequiredSparkSQLExtensions != "" {
+		existingExtensions := sparkApp.Spec.SparkConf[sparkSqlExtensions]
+		if existingExtensions == "" {
+			sparkApp.Spec.SparkConf[sparkSqlExtensions] = clusterContext.RequiredSparkSQLExtensions
+		} else {
+			extensionSet := make(map[string]bool)
+
+			for _, ext := range strings.Split(existingExtensions, ",") {
+				ext = strings.TrimSpace(ext)
+				if ext != "" {
+					extensionSet[ext] = true
+				}
+			}
+
+			for _, ext := range strings.Split(clusterContext.RequiredSparkSQLExtensions, ",") {
+				ext = strings.TrimSpace(ext)
+				if ext != "" {
+					extensionSet[ext] = true
+				}
+			}
+
+			var extensions []string
+			for ext := range extensionSet {
+				extensions = append(extensions, ext)
+			}
+			sparkApp.Spec.SparkConf[sparkSqlExtensions] = strings.Join(extensions, ",")
+		}
 	}
 
 	if sparkApp.Spec.Type == "" {
