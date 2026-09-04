@@ -748,7 +748,7 @@ func updateKubeConfig(ctx context.Context, execCtx *executionContext) (string, e
 	return kubeconfigPath, nil
 }
 
-// imageForJob prefers the command-pinned image (DS CI) over the cluster default (SQL image).
+// imageForJob prefers a command-pinned image over the cluster default.
 func imageForJob(cmd *commandContext, cluster *clusterContext) *string {
 	if cmd != nil && cmd.Image != "" {
 		return &cmd.Image
