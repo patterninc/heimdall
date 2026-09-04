@@ -137,13 +137,19 @@ func (h *Heimdall) runAsyncJob(ctx context.Context, j *job.Job) error {
 	// do we have the command?
 	command, found := h.Commands[j.CommandID]
 	if !found {
-		return h.updateAsyncJobStatus(j, fmt.Errorf(formatErrUnknownCommand, j.CommandID))
+		err := fmt.Errorf(formatErrUnknownCommand, j.CommandID)
+		j.Status = status.Failed
+		j.Error = err.Error()
+		return h.updateAsyncJobStatus(j, err)
 	}
 
-	// do we have hte cluster?
+	// do we have the cluster?
 	cluster, found := h.Clusters[j.ClusterID]
 	if !found {
-		return h.updateAsyncJobStatus(j, fmt.Errorf(formatErrUnknownCluster, j.ClusterID))
+		err := fmt.Errorf(formatErrUnknownCluster, j.ClusterID)
+		j.Status = status.Failed
+		j.Error = err.Error()
+		return h.updateAsyncJobStatus(j, err)
 	}
 
 	runAsyncJobMethod.CountSuccess()
