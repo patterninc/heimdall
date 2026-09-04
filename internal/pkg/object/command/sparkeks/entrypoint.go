@@ -76,6 +76,63 @@ func (s sqlWrapperEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) 
 	return nil
 }
 
+type pysparkEntrypointStrategy struct {
+	appName       string
+	queryURI      string
+	user          string
+	resultURI     string
+	returnResult  bool
+	arguments     []string
+	scriptURI     string // pre-uploaded .py; job passes parameters.script_uri
+	bundleURI     string // command bundle_uri; job never sets this
+	bundleVersion string // job passes parameters.bundle_version
+	entryPoint    string // job passes parameters.entry_point (path inside the zip)
+}
+
+func (s pysparkEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) error {
+	if s.scriptURI != "" {
+		extra := append([]string{s.scriptURI, ""}, s.arguments...)
+		spec.Arguments = buildArguments(extra, s.appName, s.queryURI, s.user, s.resultURI, s.returnResult)
+		return nil
+	}
+
+	if strings.TrimSpace(s.bundleVersion) == "" {
+		return ErrMissingBundleVersion
+	}
+	entryPoint := strings.TrimSpace(s.entryPoint)
+	if entryPoint == "" {
+		return ErrMissingBundleEntry
+	}
+
+	bundleZipURI := updateS3ToS3aURI(strings.TrimRight(s.bundleURI, "/") + "/" + strings.TrimSpace(s.bundleVersion) + ".zip")
+	extra := append([]string{bundleZipURI, entryPoint}, s.arguments...)
+	spec.Arguments = buildArguments(extra, s.appName, s.queryURI, s.user, s.resultURI, s.returnResult)
+	return nil
+}
+
+func validateScriptURI(scriptURI, allowedPrefix string) error {
+	scriptURI = strings.TrimSpace(scriptURI)
+	if scriptURI == "" {
+		return ErrInvalidScriptURI
+	}
+	if !strings.HasPrefix(scriptURI, s3Prefix) && !strings.HasPrefix(scriptURI, s3aPrefix) {
+		return ErrInvalidScriptURI
+	}
+	if strings.Contains(scriptURI, "..") {
+		return ErrInvalidScriptURI
+	}
+	if !strings.HasSuffix(strings.ToLower(scriptURI), ".py") {
+		return ErrInvalidScriptURI
+	}
+
+	normalized := updateS3ToS3aURI(scriptURI)
+	prefix := updateS3ToS3aURI(strings.TrimRight(strings.TrimSpace(allowedPrefix), "/")) + "/"
+	if !strings.HasPrefix(normalized, prefix) {
+		return ErrInvalidScriptURI
+	}
+	return nil
+}
+
 // entrypointFactory builds the entrypoint strategy for a job from its execution context.
 type entrypointFactory func(execCtx *executionContext) entrypointStrategy
 
@@ -87,12 +144,41 @@ var entrypointStrategiesByExt = map[string]entrypointFactory{
 var defaultEntrypointFactory entrypointFactory = newSQLWrapperEntrypointStrategy
 
 func newEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
+	if execCtx.commandContext.BundleURI != "" {
+		return newPySparkEntrypointStrategy(execCtx)
+	}
+
 	ext := strings.ToLower(path.Ext(execCtx.commandContext.WrapperURI))
 	factory, ok := entrypointStrategiesByExt[ext]
 	if !ok {
 		factory = defaultEntrypointFactory
 	}
 	return factory(execCtx)
+}
+
+func newPySparkEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
+	jobContext := execCtx.jobContext
+
+	s := pysparkEntrypointStrategy{
+		appName:      execCtx.appName,
+		queryURI:     execCtx.s3aQueryURI,
+		user:         execCtx.job.User,
+		resultURI:    execCtx.s3aResultURI,
+		returnResult: jobContext.ReturnResult,
+		arguments:    jobContext.Arguments,
+		bundleURI: execCtx.commandContext.BundleURI,
+	}
+
+	if jobContext.Parameters != nil && strings.TrimSpace(jobContext.Parameters.ScriptURI) != "" {
+		s.scriptURI = updateS3ToS3aURI(strings.TrimSpace(jobContext.Parameters.ScriptURI))
+		return s
+	}
+
+	if jobContext.Parameters != nil {
+		s.entryPoint = jobContext.Parameters.EntryPoint
+		s.bundleVersion = jobContext.Parameters.BundleVersion
+	}
+	return s
 }
 
 func newJarEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
