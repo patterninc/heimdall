@@ -5,7 +5,9 @@ import { ReactNode } from 'react'
 
 const ReactQueryProvider = dynamic(
   () => import('../ReactQueryProvider/ReactQueryProvider'),
-  { ssr: false },
+  {
+    ssr: false,
+  },
 )
 
 const HeaderContent = dynamic(() => import('../../components/Header/Header'), {
@@ -30,7 +32,9 @@ const AutoRefreshProvidercontainer = dynamic(
 
 const LeftNavContainer = dynamic(
   () => import('../../components/NavigationBar/LeftNavContainer'),
-  { ssr: false },
+  {
+    ssr: false,
+  },
 )
 
 const PatternToastContainer = dynamic(
