@@ -7,20 +7,10 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 )
 
-func PullLogs(ctx context.Context, writer *os.File, logGroup, logStream string, chunkSize int, memoryLimit int64) error {
-
-	// initialize AWS session
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return err
-	}
-
-	// create a new cloudwatch logs client
-	client := cloudwatchlogs.NewFromConfig(cfg)
+func PullLogs(ctx context.Context, client *cloudwatchlogs.Client, writer *os.File, logGroup, logStream string, chunkSize int, memoryLimit int64) error {
 
 	// Write log stream header to differentiate streams
 	header := fmt.Sprintf("=== %s ===\n\n", logStream)
