@@ -76,18 +76,6 @@ func (s sqlWrapperEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) 
 	return nil
 }
 
-// scriptQueryURI is parameters.script_uri as s3a for query_uri. Empty means upload query.sql.
-func scriptQueryURI(jobCtx *jobContext) string {
-	if jobCtx == nil || jobCtx.Parameters == nil {
-		return ""
-	}
-	script := strings.TrimSpace(jobCtx.Parameters.ScriptURI)
-	if script == "" {
-		return ""
-	}
-	return updateS3ToS3aURI(script)
-}
-
 // entrypointFactory builds the entrypoint strategy for a job from its execution context.
 type entrypointFactory func(execCtx *executionContext) entrypointStrategy
 
@@ -130,10 +118,6 @@ func newJarEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
 
 func newSQLWrapperEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
 	jobContext := execCtx.jobContext
-	queryURI := execCtx.s3aQueryURI
-	if u := scriptQueryURI(jobContext); u != "" {
-		queryURI = u
-	}
 	extra := jobContext.Arguments
 	if jobContext.Parameters != nil {
 		if ep := strings.TrimSpace(jobContext.Parameters.EntryPoint); ep != "" {
@@ -142,7 +126,7 @@ func newSQLWrapperEntrypointStrategy(execCtx *executionContext) entrypointStrate
 	}
 	return sqlWrapperEntrypointStrategy{
 		appName:      execCtx.appName,
-		queryURI:     queryURI,
+		queryURI:     execCtx.s3aQueryURI,
 		user:         execCtx.job.User,
 		resultURI:    execCtx.s3aResultURI,
 		returnResult: jobContext.ReturnResult,

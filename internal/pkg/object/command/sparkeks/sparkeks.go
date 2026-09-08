@@ -382,9 +382,9 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 	execCtx.s3aResultURI = updateS3ToS3aURI(execCtx.resultURI)
 	execCtx.logURI = fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, logsPath)
 
-	if queryURI := scriptQueryURI(execCtx.jobContext); queryURI != "" {
-		execCtx.queryURI = queryURI
-		execCtx.s3aQueryURI = queryURI
+	if script := strings.TrimSpace(execCtx.jobContext.Parameters.ScriptURI); script != "" {
+		execCtx.queryURI = script
+		execCtx.s3aQueryURI = updateS3ToS3aURI(script)
 	} else {
 		execCtx.queryURI = fmt.Sprintf("%s/%s/%s/%s", s.JobsURI, j.ID, queriesPath, queryFileName)
 		execCtx.s3aQueryURI = updateS3ToS3aURI(execCtx.queryURI)
