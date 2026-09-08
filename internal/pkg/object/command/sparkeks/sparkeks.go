@@ -89,22 +89,22 @@ var (
 )
 
 var (
-	ErrJobCanceled          = fmt.Errorf("job was canceled before completion")
-	ErrJobSubmission        = fmt.Errorf("failed to submit Spark application to Kubernetes cluster")
-	ErrKubeConfig           = fmt.Errorf("failed to configure Kubernetes client: ensure EKS cluster access is properly configured")
-	ErrApplicationSpec      = fmt.Errorf("failed to load or parse SparkApplication template")
-	ErrSparkApplicationFile = fmt.Errorf("failed to read SparkApplication application template file: check file path and permissions")
-	ErrMissingEntryPoint    = fmt.Errorf("entry_point is required for .jar wrapper_uri: set parameters.entry_point to the fully-qualified main class")
-	ErrMissingBundleVersion = fmt.Errorf("parameters.bundle_version is required when the command sets bundle_uri")
-	ErrMissingBundleEntry   = fmt.Errorf("parameters.entry_point is required when the command sets bundle_uri")
-	ErrInvalidScriptURI          = fmt.Errorf("parameters.script_uri must be an s3:// or s3a:// .py object under the command bundle_uri prefix")
-	ErrConflictingPySparkSource  = fmt.Errorf("parameters.script_uri and parameters.bundle_version are mutually exclusive")
+	ErrJobCanceled              = fmt.Errorf("job was canceled before completion")
+	ErrJobSubmission            = fmt.Errorf("failed to submit Spark application to Kubernetes cluster")
+	ErrKubeConfig               = fmt.Errorf("failed to configure Kubernetes client: ensure EKS cluster access is properly configured")
+	ErrApplicationSpec          = fmt.Errorf("failed to load or parse SparkApplication template")
+	ErrSparkApplicationFile     = fmt.Errorf("failed to read SparkApplication application template file: check file path and permissions")
+	ErrMissingEntryPoint        = fmt.Errorf("entry_point is required for .jar wrapper_uri: set parameters.entry_point to the fully-qualified main class")
+	ErrMissingBundleVersion     = fmt.Errorf("parameters.bundle_version is required when the command sets bundle_uri")
+	ErrMissingBundleEntry       = fmt.Errorf("parameters.entry_point is required when the command sets bundle_uri")
+	ErrInvalidScriptURI         = fmt.Errorf("parameters.script_uri must be an s3:// or s3a:// .py object under the command bundle_uri prefix")
+	ErrConflictingPySparkSource = fmt.Errorf("parameters.script_uri and parameters.bundle_version are mutually exclusive")
 )
 
 type commandContext struct {
-	JobsURI    string `yaml:"jobs_uri,omitempty" json:"jobs_uri,omitempty"`
-	WrapperURI string `yaml:"wrapper_uri,omitempty" json:"wrapper_uri,omitempty"`
-	BundleURI string `yaml:"bundle_uri,omitempty" json:"bundle_uri,omitempty"`
+	JobsURI       string            `yaml:"jobs_uri,omitempty" json:"jobs_uri,omitempty"`
+	WrapperURI    string            `yaml:"wrapper_uri,omitempty" json:"wrapper_uri,omitempty"`
+	BundleURI     string            `yaml:"bundle_uri,omitempty" json:"bundle_uri,omitempty"`
 	Image         string            `yaml:"image,omitempty" json:"image,omitempty"`
 	EventLogURI   string            `yaml:"event_log_uri,omitempty" json:"event_log_uri,omitempty"`
 	Properties    map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
@@ -397,15 +397,19 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 
 	// Set URIs and App Name
 	execCtx.appName = fmt.Sprintf("%s-%s", applicationPrefix, j.ID)
-	execCtx.queryURI = fmt.Sprintf("%s/%s/%s/%s", s.JobsURI, j.ID, queriesPath, queryFileName)
 	execCtx.resultURI = fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, resultsPath)
-	execCtx.s3aQueryURI = updateS3ToS3aURI(execCtx.queryURI)
 	execCtx.s3aResultURI = updateS3ToS3aURI(execCtx.resultURI)
 	execCtx.logURI = fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, logsPath)
 
-	// Upload query to S3
-	if err := uploadFileToS3(ctx, execCtx.awsConfig, execCtx.queryURI, execCtx.jobContext.Query); err != nil {
-		return nil, fmt.Errorf("failed to upload query to S3: %w", err)
+	if queryURI := pysparkQueryURI(s, execCtx.jobContext); queryURI != "" {
+		execCtx.queryURI = queryURI
+		execCtx.s3aQueryURI = queryURI
+	} else {
+		execCtx.queryURI = fmt.Sprintf("%s/%s/%s/%s", s.JobsURI, j.ID, queriesPath, queryFileName)
+		execCtx.s3aQueryURI = updateS3ToS3aURI(execCtx.queryURI)
+		if err := uploadFileToS3(ctx, execCtx.awsConfig, execCtx.queryURI, execCtx.jobContext.Query); err != nil {
+			return nil, fmt.Errorf("failed to upload query to S3: %w", err)
+		}
 	}
 
 	// create empty log s3 directory to avoid spark event log dir errors
@@ -850,7 +854,7 @@ func applySparkOperatorConfig(execCtx *executionContext) error {
 
 	// Required Spark SQL extensions must win over job/cluster properties, so this
 	// merge runs last: a caller can otherwise submit spark.sql.extensions="" and
-	// disable the Ranger authorization extension entirely.
+	// disable all the extensions.
 	if clusterContext.RequiredSparkSQLExtensions != "" {
 		existingExtensions := sparkApp.Spec.SparkConf[sparkSqlExtensions]
 		if existingExtensions == "" {

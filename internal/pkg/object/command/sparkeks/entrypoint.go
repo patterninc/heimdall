@@ -83,16 +83,13 @@ type pysparkEntrypointStrategy struct {
 	resultURI     string
 	returnResult  bool
 	arguments     []string
-	scriptURI     string // pre-uploaded .py; job passes parameters.script_uri
-	bundleURI     string // command bundle_uri; job never sets this
 	bundleVersion string // job passes parameters.bundle_version
 	entryPoint    string // job passes parameters.entry_point (path inside the zip)
 }
 
 func (s pysparkEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) error {
-	if s.scriptURI != "" {
-		extra := append([]string{s.scriptURI, ""}, s.arguments...)
-		spec.Arguments = buildArguments(extra, s.appName, s.queryURI, s.user, s.resultURI, s.returnResult)
+	if strings.HasSuffix(strings.ToLower(s.queryURI), ".py") {
+		spec.Arguments = buildArguments(s.arguments, s.appName, s.queryURI, s.user, s.resultURI, s.returnResult)
 		return nil
 	}
 
@@ -104,10 +101,22 @@ func (s pysparkEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) err
 		return ErrMissingBundleEntry
 	}
 
-	bundleZipURI := updateS3ToS3aURI(strings.TrimRight(s.bundleURI, "/") + "/" + strings.TrimSpace(s.bundleVersion) + ".zip")
-	extra := append([]string{bundleZipURI, entryPoint}, s.arguments...)
+	extra := append([]string{entryPoint}, s.arguments...)
 	spec.Arguments = buildArguments(extra, s.appName, s.queryURI, s.user, s.resultURI, s.returnResult)
 	return nil
+}
+
+func pysparkQueryURI(cmd *commandContext, jobCtx *jobContext) string {
+	if cmd == nil || strings.TrimSpace(cmd.BundleURI) == "" || jobCtx == nil || jobCtx.Parameters == nil {
+		return ""
+	}
+	if script := strings.TrimSpace(jobCtx.Parameters.ScriptURI); script != "" {
+		return updateS3ToS3aURI(script)
+	}
+	if ver := strings.TrimSpace(jobCtx.Parameters.BundleVersion); ver != "" {
+		return updateS3ToS3aURI(strings.TrimRight(cmd.BundleURI, "/") + "/" + ver + ".zip")
+	}
+	return ""
 }
 
 func validateScriptURI(scriptURI, allowedPrefix string) error {
@@ -166,14 +175,10 @@ func newPySparkEntrypointStrategy(execCtx *executionContext) entrypointStrategy 
 		resultURI:    execCtx.s3aResultURI,
 		returnResult: jobContext.ReturnResult,
 		arguments:    jobContext.Arguments,
-		bundleURI: execCtx.commandContext.BundleURI,
 	}
-
-	if jobContext.Parameters != nil && strings.TrimSpace(jobContext.Parameters.ScriptURI) != "" {
-		s.scriptURI = updateS3ToS3aURI(strings.TrimSpace(jobContext.Parameters.ScriptURI))
-		return s
+	if queryURI := pysparkQueryURI(execCtx.commandContext, jobContext); queryURI != "" {
+		s.queryURI = queryURI
 	}
-
 	if jobContext.Parameters != nil {
 		s.entryPoint = jobContext.Parameters.EntryPoint
 		s.bundleVersion = jobContext.Parameters.BundleVersion
