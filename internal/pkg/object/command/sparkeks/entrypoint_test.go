@@ -177,6 +177,54 @@ func TestSQLWrapperEntrypointStrategy_Apply_NoEntryPointRequired(t *testing.T) {
 	}
 }
 
+func TestSQLWrapperEntrypointStrategy_ScriptURISkipsQuerySQL(t *testing.T) {
+	jobCtx := &jobContext{
+		ReturnResult: true,
+		Arguments:    []string{"--date", "2026-09-01"},
+		Parameters: &jobParameters{
+			ScriptURI:  "s3://bucket/pyspark/abc123.zip",
+			EntryPoint: "src/job.py",
+		},
+	}
+	execCtx := newTestExecutionContext("s3://bucket/wrapper.py", jobCtx, "alice", "result_uri")
+
+	if assignQueryURI(execCtx, "s3://jobs", "job-id") {
+		t.Fatal("assignQueryURI() = true, want false (do not upload query.sql)")
+	}
+	if execCtx.s3aQueryURI != "s3a://bucket/pyspark/abc123.zip" {
+		t.Fatalf("s3aQueryURI = %q, want script_uri as s3a", execCtx.s3aQueryURI)
+	}
+
+	spec := &v1beta2.SparkApplicationSpec{}
+	if err := newEntrypointStrategy(execCtx).apply(spec); err != nil {
+		t.Fatalf("apply() returned unexpected error: %v", err)
+	}
+
+	expected := []string{
+		"spark-sql-job-test",
+		"s3a://bucket/pyspark/abc123.zip",
+		"alice",
+		"result_uri",
+		"--date",
+		"2026-09-01",
+		"src/job.py",
+	}
+	if !reflect.DeepEqual(spec.Arguments, expected) {
+		t.Errorf("spec.Arguments = %v, want %v", spec.Arguments, expected)
+	}
+}
+
+func TestAssignQueryURI_SQLUploadsQuerySQL(t *testing.T) {
+	execCtx := newTestExecutionContext("s3://bucket/wrapper.py", &jobContext{}, "alice", "result_uri")
+	if !assignQueryURI(execCtx, "s3://jobs", "job-id") {
+		t.Fatal("assignQueryURI() = false, want true (upload query.sql)")
+	}
+	want := "s3a://jobs/job-id/queries/query.sql"
+	if execCtx.s3aQueryURI != want {
+		t.Errorf("s3aQueryURI = %q, want %q", execCtx.s3aQueryURI, want)
+	}
+}
+
 func newTestExecutionContext(wrapperURI string, jobCtx *jobContext, user string, resultURI string) *executionContext {
 	return &executionContext{
 		job: &job.Job{

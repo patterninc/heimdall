@@ -118,13 +118,18 @@ func newJarEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
 
 func newSQLWrapperEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
 	jobContext := execCtx.jobContext
-
+	extra := jobContext.Arguments
+	if jobContext.Parameters != nil {
+		if ep := strings.TrimSpace(jobContext.Parameters.EntryPoint); ep != "" {
+			extra = append(extra, ep)
+		}
+	}
 	return sqlWrapperEntrypointStrategy{
 		appName:      execCtx.appName,
 		queryURI:     execCtx.s3aQueryURI,
 		user:         execCtx.job.User,
 		resultURI:    execCtx.s3aResultURI,
 		returnResult: jobContext.ReturnResult,
-		arguments:    jobContext.Arguments,
+		arguments:    extra,
 	}
 }
