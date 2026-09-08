@@ -89,22 +89,17 @@ var (
 )
 
 var (
-	ErrJobCanceled              = fmt.Errorf("job was canceled before completion")
-	ErrJobSubmission            = fmt.Errorf("failed to submit Spark application to Kubernetes cluster")
-	ErrKubeConfig               = fmt.Errorf("failed to configure Kubernetes client: ensure EKS cluster access is properly configured")
-	ErrApplicationSpec          = fmt.Errorf("failed to load or parse SparkApplication template")
-	ErrSparkApplicationFile     = fmt.Errorf("failed to read SparkApplication application template file: check file path and permissions")
-	ErrMissingEntryPoint        = fmt.Errorf("entry_point is required for .jar wrapper_uri: set parameters.entry_point to the fully-qualified main class")
-	ErrMissingBundleVersion     = fmt.Errorf("parameters.bundle_version is required when the command sets bundle_uri")
-	ErrMissingBundleEntry       = fmt.Errorf("parameters.entry_point is required when the command sets bundle_uri")
-	ErrInvalidScriptURI         = fmt.Errorf("parameters.script_uri must be an s3:// or s3a:// .py object under the command bundle_uri prefix")
-	ErrConflictingPySparkSource = fmt.Errorf("parameters.script_uri and parameters.bundle_version are mutually exclusive")
+	ErrJobCanceled          = fmt.Errorf("job was canceled before completion")
+	ErrJobSubmission        = fmt.Errorf("failed to submit Spark application to Kubernetes cluster")
+	ErrKubeConfig           = fmt.Errorf("failed to configure Kubernetes client: ensure EKS cluster access is properly configured")
+	ErrApplicationSpec      = fmt.Errorf("failed to load or parse SparkApplication template")
+	ErrSparkApplicationFile = fmt.Errorf("failed to read SparkApplication application template file: check file path and permissions")
+	ErrMissingEntryPoint    = fmt.Errorf("entry_point is required for .jar wrapper_uri: set parameters.entry_point to the fully-qualified main class")
 )
 
 type commandContext struct {
 	JobsURI       string            `yaml:"jobs_uri,omitempty" json:"jobs_uri,omitempty"`
 	WrapperURI    string            `yaml:"wrapper_uri,omitempty" json:"wrapper_uri,omitempty"`
-	BundleURI     string            `yaml:"bundle_uri,omitempty" json:"bundle_uri,omitempty"`
 	Image         string            `yaml:"image,omitempty" json:"image,omitempty"`
 	EventLogURI   string            `yaml:"event_log_uri,omitempty" json:"event_log_uri,omitempty"`
 	Properties    map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
@@ -115,7 +110,6 @@ type jobParameters struct {
 	Properties      map[string]string `yaml:"properties,omitempty" json:"properties,omitempty"`
 	EntryPoint      string            `yaml:"entry_point,omitempty" json:"entry_point,omitempty"`
 	ApplicationType string            `yaml:"application_type,omitempty" json:"application_type,omitempty"`
-	BundleVersion   string            `yaml:"bundle_version,omitempty" json:"bundle_version,omitempty"`
 	ScriptURI       string            `yaml:"script_uri,omitempty" json:"script_uri,omitempty"`
 }
 
@@ -348,19 +342,6 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 	}
 	execCtx.jobContext = jobContext
 
-	if s.BundleURI != "" && jobContext.Parameters != nil {
-		scriptURI := strings.TrimSpace(jobContext.Parameters.ScriptURI)
-		bundleVersion := strings.TrimSpace(jobContext.Parameters.BundleVersion)
-		if scriptURI != "" && bundleVersion != "" {
-			return nil, ErrConflictingPySparkSource
-		}
-		if scriptURI != "" {
-			if err := validateScriptURI(scriptURI, s.BundleURI); err != nil {
-				return nil, err
-			}
-		}
-	}
-
 	// Parse cluster context
 	clusterContext := &clusterContext{}
 	if c.Context != nil {
@@ -401,7 +382,7 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 	execCtx.s3aResultURI = updateS3ToS3aURI(execCtx.resultURI)
 	execCtx.logURI = fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, logsPath)
 
-	if queryURI := pysparkQueryURI(s, execCtx.jobContext); queryURI != "" {
+	if queryURI := scriptQueryURI(execCtx.jobContext); queryURI != "" {
 		execCtx.queryURI = queryURI
 		execCtx.s3aQueryURI = queryURI
 	} else {

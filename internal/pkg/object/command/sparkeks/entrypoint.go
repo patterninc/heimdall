@@ -76,70 +76,16 @@ func (s sqlWrapperEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) 
 	return nil
 }
 
-type pysparkEntrypointStrategy struct {
-	appName       string
-	queryURI      string
-	user          string
-	resultURI     string
-	returnResult  bool
-	arguments     []string
-	bundleVersion string // job passes parameters.bundle_version
-	entryPoint    string // job passes parameters.entry_point (path inside the zip)
-}
-
-func (s pysparkEntrypointStrategy) apply(spec *v1beta2.SparkApplicationSpec) error {
-	if strings.HasSuffix(strings.ToLower(s.queryURI), ".py") {
-		spec.Arguments = buildArguments(s.arguments, s.appName, s.queryURI, s.user, s.resultURI, s.returnResult)
-		return nil
-	}
-
-	if strings.TrimSpace(s.bundleVersion) == "" {
-		return ErrMissingBundleVersion
-	}
-	entryPoint := strings.TrimSpace(s.entryPoint)
-	if entryPoint == "" {
-		return ErrMissingBundleEntry
-	}
-
-	extra := append([]string{entryPoint}, s.arguments...)
-	spec.Arguments = buildArguments(extra, s.appName, s.queryURI, s.user, s.resultURI, s.returnResult)
-	return nil
-}
-
-func pysparkQueryURI(cmd *commandContext, jobCtx *jobContext) string {
-	if cmd == nil || strings.TrimSpace(cmd.BundleURI) == "" || jobCtx == nil || jobCtx.Parameters == nil {
+// scriptQueryURI is parameters.script_uri as s3a for query_uri. Empty means upload query.sql.
+func scriptQueryURI(jobCtx *jobContext) string {
+	if jobCtx == nil || jobCtx.Parameters == nil {
 		return ""
 	}
-	if script := strings.TrimSpace(jobCtx.Parameters.ScriptURI); script != "" {
-		return updateS3ToS3aURI(script)
+	script := strings.TrimSpace(jobCtx.Parameters.ScriptURI)
+	if script == "" {
+		return ""
 	}
-	if ver := strings.TrimSpace(jobCtx.Parameters.BundleVersion); ver != "" {
-		return updateS3ToS3aURI(strings.TrimRight(cmd.BundleURI, "/") + "/" + ver + ".zip")
-	}
-	return ""
-}
-
-func validateScriptURI(scriptURI, allowedPrefix string) error {
-	scriptURI = strings.TrimSpace(scriptURI)
-	if scriptURI == "" {
-		return ErrInvalidScriptURI
-	}
-	if !strings.HasPrefix(scriptURI, s3Prefix) && !strings.HasPrefix(scriptURI, s3aPrefix) {
-		return ErrInvalidScriptURI
-	}
-	if strings.Contains(scriptURI, "..") {
-		return ErrInvalidScriptURI
-	}
-	if !strings.HasSuffix(strings.ToLower(scriptURI), ".py") {
-		return ErrInvalidScriptURI
-	}
-
-	normalized := updateS3ToS3aURI(scriptURI)
-	prefix := updateS3ToS3aURI(strings.TrimRight(strings.TrimSpace(allowedPrefix), "/")) + "/"
-	if !strings.HasPrefix(normalized, prefix) {
-		return ErrInvalidScriptURI
-	}
-	return nil
+	return updateS3ToS3aURI(script)
 }
 
 // entrypointFactory builds the entrypoint strategy for a job from its execution context.
@@ -153,37 +99,12 @@ var entrypointStrategiesByExt = map[string]entrypointFactory{
 var defaultEntrypointFactory entrypointFactory = newSQLWrapperEntrypointStrategy
 
 func newEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
-	if execCtx.commandContext.BundleURI != "" {
-		return newPySparkEntrypointStrategy(execCtx)
-	}
-
 	ext := strings.ToLower(path.Ext(execCtx.commandContext.WrapperURI))
 	factory, ok := entrypointStrategiesByExt[ext]
 	if !ok {
 		factory = defaultEntrypointFactory
 	}
 	return factory(execCtx)
-}
-
-func newPySparkEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
-	jobContext := execCtx.jobContext
-
-	s := pysparkEntrypointStrategy{
-		appName:      execCtx.appName,
-		queryURI:     execCtx.s3aQueryURI,
-		user:         execCtx.job.User,
-		resultURI:    execCtx.s3aResultURI,
-		returnResult: jobContext.ReturnResult,
-		arguments:    jobContext.Arguments,
-	}
-	if queryURI := pysparkQueryURI(execCtx.commandContext, jobContext); queryURI != "" {
-		s.queryURI = queryURI
-	}
-	if jobContext.Parameters != nil {
-		s.entryPoint = jobContext.Parameters.EntryPoint
-		s.bundleVersion = jobContext.Parameters.BundleVersion
-	}
-	return s
 }
 
 func newJarEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
@@ -209,13 +130,22 @@ func newJarEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
 
 func newSQLWrapperEntrypointStrategy(execCtx *executionContext) entrypointStrategy {
 	jobContext := execCtx.jobContext
-
+	queryURI := execCtx.s3aQueryURI
+	if u := scriptQueryURI(jobContext); u != "" {
+		queryURI = u
+	}
+	extra := jobContext.Arguments
+	if jobContext.Parameters != nil {
+		if ep := strings.TrimSpace(jobContext.Parameters.EntryPoint); ep != "" {
+			extra = append([]string{ep}, extra...)
+		}
+	}
 	return sqlWrapperEntrypointStrategy{
 		appName:      execCtx.appName,
-		queryURI:     execCtx.s3aQueryURI,
+		queryURI:     queryURI,
 		user:         execCtx.job.User,
 		resultURI:    execCtx.s3aResultURI,
 		returnResult: jobContext.ReturnResult,
-		arguments:    jobContext.Arguments,
+		arguments:    extra,
 	}
 }
