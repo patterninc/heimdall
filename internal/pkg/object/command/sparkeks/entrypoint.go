@@ -121,7 +121,7 @@ func newSQLWrapperEntrypointStrategy(execCtx *executionContext) entrypointStrate
 	extra := jobContext.Arguments
 	if jobContext.Parameters != nil {
 		if ep := strings.TrimSpace(jobContext.Parameters.EntryPoint); ep != "" {
-			extra = append([]string{ep}, extra...)
+			extra = append(extra, ep)
 		}
 	}
 	return sqlWrapperEntrypointStrategy{

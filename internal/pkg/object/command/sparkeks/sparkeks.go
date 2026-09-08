@@ -382,12 +382,7 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 	execCtx.s3aResultURI = updateS3ToS3aURI(execCtx.resultURI)
 	execCtx.logURI = fmt.Sprintf("%s/%s/%s", s.JobsURI, j.ID, logsPath)
 
-	if script := strings.TrimSpace(execCtx.jobContext.Parameters.ScriptURI); script != "" {
-		execCtx.queryURI = script
-		execCtx.s3aQueryURI = updateS3ToS3aURI(script)
-	} else {
-		execCtx.queryURI = fmt.Sprintf("%s/%s/%s/%s", s.JobsURI, j.ID, queriesPath, queryFileName)
-		execCtx.s3aQueryURI = updateS3ToS3aURI(execCtx.queryURI)
+	if assignQueryURI(execCtx, s.JobsURI, j.ID) {
 		if err := uploadFileToS3(ctx, execCtx.awsConfig, execCtx.queryURI, execCtx.jobContext.Query); err != nil {
 			return nil, fmt.Errorf("failed to upload query to S3: %w", err)
 		}
@@ -399,6 +394,21 @@ func buildExecutionContextAndURI(ctx context.Context, r *plugin.Runtime, j *job.
 	}
 
 	return execCtx, nil
+}
+
+// assignQueryURI sets queryURI from parameters.script_uri, or the uploaded query.sql path.
+// Returns true when the caller should upload query.sql.
+func assignQueryURI(execCtx *executionContext, jobsURI, jobID string) bool {
+	if execCtx.jobContext != nil && execCtx.jobContext.Parameters != nil {
+		if script := strings.TrimSpace(execCtx.jobContext.Parameters.ScriptURI); script != "" {
+			execCtx.queryURI = script
+			execCtx.s3aQueryURI = updateS3ToS3aURI(script)
+			return false
+		}
+	}
+	execCtx.queryURI = fmt.Sprintf("%s/%s/%s/%s", jobsURI, jobID, queriesPath, queryFileName)
+	execCtx.s3aQueryURI = updateS3ToS3aURI(execCtx.queryURI)
+	return true
 }
 
 // submitSparkApp creates clients, generates the spec, and submits it to Kubernetes.
