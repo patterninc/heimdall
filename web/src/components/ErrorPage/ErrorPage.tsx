@@ -7,7 +7,7 @@ import Image from 'next/image'
 
 const NotFoundPage = () => {
   return (
-    <div className='h-screen flex justify-center items-center'>
+    <div className='flex h-screen items-center justify-center'>
       <ErrorPage
         logo={
           <div className='flex flex-col items-center justify-center'>
