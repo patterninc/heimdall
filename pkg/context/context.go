@@ -11,16 +11,9 @@ const redactedValue = `REDACTED`
 // process via JSON APIs. Matching is case-insensitive. Values are retained
 // in-memory and when persisting via String().
 var sensitiveKeys = map[string]struct{}{
-	`password`:              {},
-	`private_key`:           {},
-	`secret`:                {},
-	`token`:                 {},
-	`api_key`:               {},
-	`access_key`:            {},
-	`secret_key`:            {},
-	`client_secret`:         {},
-	`secret_access_key`:     {},
-	`aws_secret_access_key`: {},
+	`password`:    {},
+	`private_key`: {},
+	`token`:       {},
 }
 
 type Context map[string]any
@@ -54,6 +47,17 @@ func marshalRaw(v any) ([]byte, error) {
 		return json.Marshal(map[string]any(*t))
 	default:
 		return json.Marshal(v)
+	}
+}
+
+// AddSensitiveKeys registers additional context keys that should be redacted
+// from JSON responses. Keys are matched case-insensitively.
+func AddSensitiveKeys(keys []string) {
+	for _, key := range keys {
+		key = strings.ToLower(strings.TrimSpace(key))
+		if key != `` {
+			sensitiveKeys[key] = struct{}{}
+		}
 	}
 }
 
