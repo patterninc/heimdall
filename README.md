@@ -150,18 +150,6 @@ Initially, Commands and Clusters are configured via a static config file (see [c
 * Health-based routing
 * API-based dynamic configuration
 
-Context keys named `password`, `private_key`, or `token` are always redacted from JSON API
-responses. Additional key names can be configured globally (matching is case-insensitive):
-
-```yaml
-sensitive_context_keys:
-  - api_key
-  - client_secret
-```
-
-Redaction affects API output only. The original values remain available to plugins and database
-persistence.
-
 ---
 
 ## 🔁 Command & Cluster Matching Logic
@@ -186,6 +174,8 @@ Heimdall removes the need for:
 It centralizes execution logic, logging, and auditing—all accessible via API or UI.
 
 Commands may also restrict invocation via `allowed_callers` — a list of anchored regex patterns matched against `X-Heimdall-User`. Omitted/empty means open; non-matching callers are rejected at submit.
+
+Command, cluster, and job `context` keys `password`, `private_key`, and `token` are redacted in API responses. Extra names can be added via `sensitive_context_keys`.
 
 ---
 
