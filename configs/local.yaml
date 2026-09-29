@@ -2,6 +2,8 @@
 # database settings
 database:
   connection_string: "postgres://heimdall:heimdall@postgres:5432/heimdall?sslmode=disable"
+  max_open_conns: 25
+  max_idle_conns: 10
 
 # workers pool to execute async jobs
 pool:
