@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"time"
 
 	"github.com/babourine/x/pkg/set"
@@ -12,6 +13,8 @@ import (
 
 const (
 	dbDriverName = `postgres`
+	maxOpenConns = 25
+	maxIdleConns = 10
 )
 
 var (
@@ -21,12 +24,57 @@ var (
 
 type Database struct {
 	ConnectionString string `yaml:"connection_string,omitempty" json:"connection_string,omitempty"`
+	MaxOpenConns     int    `yaml:"max_open_conns,omitempty" json:"max_open_conns,omitempty"`
+	MaxIdleConns     int    `yaml:"max_idle_conns,omitempty" json:"max_idle_conns,omitempty"`
+
+	once sync.Once
+	db   *sql.DB
+	err  error
 }
 
 type Session struct {
 	db        *sql.DB
 	trx       *sql.Tx
 	committed bool
+}
+
+type queryer interface {
+	Query(string, ...any) (*sql.Rows, error)
+	QueryRow(string, ...any) *sql.Row
+}
+
+func (s *Session) queryer() queryer {
+
+	if s.trx != nil {
+		return s.trx
+	}
+
+	return s.db
+
+}
+
+func (d *Database) conn() (*sql.DB, error) {
+
+	d.once.Do(func() {
+		d.db, d.err = sql.Open(dbDriverName, d.ConnectionString)
+		if d.err != nil {
+			return
+		}
+		maxOpen, maxIdle := d.MaxOpenConns, d.MaxIdleConns
+		if maxOpen <= 0 {
+			maxOpen = maxOpenConns
+		}
+		if maxIdle <= 0 {
+			maxIdle = maxIdleConns
+		}
+		d.db.SetMaxOpenConns(maxOpen)
+		d.db.SetMaxIdleConns(maxIdle)
+		d.db.SetConnMaxLifetime(30 * time.Minute)
+		d.db.SetConnMaxIdleTime(5 * time.Minute)
+	})
+
+	return d.db, d.err
+
 }
 
 func (d *Database) NewSession(withTransaction bool) (*Session, error) {
@@ -49,7 +97,7 @@ func (d *Database) NewSession(withTransaction bool) (*Session, error) {
 	newSessionMethod.CountRequest("with_transaction", transactionLabel)
 
 	// open connection
-	if s.db, err = sql.Open(dbDriverName, d.ConnectionString); err != nil {
+	if s.db, err = d.conn(); err != nil {
 		newSessionMethod.LogAndCountError(err, "with_transaction", transactionLabel)
 		return nil, err
 	}
@@ -60,7 +108,6 @@ func (d *Database) NewSession(withTransaction bool) (*Session, error) {
 	// start transaction
 	if withTransaction {
 		if s.trx, err = s.db.BeginTx(ctx, nil); err != nil {
-			s.db.Close() // Close the connection before returning error
 			newSessionMethod.LogAndCountError(err, "with_transaction", transactionLabel)
 			return nil, err
 		}
@@ -73,13 +120,8 @@ func (d *Database) NewSession(withTransaction bool) (*Session, error) {
 
 func (s *Session) Close() error {
 
-	// do we have an uncommitted transaction going? rollback!
 	if s.trx != nil && !s.committed {
 		s.trx.Rollback()
-	}
-
-	if s.db != nil {
-		return s.db.Close()
 	}
 
 	return nil
@@ -157,7 +199,7 @@ func (s *Session) Exec(query string, args ...any) (int64, error) {
 
 func (s *Session) QueryRow(query string, args ...any) (*sql.Row, error) {
 
-	row := s.db.QueryRow(query, args...)
+	row := s.queryer().QueryRow(query, args...)
 
 	if err := row.Err(); err != nil {
 		return nil, err
@@ -169,7 +211,7 @@ func (s *Session) QueryRow(query string, args ...any) (*sql.Row, error) {
 
 func (s *Session) Query(query string, args ...any) (*sql.Rows, error) {
 
-	return s.db.Query(query, args...)
+	return s.queryer().Query(query, args...)
 
 }
 
@@ -191,6 +233,9 @@ func (s *Session) SelectSet(query string, args ...any) (*set.Set[string], error)
 			return nil, err
 		}
 		result.Add(item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return result, nil
