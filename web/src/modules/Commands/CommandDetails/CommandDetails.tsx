@@ -28,7 +28,7 @@ export const CommandDetails = ({
   })
 
   return (
-    <div className='flex flex-col md:flex-row gap-4 pt-4 min-w-[300px]'>
+    <div className='flex min-w-[300px] flex-col gap-4 pt-4 md:flex-row'>
       <CommandInformationPane
         commandData={data ? data : []}
         isLoading={isLoading}

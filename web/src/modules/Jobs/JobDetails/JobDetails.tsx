@@ -31,7 +31,7 @@ const JobDetails = ({ id }: JobDetailsProp): React.JSX.Element => {
   }, [updateBreadcrumbs, id, pathname])
 
   return (
-    <div className='flex flex-col md:flex-row gap-4 pt-4'>
+    <div className='flex flex-col gap-4 pt-4 md:flex-row'>
       <JobInformationPane jobData={jobData} isLoading={isLoading} />
       <JobDetailsHeader jobData={jobData} isLoading={isLoading} />
     </div>

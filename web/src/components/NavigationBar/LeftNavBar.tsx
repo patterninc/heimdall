@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { BreadcrumbContext } from '@/common/BreadCrumbsProvider/context'
 import { getVersion } from '@/common/Services'
 
-
 type LeftNavBarProps = {
   user: string | null
 }
@@ -68,7 +67,7 @@ const LeftNavBar = ({ user }: LeftNavBarProps) => {
       footer={({ sidebarExpanded }) =>
         sidebarExpanded ? (
           <>
-            <div className='flex items-center text-[10px] text-purple pl-4 h-5'>
+            <div className='text-purple flex h-5 items-center pl-4 text-[10px]'>
               <>
                 &copy; {new Date().getFullYear()}, v{version}-pattern. Built
                 with &nbsp;

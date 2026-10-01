@@ -12,7 +12,7 @@ const Header = () => {
   const router = useRouter()
 
   return (
-    <div className="header sticky top-0 bg-white z-[99]">
+    <div className='header sticky top-0 z-[99] bg-white'>
       <Breadcrumbs
         breadcrumbs={breadcrumbs}
         callout={(breadcrumb) => {
