@@ -1,92 +1,106 @@
-'use client'
-
-import { InformationPane, ListLoading } from '@patterninc/react-ui'
-import { CommandType } from '../Helper'
-
+import { Section } from '@patterninc/pattern-ui/section'
+import React from 'react'
 
 import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
-import { useMemo } from 'react'
+import DetailFields from '@/components/DetailPage/DetailFields'
+import ExternalLinkList, {
+  type ExternalLink,
+} from '@/components/DetailPage/ExternalLinkList'
+import KeyValueList from '@/components/DetailPage/KeyValueList'
+import TagList from '@/components/DetailPage/TagList'
+import { CommandType } from '../Helper'
 
-export type CommandDetailsProps = {
-  commandData: CommandType[]
-  isLoading?: boolean
+type CommandInformationPaneProps = {
+  command?: CommandType
+  isLoading: boolean
 }
+
 const CommandInformationPane = ({
-  commandData,
+  command,
   isLoading,
-}: CommandDetailsProps): React.JSX.Element => {
-  const data = useMemo(() => commandData[0], [commandData])
-  const commandDetailsData = [
-    {
-      label: 'user',
-      data: data?.user,
-      check: !!data?.user,
-    },
-    {
-      label: 'plugin',
-      data: data?.plugin,
-      check: !!data?.plugin,
-    },
-    {
-      label: 'Description',
-      data: data?.description,
-      check: !!data?.description,
-    },
-    {
-      label: 'version',
-      data: data?.version,
-      check: !!data?.version,
-    },
-    {
-      label: 'Created At',
-      data: formatDateWithTimeZone(data?.created_at, myTimezone),
-      check: !!data?.created_at,
-    },
-    {
-      label: 'Updated At',
-      data: formatDateWithTimeZone(data?.updated_at, myTimezone),
-      check: !!data?.updated_at,
-    },
-  ]
+}: CommandInformationPaneProps): React.JSX.Element => {
+  const context = command?.context
+  const links: ExternalLink[] = [
+    { label: 'Logs', href: context?.logs_uri },
+    { label: 'Queries', href: context?.queries_uri },
+    { label: 'Results', href: context?.results_uri },
+  ].filter((link): link is ExternalLink => Boolean(link.href))
+  const properties = Object.entries(context?.properties ?? {}).map(
+    ([key, value]): [string, string] => [key, String(value)],
+  )
+
   return (
-    <div className='min-w-[300px]'>
-      <InformationPane
-        header={{
-          labelAndData: {
-            label: 'Command Name',
-            data: <span>{data?.name}</span>,
-            check: true,
-          },
-          tag: {
-            color:
-              data?.status === 'ACTIVE'
-                ? 'green'
-                : data?.status === 'INACTIVE'
-                  ? 'gray'
-                  : 'red',
-            children: data?.status,
-          },
-        }}
-      >
-        {isLoading ? (
-          <ListLoading />
-        ) : (
-          <>
-            <InformationPane.Section
-              data={[
-                {
-                  label: 'Command ID',
-                  data: data?.id,
-                  check: !!data?.id,
-                },
-              ]}
-            />
-            <InformationPane.Divider />
-            <InformationPane.Section data={commandDetailsData} isTwoColumns />
-          </>
-        )}
-      </InformationPane>
-    </div>
+    <>
+      <Section label='Overview' qaTestId='command-details-overview'>
+        <DetailFields
+          isLoading={isLoading}
+          fields={[
+            { label: 'Command ID', value: command?.id, mono: true },
+            { label: 'User', value: command?.user },
+            { label: 'Plugin', value: command?.plugin },
+            { label: 'Version', value: command?.version },
+            {
+              label: 'Execution',
+              value:
+                command?.is_sync === undefined
+                  ? undefined
+                  : command.is_sync
+                    ? 'Sync'
+                    : 'Async',
+            },
+            {
+              label: 'Created at',
+              value: command?.created_at
+                ? formatDateWithTimeZone(command.created_at, myTimezone)
+                : undefined,
+            },
+            {
+              label: 'Updated at',
+              value: command?.updated_at
+                ? formatDateWithTimeZone(command.updated_at, myTimezone)
+                : undefined,
+            },
+            { label: 'Description', value: command?.description },
+          ]}
+        />
+      </Section>
+
+      {links.length > 0 ? (
+        <Section label='Links' qaTestId='command-details-links'>
+          <ExternalLinkList links={links} qaTestId='command-details-link' />
+        </Section>
+      ) : null}
+
+      {properties.length > 0 ? (
+        <Section
+          label='Context properties'
+          count={properties.length}
+          qaTestId='command-details-properties'
+        >
+          <KeyValueList entries={properties} />
+        </Section>
+      ) : null}
+
+      {command?.tags?.length ? (
+        <Section
+          label='Tags'
+          count={command.tags.length}
+          qaTestId='command-details-tags'
+        >
+          <TagList values={command.tags} />
+        </Section>
+      ) : null}
+
+      {command?.cluster_tags?.length ? (
+        <Section
+          label='Cluster tags'
+          count={command.cluster_tags.length}
+          qaTestId='command-details-cluster-tags'
+        >
+          <TagList values={command.cluster_tags} />
+        </Section>
+      ) : null}
+    </>
   )
 }
 

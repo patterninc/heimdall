@@ -1,278 +1,163 @@
 'use client'
 
-import { getClusters, getClusterStatus } from '@/app/api/clusters/clusters'
-import { BreadcrumbContext } from '@/common/BreadCrumbsProvider/context'
 import { useQuery } from '@tanstack/react-query'
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useQueryState } from 'nuqs'
+import React, { useContext, useState } from 'react'
+import { useDebounceValue } from 'usehooks-ts'
+
+import { getClusters, getClusterStatus } from '@/app/api/clusters/clusters'
+import { AutoRefreshContext } from '@/common/AutoRefreshProvider/context'
+import { useClientPagination } from '@/common/hooks/useClientPagination'
+import { SortBy, sortData, toggleSort } from '@/common/Services'
+import { FilterMenu } from '@/components/FilterMenu/FilterMenu'
+import type { FilterDimension } from '@/components/FilterMenu/filterTypes'
+import ListEmptyState from '@/components/ListPage/ListEmptyState'
+import ListPage from '@/components/ListPage/ListPage'
 import {
   ApiParams,
+  CLUSTER_COLUMNS,
   ClusterType,
-  FilterType,
-  useClusterConfig,
-} from '@/modules/Clusters/Helper'
-import {
-  ConfigItemType,
-  SortByProps,
-  SortColumnProps,
-  StandardTable,
-} from '@patterninc/react-ui'
-import {
-  noDataAvailable,
-  noDataAvailableDescription,
-  sortData,
-} from '@/common/Services'
-import { useQueryState } from 'nuqs'
-import { FilterStatesType } from '@patterninc/react-ui'
-import { AutoRefreshContext } from '@/common/AutoRefreshProvider/context'
+  toClusterRows,
+} from './Helper'
 
-const Cluster = (): React.JSX.Element => {
-  const { updateBreadcrumbs } = useContext(BreadcrumbContext)
+const FILTER_DEBOUNCE_MS = 300
+
+/** The API caps cluster results, so a full page means "at least this many". */
+const CLUSTER_RESULT_CAP = 100
+
+const isSameJson = (a: unknown, b: unknown) =>
+  JSON.stringify(a) === JSON.stringify(b)
+
+const Clusters = (): React.JSX.Element => {
+  const router = useRouter()
   const { refreshInterval } = useContext(AutoRefreshContext)
+
   const [clusterId, setClusterId] = useQueryState('id', { defaultValue: '' })
   const [clusterName, setClusterName] = useQueryState('name', {
     defaultValue: '',
   })
   const [user, setUser] = useQueryState('user', { defaultValue: '' })
-  const [version, setVersion] = useQueryState('version', { defaultValue: '' })
+  const [version, setVersion] = useQueryState('version', {
+    defaultValue: '',
+  })
   const [status, setStatus] = useQueryState<string[]>('status', {
     defaultValue: [],
     parse: (value) => (value ? value.split(',') : []),
     serialize: (value) => value?.join(',') ?? '',
   })
 
-  const [filter, setFilter] = useState<FilterType>({
-    id: clusterId,
-    name: clusterName,
-    user: user,
-    version: version,
-    status: status,
+  const filterParams: ApiParams = {}
+  if (clusterId) filterParams.id = clusterId
+  if (user) filterParams.username = user
+  if (clusterName) filterParams.name = clusterName
+  if (version) filterParams.version = version
+  if (status.length > 0) filterParams.status = status
+
+  const [debouncedParams] = useDebounceValue(filterParams, FILTER_DEBOUNCE_MS, {
+    equalityFn: isSameJson,
   })
 
-  useEffect(() => {
-    updateBreadcrumbs({
-      name: 'Clusters',
-      link: '/clusters',
-      changeType: 'rootLevel',
-    })
-  }, [updateBreadcrumbs])
-
-  const [sortBy, setSort] = useState<SortByProps>({
-    prop: 'name',
-    flip: false,
-  })
-
-  const setSortBy: SortColumnProps['sorter'] = (obj: {
-    activeColumn: string
-    direction: boolean
-    lowerCaseParams?: boolean
-  }) => {
-    setSort({
-      prop: obj.activeColumn,
-      flip: obj.direction,
-    })
-  }
-
-  const filterParams = useMemo(() => {
-    const params: ApiParams = {}
-    if (clusterId) params.id = clusterId
-    if (user) params.username = user
-    if (clusterName) params.name = clusterName
-    if (version) params.version = version
-    if (status.length > 0) params.status = status
-    return params
-  }, [clusterId, user, clusterName, version, status])
-
-  const { data, isLoading, isSuccess } = useQuery({
-    queryKey: ['clusters', filterParams],
-    queryFn: () => getClusters(filterParams),
+  const { data, isPending } = useQuery<ClusterType[]>({
+    queryKey: ['clusters', debouncedParams],
+    queryFn: () => getClusters(debouncedParams),
     refetchInterval: refreshInterval.value,
+    placeholderData: (prev) => prev,
   })
 
-  const { data: statusData } = useQuery({
+  const { data: statusData } = useQuery<string[]>({
     queryKey: ['clusterStatuses'],
     queryFn: getClusterStatus,
   })
 
-  const sortedData: ClusterType[] = useMemo(() => {
-    return sortData(data, sortBy)
-  }, [data, sortBy])
-
-  const updateFilter = useCallback(() => {
-    const queryParams = new URLSearchParams()
-    setClusterId(filter?.id)
-    setClusterName(filter?.name)
-    setUser(filter?.user)
-    setVersion(filter?.version)
-    setStatus(filter?.status)
-
-    if (filter?.id) queryParams.append('id', filter.id)
-    if (filter?.name) queryParams.append('name', filter.name)
-    if (filter?.version) queryParams.append('version', filter.version)
-    if (filter?.user) queryParams.append('user', filter.user)
-    if (filter?.status && filter.status.length > 0) {
-      queryParams.append('status', filter.status.join(','))
-    }
-    updateBreadcrumbs({
-      name: 'Clusters',
-      link: `/clusters?${queryParams.toString()}`,
-      changeType: 'rootLevel',
-    })
-  }, [
-    setClusterId,
-    filter.id,
-    filter.name,
-    filter.user,
-    filter.version,
-    filter.status,
-    setClusterName,
-    setUser,
-    setVersion,
-    setStatus,
-    updateBreadcrumbs,
-  ])
-
-  const filters: FilterStatesType<unknown> = useMemo(
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
-    () => ({
-      id: {
-        type: 'text',
-        defaultValue: filter?.id,
-        placeholder: 'Enter ID',
-        stateName: 'id',
-        labelText: 'Cluster ID',
-        inputType: 'text',
-        onReturnCallout: updateFilter,
-        shouldClose: true,
-      },
-
-      name: {
-        type: 'text',
-        defaultValue: filter?.name,
-        placeholder: 'Enter Name',
-        stateName: 'name',
-        labelText: 'Name',
-        inputType: 'text',
-        onReturnCallout: updateFilter,
-        shouldClose: true,
-      },
-      user: {
-        type: 'text',
-        defaultValue: filter?.user,
-        placeholder: 'Enter User',
-        stateName: 'user',
-        labelText: 'User',
-        inputType: 'text',
-        onReturnCallout: updateFilter,
-        shouldClose: true,
-      },
-      version: {
-        type: 'text',
-        defaultValue: filter?.version,
-        placeholder: 'Enter Version',
-        stateName: 'version',
-        labelText: 'Version',
-        inputType: 'text',
-        onReturnCallout: updateFilter,
-        shouldClose: true,
-      },
-      status: {
-        type: 'multi-select',
-        formLabelProps: { label: 'Status' },
-        options: statusData?.map((s: string) => ({
-          status: s,
-          key: `status-${s}`,
-        })),
-        selectPlaceholder: '--Select Status--',
-        labelKey: 'status',
-        selectedOptions: filter?.status?.map((s) => ({
-          status: s,
-          key: `selected-${s}`,
-        })),
-        stateName: 'status',
-      },
-    }),
-    [
-      filter?.id,
-      filter?.name,
-      filter?.status,
-      filter?.user,
-      filter?.version,
-      statusData,
-      updateFilter,
-    ],
+  const [sortBy, setSortBy] = useState<SortBy>({ prop: 'name', flip: false })
+  const sortedClusters = sortData(data ?? [], sortBy)
+  const { pageRows, paginationProps } = useClientPagination(
+    sortedClusters,
+    JSON.stringify([debouncedParams, sortBy]),
   )
 
-  const updateFormField = useCallback(
-    (...params: unknown[]) => {
-      const stateAttr = params[0] as keyof FilterType
-      const value = params[1] as string | string[]
-      setFilter((prevFilter) => ({
-        ...prevFilter,
-        [stateAttr]: value,
-      }))
-    },
-    [setFilter],
-  )
+  const total = sortedClusters.length
+  const resultCount = isPending
+    ? undefined
+    : total > CLUSTER_RESULT_CAP
+      ? `${CLUSTER_RESULT_CAP}+`
+      : String(total)
 
-  const filterCount = useMemo(() => {
-    return [clusterId, clusterName, user, version, status?.length > 0].filter(
-      Boolean,
-    ).length
-  }, [clusterId, clusterName, user, version, status?.length])
-
-  const resetFilters = useCallback(() => {
+  const clearAll = () => {
     setClusterId(null)
     setClusterName(null)
     setUser(null)
     setVersion(null)
     setStatus(null)
-    setFilter({
-      id: '',
-      name: '',
-      user: '',
-      version: '',
-      status: [],
-    })
-  }, [setClusterId, setClusterName, setUser, setVersion, setStatus])
+  }
+
+  const dimensions: FilterDimension[] = [
+    {
+      key: 'id',
+      label: 'Cluster ID',
+      type: 'text',
+      value: clusterId,
+      onChange: setClusterId,
+    },
+    {
+      key: 'name',
+      label: 'Name',
+      type: 'text',
+      value: clusterName,
+      onChange: setClusterName,
+    },
+    {
+      key: 'user',
+      label: 'User',
+      type: 'text',
+      value: user,
+      onChange: setUser,
+    },
+    {
+      key: 'version',
+      label: 'Version',
+      type: 'text',
+      value: version,
+      onChange: setVersion,
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'multi',
+      value: status,
+      onChange: setStatus,
+      options: statusData ?? [],
+    },
+  ]
+  const hasFilters = Object.keys(filterParams).length > 0
 
   return (
-    <div className='pt-4'>
-      <StandardTable
-        data={sortedData || []}
-        dataKey={'id'}
-        loading={isLoading}
-        successStatus={isSuccess}
-        tableId='clusters'
-        config={
-          useClusterConfig({ sortBy }) as ConfigItemType<
-            unknown,
-            Record<string, unknown>
-          >[]
-        }
-        stickyTableConfig={{ right: 1 }}
-        hasData={(data && data.length > 0) || false}
-        sort={setSortBy}
-        sortBy={sortBy}
-        noDataFields={{
-          primaryText: noDataAvailable,
-          secondaryText: noDataAvailableDescription,
-        }}
-        tableHeaderProps={{
-          header: {
-            name: 'Results',
-            value: data?.length > 100 ? '100+' : data?.length,
-          },
-          pageFilterProps: {
-            filterStates: filters,
-            filterCallout: updateFilter,
-            appliedFilters: filterCount,
-            resetCallout: resetFilters,
-            cancelCallout: () => {},
-            onChangeCallout: updateFormField,
-          },
-        }}
-      />
-    </div>
+    <ListPage
+      title='Clusters'
+      resultCount={resultCount}
+      qaTestId='clusters-page'
+      filters={<FilterMenu dimensions={dimensions} onClearAll={clearAll} />}
+      tableProps={{
+        columns: CLUSTER_COLUMNS,
+        rows: toClusterRows(pageRows),
+        isLoading: isPending,
+        sortedColumn: sortBy.prop,
+        sortDirection: sortBy.flip ? 'desc' : 'asc',
+        onSort: (columnKey) => setSortBy(toggleSort(sortBy, columnKey)),
+        onRowClick: (rowIndex) => {
+          const cluster = pageRows[rowIndex]
+          if (cluster) router.push(`/clusters/${cluster.id}`)
+        },
+        stickyColumns: { start: 1 },
+        emptyState: (
+          <ListEmptyState onClearFilters={hasFilters ? clearAll : undefined} />
+        ),
+        paginationProps,
+        qaTestId: 'clusters-table',
+      }}
+    />
   )
 }
-export default Cluster
+
+export default Clusters

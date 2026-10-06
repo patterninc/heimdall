@@ -1,48 +1,42 @@
 'use client'
 
-import React, {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
-import {
-  Button,
-  SortByProps,
-  SortColumnProps,
-  StandardTable,
-} from '@patterninc/react-ui'
-import { BreadcrumbContext } from '@/common/BreadCrumbsProvider/context'
-import { fetchJobs, getJobStatus } from '@/app/api/jobs/jobs'
 import { useQuery } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
+import { useQueryState } from 'nuqs'
+import React, { useContext, useState } from 'react'
+import { useDebounceValue } from 'usehooks-ts'
+
+import { fetchJobs, getJobStatus } from '@/app/api/jobs/jobs'
+import { AutoRefreshContext } from '@/common/AutoRefreshProvider/context'
+import { SortBy, toggleSort } from '@/common/Services'
+import { FilterMenu } from '@/components/FilterMenu/FilterMenu'
+import type { FilterDimension } from '@/components/FilterMenu/filterTypes'
+import ListEmptyState from '@/components/ListPage/ListEmptyState'
+import ListPage from '@/components/ListPage/ListPage'
 import {
   ApiParams,
+  JOB_COLUMNS,
   JOBS_PAGE_SIZE,
   TagPair,
   parseTags,
   serializeTags,
-  useJobConfig,
+  toJobRows,
 } from './Helper'
-import { useQueryState } from 'nuqs'
-import { FilterStatesType } from '@patterninc/react-ui'
-import { noDataAvailable, noDataAvailableDescription } from '@/common/Services'
-import { AutoRefreshContext } from '@/common/AutoRefreshProvider/context'
 import TagFilter from './TagFilter'
 
-type FilterType = {
-  id: string
-  name: string
-  user: string
-  version: string
-  clusterId: string
-  commandId: string
-  status: string[]
-  tags: TagPair[]
+const FILTER_DEBOUNCE_MS = 300
+
+const isSameJson = (a: unknown, b: unknown) =>
+  JSON.stringify(a) === JSON.stringify(b)
+
+type CursorPaging = {
+  key: string
+  index: number
+  cursors: (string | null)[]
 }
 
 const Jobs = (): React.JSX.Element => {
-  const { updateBreadcrumbs } = useContext(BreadcrumbContext)
+  const router = useRouter()
   const { refreshInterval } = useContext(AutoRefreshContext)
 
   const [jobId, setJobId] = useQueryState('id', { defaultValue: '' })
@@ -68,236 +62,75 @@ const Jobs = (): React.JSX.Element => {
     serialize: (value) => serializeTags(value),
   })
 
-  const [filter, setFilter] = useState<FilterType>({
-    id: jobId,
-    name: name,
-    user: user,
-    version: version,
-    clusterId: clusterId,
-    commandId: commandId,
-    status: status,
-    tags: tags,
+  const filterParams: ApiParams = {}
+  if (jobId) filterParams.id = jobId
+  if (name) filterParams.name = name
+  if (user) filterParams.username = user
+  if (version) filterParams.version = version
+  if (clusterId) filterParams.cluster = clusterId
+  if (commandId) filterParams.command = commandId
+  if (status.length > 0) filterParams.status = status
+  const serializedTags = serializeTags(tags)
+  if (serializedTags) filterParams.tags = serializedTags
+
+  // Text filters apply as you type; debounce so each keystroke doesn't hit the API.
+  const [debouncedParams] = useDebounceValue(filterParams, FILTER_DEBOUNCE_MS, {
+    equalityFn: isSameJson,
   })
 
-  useEffect(() => {
-    updateBreadcrumbs({ name: 'Jobs', link: '/jobs', changeType: 'rootLevel' })
-  }, [updateBreadcrumbs])
-
-  // Build API params from query state
-  const filterParams = useMemo(() => {
-    const params: ApiParams = {}
-    if (jobId) params.id = jobId
-    if (name) params.name = name
-    if (user) params.username = user
-    if (version) params.version = version
-    if (clusterId) params.cluster = clusterId
-    if (commandId) params.command = commandId
-    if (status.length > 0) params.status = status
-    const serializedTags = serializeTags(tags)
-    if (serializedTags) params.tags = serializedTags
-    return params
-  }, [jobId, name, user, version, clusterId, commandId, status, tags])
-
-  const [pageIndex, setPageIndex] = useState(0)
-  const [cursors, setCursors] = useState<(string | null)[]>([null])
-
-  // Sort state drives the server-side ORDER BY. `flip` is the descending flag.
-  const [sortBy, setSort] = useState<SortByProps>({
+  // `flip` is the descending flag; the server owns ORDER BY.
+  const [sortBy, setSortBy] = useState<SortBy>({
     prop: 'created_at',
     flip: true,
   })
 
-  const setSortBy: SortColumnProps['sorter'] = (obj: {
-    activeColumn: string
-    direction: boolean
-  }) => {
-    setSort({
-      prop: obj.activeColumn,
-      flip: obj.direction,
-    })
-    setPageIndex(0)
-    setCursors([null])
-  }
+  // Keyset pagination: cursors[i] fetches page i. Any filter or sort change restarts at page 1.
+  const pagingKey = JSON.stringify([debouncedParams, sortBy])
+  const [paging, setPaging] = useState<CursorPaging>({
+    key: pagingKey,
+    index: 0,
+    cursors: [null],
+  })
+  const { index: pageIndex, cursors } =
+    paging.key === pagingKey ? paging : { index: 0, cursors: [null] }
+  const cursor = cursors[pageIndex] ?? null
 
-  // `placeholderData` keeps the previous page visible while the next one loads.
-  const { data, isLoading, isFetching, isSuccess } = useQuery({
-    queryKey: ['jobs', filterParams, sortBy, pageIndex, cursors[pageIndex]],
-    queryFn: () => fetchJobs(filterParams, cursors[pageIndex] ?? null, sortBy),
-    enabled: !!filterParams,
+  const { data, isPending, isPlaceholderData } = useQuery({
+    queryKey: ['jobs', debouncedParams, sortBy, cursor],
+    queryFn: () => fetchJobs(debouncedParams, cursor, sortBy),
     refetchInterval: refreshInterval.value,
     placeholderData: (prev) => prev,
   })
 
-  const { data: jobStatus } = useQuery({
-    queryKey: ['jobs'],
+  const { data: jobStatuses } = useQuery<string[]>({
+    queryKey: ['jobStatuses'],
     queryFn: getJobStatus,
   })
 
-  const jobs = useMemo(() => data?.data ?? [], [data])
-
+  const jobs = data?.data ?? []
+  const hasMore = Boolean(data?.has_more && data?.next_cursor)
   const rowsSoFar = pageIndex * JOBS_PAGE_SIZE + jobs.length
-  const totalResults = data?.has_more ? `${rowsSoFar}+` : `${rowsSoFar}`
+  const resultCount = isPending
+    ? undefined
+    : hasMore
+      ? `${rowsSoFar}+`
+      : `${rowsSoFar}`
 
-  const goToNextPage = useCallback(() => {
-    const next = data?.next_cursor
-    if (!next) return
-    setCursors((prev) => {
-      const copy = [...prev]
-      copy[pageIndex + 1] = next
-      return copy
-    })
-    setPageIndex((i) => i + 1)
-  }, [data?.next_cursor, pageIndex])
-
-  const goToPrevPage = useCallback(() => {
-    setPageIndex((i) => Math.max(0, i - 1))
-  }, [])
-
-  const updateFilter = useCallback(() => {
-    const queryParams = new URLSearchParams()
-    setPageIndex(0)
-    setCursors([null])
-    setJobId(filter.id)
-    setName(filter.name)
-    setUser(filter.user)
-    setVersion(filter.version)
-    setClusterId(filter.clusterId)
-    setCommandId(filter.commandId)
-    setStatus(filter.status)
-    setTags(filter.tags)
-
-    if (filter?.user) queryParams.append('user', filter.user)
-    if (filter?.name) queryParams.append('name', filter.name)
-    if (filter?.id) queryParams.append('id', filter.id)
-    if (filter?.version) queryParams.append('version', filter.version)
-    if (filter?.clusterId) queryParams.append('cluster_id', filter.clusterId)
-    if (filter?.commandId) queryParams.append('command_id', filter.commandId)
-    if (filter?.status && filter.status.length > 0) {
-      queryParams.append('status', filter.status.join(','))
+  const goToPage = (page: number) => {
+    const target = page - 1
+    if (target <= pageIndex) {
+      setPaging({ key: pagingKey, index: Math.max(0, target), cursors })
+      return
     }
-    const serializedTags = serializeTags(filter.tags)
-    if (serializedTags) queryParams.append('tags', serializedTags)
-    updateBreadcrumbs({
-      name: 'Jobs',
-      link: `/jobs?${queryParams.toString()}`,
-      changeType: 'rootLevel',
-    })
-  }, [
-    filter.clusterId,
-    filter.commandId,
-    filter.id,
-    filter.name,
-    filter.status,
-    filter.tags,
-    filter.user,
-    filter.version,
-    setClusterId,
-    setCommandId,
-    setJobId,
-    setName,
-    setStatus,
-    setTags,
-    setUser,
-    setVersion,
-    updateBreadcrumbs,
-  ])
+    // Keyset paging can only step forward one page, and only from settled (non-placeholder) data.
+    const next = data?.next_cursor
+    if (!next || isPlaceholderData) return
+    const nextCursors = [...cursors]
+    nextCursors[pageIndex + 1] = next
+    setPaging({ key: pagingKey, index: pageIndex + 1, cursors: nextCursors })
+  }
 
-  const filters: FilterStatesType<unknown> = useMemo(
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
-    () => ({
-      id: {
-        type: 'text',
-        defaultValue: filter.id,
-        placeholder: 'Enter Job ID',
-        stateName: 'id',
-        labelText: 'Job ID',
-        inputType: 'text',
-        onReturnCallout: updateFilter,
-        shouldClose: true,
-      },
-      name: {
-        type: 'text',
-        defaultValue: filter.name,
-        placeholder: 'Enter Name',
-        stateName: 'name',
-        labelText: 'Name',
-        inputType: 'text',
-        onReturnCallout: updateFilter,
-        shouldClose: true,
-      },
-      user: {
-        type: 'text',
-        defaultValue: filter.user,
-        placeholder: 'Enter User',
-        stateName: 'user',
-        labelText: 'User',
-        inputType: 'text',
-        onReturnCallout: updateFilter,
-        shouldClose: true,
-      },
-      version: {
-        type: 'text',
-        defaultValue: filter.version,
-        placeholder: 'Enter Version',
-        stateName: 'version',
-        labelText: 'Version',
-        inputType: 'text',
-        onReturnCallout: updateFilter,
-        shouldClose: true,
-      },
-      clusterId: {
-        type: 'text',
-        defaultValue: filter.clusterId,
-        placeholder: 'Enter Cluster ID',
-        stateName: 'clusterId',
-        labelText: 'Cluster ID',
-        inputType: 'text',
-        onReturnCallout: updateFilter,
-        shouldClose: true,
-      },
-      commandId: {
-        type: 'text',
-        defaultValue: filter.commandId,
-        placeholder: 'Enter Command ID',
-        stateName: 'commandId',
-        labelText: 'Command ID',
-        inputType: 'text',
-        onReturnCallout: updateFilter,
-        shouldClose: true,
-      },
-      status: {
-        type: 'multi-select',
-        formLabelProps: { label: 'Status' },
-        options:
-          jobStatus?.map((status: string) => ({
-            status: status,
-            key: `status-${status}`,
-          })) || [],
-        selectPlaceholder: '--Select Status--',
-        labelKey: 'status',
-        selectedOptions: filter?.status.map((s) => ({
-          status: s,
-          key: `selected-${s}`,
-        })),
-        stateName: 'status',
-      },
-    }),
-    [
-      filter.id,
-      filter.name,
-      filter.user,
-      filter.version,
-      filter.clusterId,
-      filter.commandId,
-      filter?.status,
-      updateFilter,
-      jobStatus,
-    ],
-  )
-
-  const resetFilters = useCallback(() => {
-    setPageIndex(0)
-    setCursors([null])
+  const clearAll = () => {
     setJobId(null)
     setName(null)
     setUser(null)
@@ -306,119 +139,99 @@ const Jobs = (): React.JSX.Element => {
     setCommandId(null)
     setStatus(null)
     setTags(null)
-    setFilter({
-      id: '',
-      name: '',
-      user: '',
-      version: '',
-      clusterId: '',
-      commandId: '',
-      status: [],
-      tags: [],
-    })
-  }, [
-    setJobId,
-    setName,
-    setUser,
-    setVersion,
-    setClusterId,
-    setCommandId,
-    setStatus,
-    setTags,
-  ])
+  }
 
-  // Compute applied filter count
-  const filterCount = useMemo(() => {
-    return [
-      jobId,
-      name,
-      user,
-      version,
-      commandId,
-      clusterId,
-      status.length > 0,
-      tags.length > 0,
-    ].filter(Boolean).length
-  }, [
-    jobId,
-    name,
-    user,
-    version,
-    commandId,
-    clusterId,
-    status.length,
-    tags.length,
-  ])
-
-  const updateFormField = useCallback(
-    (...params: unknown[]) => {
-      const stateAttr = params[0] as keyof FilterType
-      const value = params[1] as string | string[]
-      setFilter((prevFilter) => ({
-        ...prevFilter,
-        [stateAttr]: value,
-      }))
+  const dimensions: FilterDimension[] = [
+    {
+      key: 'id',
+      label: 'Job ID',
+      type: 'text',
+      value: jobId,
+      onChange: setJobId,
     },
-    [setFilter],
-  )
-
-  const updateTags = useCallback((newTags: TagPair[]) => {
-    setFilter((prevFilter) => ({ ...prevFilter, tags: newTags }))
-  }, [])
+    {
+      key: 'name',
+      label: 'Name',
+      type: 'text',
+      value: name,
+      onChange: setName,
+    },
+    {
+      key: 'user',
+      label: 'User',
+      type: 'text',
+      value: user,
+      onChange: setUser,
+    },
+    {
+      key: 'version',
+      label: 'Version',
+      type: 'text',
+      value: version,
+      onChange: setVersion,
+    },
+    {
+      key: 'clusterId',
+      label: 'Cluster ID',
+      type: 'text',
+      value: clusterId,
+      onChange: setClusterId,
+    },
+    {
+      key: 'commandId',
+      label: 'Command ID',
+      type: 'text',
+      value: commandId,
+      onChange: setCommandId,
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'multi',
+      value: status,
+      onChange: setStatus,
+      options: jobStatuses ?? [],
+    },
+    {
+      key: 'tags',
+      label: 'Tags',
+      type: 'custom',
+      isActive: tags.length > 0,
+      content: <TagFilter tags={tags} onChange={setTags} />,
+    },
+  ]
+  const hasFilters = Object.keys(filterParams).length > 0
 
   return (
-    <div className='pt-4'>
-      <StandardTable
-        data={jobs}
-        config={useJobConfig({ sortBy })}
-        stickyTableConfig={{ right: 1 }}
-        dataKey={'id'}
-        hasData={jobs.length > 0}
-        successStatus={isSuccess}
-        loading={isLoading}
-        tableId='tableId'
-        sort={setSortBy}
-        sortBy={sortBy}
-        noDataFields={{
-          primaryText: noDataAvailable,
-          secondaryText: noDataAvailableDescription,
-        }}
-        tableHeaderProps={{
-          header: {
-            name: 'Results',
-            value: totalResults,
-          },
-          pageFilterProps: {
-            filterStates: filters,
-            filterCallout: updateFilter,
-            appliedFilters: filterCount,
-            resetCallout: resetFilters,
-            cancelCallout: () => {},
-            onChangeCallout: updateFormField,
-            children: () => (
-              <TagFilter tags={filter.tags} onChange={updateTags} />
-            ),
-          },
-        }}
-      />
-      <div className='flex items-center justify-end gap-2 pt-3'>
-        <Button
-          styleType='secondary'
-          onClick={goToPrevPage}
-          disabled={pageIndex === 0 || isFetching}
-        >
-          Previous
-        </Button>
-        <span className='fw-semi-bold'>Page {pageIndex + 1}</span>
-        <Button
-          styleType='secondary'
-          onClick={goToNextPage}
-          disabled={!data?.next_cursor || isFetching}
-        >
-          Next
-        </Button>
-      </div>
-    </div>
+    <ListPage
+      title='Jobs'
+      resultCount={resultCount}
+      qaTestId='jobs-page'
+      filters={<FilterMenu dimensions={dimensions} onClearAll={clearAll} />}
+      tableProps={{
+        columns: JOB_COLUMNS,
+        rows: toJobRows(jobs),
+        isLoading: isPending,
+        sortedColumn: sortBy.prop,
+        sortDirection: sortBy.flip ? 'desc' : 'asc',
+        onSort: (columnKey) => setSortBy(toggleSort(sortBy, columnKey)),
+        onRowClick: (rowIndex) => {
+          const job = jobs[rowIndex]
+          if (job) router.push(`/jobs/${job.id}`)
+        },
+        stickyColumns: { start: 1 },
+        emptyState: (
+          <ListEmptyState onClearFilters={hasFilters ? clearAll : undefined} />
+        ),
+        paginationProps: {
+          currentPage: pageIndex + 1,
+          // Keyset paging has no total; expose exactly one page ahead while more rows exist.
+          totalPages: pageIndex + (hasMore ? 2 : 1),
+          onPageChange: goToPage,
+        },
+        qaTestId: 'jobs-table',
+      }}
+    />
   )
 }
 

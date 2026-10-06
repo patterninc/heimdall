@@ -1,6 +1,6 @@
 minimumReleaseAge: 1440 # To reduce the risk of installing compromised packages, let them sit on the registry for 1 day before installing
 minimumReleaseAgeExclude:
-- '@patterninc/react-ui' # allow pulling in react-ui with no delay
+- '@patterninc/pattern-ui' # allow pulling in pattern-ui with no delay
 
 ignoredBuiltDependencies:
   - sharp
