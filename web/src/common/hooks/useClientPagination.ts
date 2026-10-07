@@ -12,6 +12,8 @@ export function useClientPagination<T>(
   pageSize = CLIENT_PAGE_SIZE,
 ) {
   const [state, setState] = useState({ key: resetKey, page: 1 })
+  // Commit the reset (not just derive it), so returning to an earlier key can't restore its old page.
+  if (state.key !== resetKey) setState({ key: resetKey, page: 1 })
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize))
   const requestedPage = state.key === resetKey ? state.page : 1
   const currentPage = Math.min(requestedPage, totalPages)

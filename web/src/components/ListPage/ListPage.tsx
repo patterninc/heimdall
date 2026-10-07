@@ -33,6 +33,7 @@ const ListPage = ({
     <div className='flex min-h-0 flex-1 flex-col' qa-test-id={qaTestId}>
       <ContentHeader
         variant='fixed'
+        className='top-14 md:top-0'
         title={title}
         subtitle={
           resultCount !== undefined ? `${resultCount} results` : undefined
@@ -40,7 +41,7 @@ const ListPage = ({
         right={<AutoRefreshSelect />}
         qaTestId={`${qaTestId}-header`}
       />
-      <div className='bg-base-inverse sticky top-16 z-20 flex justify-end px-4 pb-3'>
+      <div className='bg-base-inverse sticky top-30 z-20 flex justify-end px-4 pb-3 md:top-16'>
         {filters}
       </div>
       <div className='flex min-h-0 flex-1 flex-col px-4 pb-4'>

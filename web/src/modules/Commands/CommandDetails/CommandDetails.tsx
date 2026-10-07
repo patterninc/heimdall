@@ -11,7 +11,7 @@ import { CommandType } from '../Helper'
 import CommandInformationPane from './CommandInformationPane'
 
 type CommandDetailsProp = {
-  /** Command ID or name — job details link here by name. */
+  /** Command ID — the details API filters on `command_id`. */
   id: string
 }
 

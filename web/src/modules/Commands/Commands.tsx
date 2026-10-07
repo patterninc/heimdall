@@ -23,6 +23,9 @@ import {
 
 const FILTER_DEBOUNCE_MS = 300
 
+/** The API caps command results, so a full page means "at least this many". */
+const COMMAND_RESULT_CAP = 100
+
 const isSameJson = (a: unknown, b: unknown) =>
   JSON.stringify(a) === JSON.stringify(b)
 
@@ -57,7 +60,7 @@ const Commands = (): React.JSX.Element => {
     equalityFn: isSameJson,
   })
 
-  const { data, isPending } = useQuery<CommandType[]>({
+  const { data, isPending, isPlaceholderData } = useQuery<CommandType[]>({
     queryKey: ['commands', debouncedParams],
     queryFn: () => getCommands(debouncedParams),
     refetchInterval: refreshInterval.value,
@@ -75,6 +78,13 @@ const Commands = (): React.JSX.Element => {
     sortedCommands,
     JSON.stringify([debouncedParams, sortBy]),
   )
+
+  const resultCount =
+    isPending || isPlaceholderData
+      ? undefined
+      : sortedCommands.length > COMMAND_RESULT_CAP
+        ? `${COMMAND_RESULT_CAP}+`
+        : String(sortedCommands.length)
 
   const clearAll = () => {
     setCommandId(null)
@@ -135,13 +145,13 @@ const Commands = (): React.JSX.Element => {
   return (
     <ListPage
       title='Commands'
-      resultCount={isPending ? undefined : String(sortedCommands.length)}
+      resultCount={resultCount}
       qaTestId='commands-page'
       filters={<FilterMenu dimensions={dimensions} onClearAll={clearAll} />}
       tableProps={{
         columns: COMMAND_COLUMNS,
         rows: toCommandRows(pageRows),
-        isLoading: isPending,
+        isLoading: isPending || isPlaceholderData,
         sortedColumn: sortBy.prop,
         sortDirection: sortBy.flip ? 'desc' : 'asc',
         onSort: (columnKey) => setSortBy(toggleSort(sortBy, columnKey)),

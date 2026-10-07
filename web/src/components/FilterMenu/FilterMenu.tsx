@@ -127,7 +127,10 @@ export const FilterMenu = ({
       <Drawer
         open={menuOpen}
         onOpenChange={(open) => {
-          if (!open) setMenuOpen(false)
+          if (!open) {
+            setMenuOpen(false)
+            setMobileDimensionKey(null)
+          }
         }}
       >
         <DrawerPopup showBar showCloseButton surface='weak'>

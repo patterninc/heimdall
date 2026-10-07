@@ -34,7 +34,7 @@ const JobDetails = ({ id }: JobDetailsProp): React.JSX.Element => {
       subtitle={jobData?.name && jobData.name !== id ? id : undefined}
       status={jobData?.status}
       statusVariant={jobStatusVariant(jobData?.status)}
-      isError={isError}
+      isError={isError || (!isPending && !jobData?.id)}
       qaTestId='job-details'
       right={
         <>
@@ -44,7 +44,7 @@ const JobDetails = ({ id }: JobDetailsProp): React.JSX.Element => {
           >
             API response
           </ExternalLinkButton>
-          {jobData ? <CancelJobButton job={jobData} /> : null}
+          {jobData?.id ? <CancelJobButton job={jobData} /> : null}
         </>
       }
     >

@@ -58,7 +58,7 @@ const Clusters = (): React.JSX.Element => {
     equalityFn: isSameJson,
   })
 
-  const { data, isPending } = useQuery<ClusterType[]>({
+  const { data, isPending, isPlaceholderData } = useQuery<ClusterType[]>({
     queryKey: ['clusters', debouncedParams],
     queryFn: () => getClusters(debouncedParams),
     refetchInterval: refreshInterval.value,
@@ -78,11 +78,12 @@ const Clusters = (): React.JSX.Element => {
   )
 
   const total = sortedClusters.length
-  const resultCount = isPending
-    ? undefined
-    : total > CLUSTER_RESULT_CAP
-      ? `${CLUSTER_RESULT_CAP}+`
-      : String(total)
+  const resultCount =
+    isPending || isPlaceholderData
+      ? undefined
+      : total > CLUSTER_RESULT_CAP
+        ? `${CLUSTER_RESULT_CAP}+`
+        : String(total)
 
   const clearAll = () => {
     setClusterId(null)
@@ -141,7 +142,7 @@ const Clusters = (): React.JSX.Element => {
       tableProps={{
         columns: CLUSTER_COLUMNS,
         rows: toClusterRows(pageRows),
-        isLoading: isPending,
+        isLoading: isPending || isPlaceholderData,
         sortedColumn: sortBy.prop,
         sortDirection: sortBy.flip ? 'desc' : 'asc',
         onSort: (columnKey) => setSortBy(toggleSort(sortBy, columnKey)),

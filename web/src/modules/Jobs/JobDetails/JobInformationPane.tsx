@@ -48,7 +48,7 @@ const JobInformationPane = ({
           prefix={{ icon: FileErrorIcon, color: 'negative-base' }}
           qaTestId='job-details-error'
         >
-          <p className='pui-text-mono-small text-text-strong p-4 break-words whitespace-pre-wrap'>
+          <p className='pui-text-mono-small text-text-strong p-4 wrap-break-word whitespace-pre-wrap'>
             {jobData.error}
           </p>
         </Section>
@@ -65,7 +65,7 @@ const JobInformationPane = ({
               label: 'Command',
               value: jobData?.command_name ? (
                 <Link
-                  href={`/commands/${jobData.command_name}`}
+                  href={`/commands/${jobData.command_id}`}
                   className={inlineLinkClass}
                 >
                   {jobData.command_name}
@@ -76,7 +76,7 @@ const JobInformationPane = ({
               label: 'Cluster',
               value: jobData?.cluster_name ? (
                 <Link
-                  href={`/clusters/${jobData.cluster_name}`}
+                  href={`/clusters/${jobData.cluster_id}`}
                   className={inlineLinkClass}
                 >
                   {jobData.cluster_name}
@@ -129,7 +129,7 @@ const JobInformationPane = ({
             <CodeBlock
               code={jobData.context.query}
               language='sql'
-              className='[&_.max-h-\[600px\]]:max-h-72 [&_code]:break-words! [&_code]:whitespace-pre-wrap! [&_pre]:whitespace-pre-wrap!'
+              className='[&_.max-h-\[600px\]]:max-h-72 [&_code]:wrap-break-word! [&_code]:whitespace-pre-wrap! [&_pre]:whitespace-pre-wrap!'
             />
           </div>
         </Section>

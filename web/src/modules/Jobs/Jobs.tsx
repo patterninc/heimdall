@@ -91,6 +91,10 @@ const Jobs = (): React.JSX.Element => {
     index: 0,
     cursors: [null],
   })
+  // Commit the reset so toggling back to an earlier key can't restore its old page.
+  if (paging.key !== pagingKey) {
+    setPaging({ key: pagingKey, index: 0, cursors: [null] })
+  }
   const { index: pageIndex, cursors } =
     paging.key === pagingKey ? paging : { index: 0, cursors: [null] }
   const cursor = cursors[pageIndex] ?? null
@@ -110,11 +114,12 @@ const Jobs = (): React.JSX.Element => {
   const jobs = data?.data ?? []
   const hasMore = Boolean(data?.has_more && data?.next_cursor)
   const rowsSoFar = pageIndex * JOBS_PAGE_SIZE + jobs.length
-  const resultCount = isPending
-    ? undefined
-    : hasMore
-      ? `${rowsSoFar}+`
-      : `${rowsSoFar}`
+  const resultCount =
+    isPending || isPlaceholderData
+      ? undefined
+      : hasMore
+        ? `${rowsSoFar}+`
+        : `${rowsSoFar}`
 
   const goToPage = (page: number) => {
     const target = page - 1
@@ -172,14 +177,14 @@ const Jobs = (): React.JSX.Element => {
     },
     {
       key: 'clusterId',
-      label: 'Cluster ID',
+      label: 'Cluster name',
       type: 'text',
       value: clusterId,
       onChange: setClusterId,
     },
     {
       key: 'commandId',
-      label: 'Command ID',
+      label: 'Command name',
       type: 'text',
       value: commandId,
       onChange: setCommandId,
@@ -211,7 +216,7 @@ const Jobs = (): React.JSX.Element => {
       tableProps={{
         columns: JOB_COLUMNS,
         rows: toJobRows(jobs),
-        isLoading: isPending,
+        isLoading: isPending || isPlaceholderData,
         sortedColumn: sortBy.prop,
         sortDirection: sortBy.flip ? 'desc' : 'asc',
         onSort: (columnKey) => setSortBy(toggleSort(sortBy, columnKey)),

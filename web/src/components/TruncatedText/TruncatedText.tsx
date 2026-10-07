@@ -25,9 +25,15 @@ const TruncatedText = ({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={`cursor-default ${className ?? ''}`}>{label}</span>
+        <span
+          tabIndex={0}
+          aria-label={text}
+          className={`cursor-default ${className ?? ''}`}
+        >
+          {label}
+        </span>
       </TooltipTrigger>
-      <TooltipContent side='top' className='max-w-md break-words'>
+      <TooltipContent side='top' className='max-w-md wrap-break-word'>
         {text}
       </TooltipContent>
     </Tooltip>

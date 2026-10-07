@@ -42,6 +42,7 @@ const DetailPage = ({
     <div className='flex min-h-0 flex-1 flex-col' qa-test-id={qaTestId}>
       <ContentHeader
         variant='fixed'
+        className='top-14 md:top-0'
         left={{
           buttonProps: {
             variant: 'weak',
