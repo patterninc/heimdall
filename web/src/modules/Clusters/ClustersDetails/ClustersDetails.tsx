@@ -1,34 +1,51 @@
 'use client'
 
-import { getCluster } from '@/app/api/clusters/clusters'
-import { BreadcrumbContext } from '@/common/BreadCrumbsProvider/context'
 import { useQuery } from '@tanstack/react-query'
-import { useContext, useEffect } from 'react'
+import React from 'react'
+
+import { getCluster } from '@/app/api/clusters/clusters'
+import { resourceStatusVariant } from '@/common/Services/status'
+import DetailPage from '@/components/DetailPage/DetailPage'
+import ExternalLinkButton from '@/components/ExternalLinkButton/ExternalLinkButton'
+import { ClusterType } from '../Helper'
 import ClusterInformationPane from './ClusterInformationPane'
-import ClustersDetailsHeader from './ClustersDetailsHeader'
 
 type ClusterDetailsProps = {
+  /** Cluster ID or name — job details link here by name. */
   id: string
 }
 
 const ClustersDetails = ({ id }: ClusterDetailsProps): React.JSX.Element => {
-  const { updateBreadcrumbs } = useContext(BreadcrumbContext)
-  useEffect(() => {
-    updateBreadcrumbs({
-      name: id,
-      link: `/clusters/${id}`,
-    })
-  }, [id, updateBreadcrumbs])
-  const { data, isLoading } = useQuery({
+  const { data, isPending, isError } = useQuery<ClusterType[]>({
     queryKey: ['cluster', id],
     queryFn: () => getCluster(id),
   })
+  const cluster = data?.[0]
 
   return (
-    <div className='flex flex-col md:flex-row gap-4 pt-4 min-w-[300px]'>
-      <ClusterInformationPane clusterData={data} isLoading={isLoading} />
-      <ClustersDetailsHeader clusterData={data} isLoading={isLoading} />
-    </div>
+    <DetailPage
+      backHref='/clusters'
+      backLabel='Back to clusters'
+      resourceLabel='cluster'
+      title={cluster?.name || id}
+      subtitle={
+        cluster?.name && cluster.name !== cluster.id ? cluster.id : undefined
+      }
+      status={cluster?.status}
+      statusVariant={resourceStatusVariant(cluster?.status)}
+      isError={isError || (!isPending && !cluster)}
+      qaTestId='cluster-details'
+      right={
+        <ExternalLinkButton
+          href={`/api/v1/clusters?id=${cluster?.id ?? id}`}
+          qaTestId='cluster-details-api-response'
+        >
+          API response
+        </ExternalLinkButton>
+      }
+    >
+      <ClusterInformationPane cluster={cluster} isLoading={isPending} />
+    </DetailPage>
   )
 }
 
