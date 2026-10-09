@@ -19,7 +19,7 @@
     "@patterninc/pattern-ui": "0.0.0-play-cdn.202610020641",
     "@tanstack/react-query": "^5.66.11",
     "@tanstack/react-query-devtools": "^5.66.11",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.3.0",
     "moment": "^2.30.1",
     "moment-timezone": "^0.6.0",
     "next": "^16.1.6",
