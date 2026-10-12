@@ -355,8 +355,6 @@ func (execCtx *executionContext) pollForCompletion(ctx context.Context) error {
 			return err
 		}
 
-		// A throttled DescribeTasks can omit a PENDING or PROVISIONING task.
-		// LastStatus != STOPPED already keeps those when they are returned.
 		done := describedTaskCountMatches(len(activeARNs), len(describeOutput.Tasks))
 
 		for _, task := range describeOutput.Tasks {
