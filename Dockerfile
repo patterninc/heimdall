@@ -1,6 +1,6 @@
 FROM golang:1.27.2 AS go-builder
 
-RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential \
       binutils \
       binutils-gold \
@@ -35,7 +35,7 @@ RUN ./build.sh --ui
 
 FROM node:24-bookworm-slim AS runtime
 
-RUN apt-get update && apt-get upgrade -y && \
+RUN apt-get update && \
       apt-get install -y curl && \
       apt-get install -y --no-install-recommends \
       ca-certificates \
