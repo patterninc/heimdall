@@ -355,8 +355,7 @@ func (execCtx *executionContext) pollForCompletion(ctx context.Context) error {
 			return err
 		}
 
-		// Keep track of when we are done polling
-		done := true
+		done := describedTaskCountMatches(len(activeARNs), len(describeOutput.Tasks))
 
 		for _, task := range describeOutput.Tasks {
 
@@ -680,6 +679,12 @@ func runTask(ctx context.Context, execCtx *executionContext, startedBy string, t
 
 }
 
+// describedTaskCountMatches reports whether DescribeTasks returned every active ARN.
+// A short response omits a task that can still be PENDING or PROVISIONING.
+func describedTaskCountMatches(active, described int) bool {
+	return described == active
+}
+
 // tasks are successful if all essential containers exit with a zero exit code
 func isTaskSuccessful(task types.Task, execCtx *executionContext) bool {
 	// Check all containers in the running task
@@ -687,7 +692,7 @@ func isTaskSuccessful(task types.Task, execCtx *executionContext) bool {
 		containerName := aws.ToString(container.Name)
 
 		if execCtx.TaskDefinitionWrapper.EssentialContainers[containerName] {
-			if container.ExitCode != nil && *container.ExitCode != 0 {
+			if container.ExitCode == nil || *container.ExitCode != 0 {
 				return false
 			}
 		}
