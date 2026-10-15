@@ -175,6 +175,8 @@ It centralizes execution logic, logging, and auditing—all accessible via API o
 
 Commands may also restrict invocation via `allowed_callers` — a list of anchored regex patterns matched against `X-Heimdall-User`. Omitted/empty means open; non-matching callers are rejected at submit.
 
+Command, cluster, and job `context` keys `password`, `private_key`, and `token` are redacted in API responses. Extra names can be added via `sensitive_context_keys`.
+
 ---
 
 ## 📦 API Overview

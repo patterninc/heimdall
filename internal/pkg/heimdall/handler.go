@@ -56,6 +56,8 @@ func statusForError(err error) int {
 		return http.StatusForbidden
 	case errors.Is(err, ErrNoCaller):
 		return http.StatusUnauthorized
+	case errors.Is(err, ErrResultNotReady):
+		return http.StatusNotFound
 	default:
 		return http.StatusInternalServerError
 	}
@@ -100,17 +102,13 @@ func payloadHandler[T any](fn func(context.Context, *T) (any, error)) http.Handl
 			return
 		}
 
-		// write result to the user
-		resultJson, err := json.Marshal(result)
-		if err != nil {
-			writeAPIError(w, err, result)
-			return
-		}
-
-		// return result
 		w.Header().Add(contentTypeKey, contentTypeJSON)
 		w.WriteHeader(http.StatusOK)
-		w.Write(resultJson)
+		if err := json.NewEncoder(w).Encode(result); err != nil {
+			writeAPIError(w, err, result)
+			payloadHandlerMethod.LogAndCountError(err)
+			return
+		}
 
 		// API request success count
 		payloadHandlerMethod.CountSuccess()

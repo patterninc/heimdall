@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"os"
 
 	sf "github.com/snowflakedb/gosnowflake"
@@ -85,6 +86,11 @@ func New(cmdCtx *heimdallContext.Context) (plugin.Handler, error) {
 
 // Execute implements the plugin.Handler interface
 func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+	return fmt.Errorf("snowflake: Execute not implemented for job %q -- this plugin only supports StreamResult", j.ID)
+}
+
+// StreamResult implements plugin.ResultStreamer: rows stream straight to w via result.StreamRows, so j.Result's full [][]any never exists.
+func (s *commandContext) StreamResult(ctx context.Context, w io.Writer, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	clusterContext := &clusterContext{}
 	if c.Context != nil {
@@ -138,11 +144,7 @@ func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 		return err
 	}
 
-	if j.Result, err = result.FromRows(rows); err != nil {
-		return err
-	}
-
-	return nil
+	return result.StreamRows(w, rows)
 
 }
 

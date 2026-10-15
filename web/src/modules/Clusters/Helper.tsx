@@ -1,13 +1,10 @@
-import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
-import {
-  Button,
-  ConfigItemType,
-  MdashCheck,
-  SortByProps,
-  Tag,
-} from '@patterninc/react-ui'
-import Link from 'next/link'
-import { useMemo } from 'react'
+import type { TableColumn, TableDataRow } from '@patterninc/pattern-ui/table'
+import { Tag } from '@patterninc/pattern-ui/tag'
+import React from 'react'
+
+import { formatDateWithTimeZone, myTimezone, orDash } from '@/common/Services'
+import { resourceStatusVariant } from '@/common/Services/status'
+import RowLink from '@/components/ListPage/RowLink'
 
 export type ClusterContext = {
   emr_release_label: string
@@ -37,144 +34,39 @@ export type ApiParams = {
   status?: string[]
 }
 
-export type FilterType = {
-  id: string
-  name: string
-  user: string
-  version: string
-  status: string[]
-}
+/** Sorted client-side, so every column key must be a `ClusterType` field. */
+export const CLUSTER_COLUMNS: TableColumn[] = [
+  { key: 'name', header: 'Name', sortable: true, minWidth: '200px' },
+  { key: 'version', header: 'Version', sortable: true },
+  { key: 'user', header: 'User', sortable: true },
+  { key: 'created_at', header: 'Created At', sortable: true, wrap: 'nowrap' },
+  { key: 'updated_at', header: 'Updated At', sortable: true, wrap: 'nowrap' },
+  { key: 'status', header: 'Status', sortable: true },
+]
 
-type CommandConfigProps = {
-  sortBy: SortByProps
-}
-
-export const useClusterConfig = ({
-  sortBy,
-}: CommandConfigProps): ConfigItemType<
-  ClusterType,
-  Record<string, unknown>
->[] => {
-  return useMemo(
-    () => [
-      {
-        name: 'name',
-        label: 'Name',
-        cell: {
-          children: (row: ClusterType) => {
-            return (
-              <div className={sortBy.prop === 'name' ? 'fw-semi-bold' : ''}>
-                <MdashCheck check={!!row.id}>{row.name}</MdashCheck>
-              </div>
-            )
-          },
-        },
-        mainColumn: true,
+export const toClusterRows = (clusters: ClusterType[]): TableDataRow[] =>
+  clusters.map((cluster) => ({
+    name: (
+      <RowLink href={`/clusters/${cluster.id}`}>
+        {cluster.name || cluster.id}
+      </RowLink>
+    ),
+    version: orDash(cluster.version),
+    user: orDash(cluster.user),
+    created_at: cluster.created_at
+      ? formatDateWithTimeZone(cluster.created_at, myTimezone)
+      : orDash(),
+    updated_at: cluster.updated_at
+      ? formatDateWithTimeZone(cluster.updated_at, myTimezone)
+      : orDash(),
+    _cellProps: {
+      status: {
+        tag: (
+          <Tag variant={resourceStatusVariant(cluster.status)}>
+            {cluster.status}
+          </Tag>
+        ),
       },
-      {
-        name: 'version',
-        label: 'Version',
-        cell: {
-          children: (row: ClusterType) => {
-            return (
-              <div className={sortBy.prop === 'version' ? 'fw-semi-bold' : ''}>
-                <MdashCheck check={!!row.id}>{row.version}</MdashCheck>
-              </div>
-            )
-          },
-        },
-      },
-      {
-        name: 'user',
-        label: 'User',
-        cell: {
-          children: (row: ClusterType) => {
-            return (
-              <div className={sortBy.prop === 'user' ? 'fw-semi-bold' : ''}>
-                <MdashCheck check={!!row.id}>{row.user}</MdashCheck>
-              </div>
-            )
-          },
-        },
-      },
-
-      {
-        name: 'created_at',
-        label: 'Created At',
-        cell: {
-          children: (row: ClusterType) => {
-            return (
-              <div
-                className={sortBy.prop === 'created_at' ? 'fw-semi-bold' : ''}
-              >
-                <MdashCheck check={!!row.id}>
-                  {formatDateWithTimeZone(row.created_at, myTimezone)}
-                </MdashCheck>
-              </div>
-            )
-          },
-        },
-      },
-      {
-        name: 'updated_at',
-        label: 'Updated At',
-        cell: {
-          children: (row: ClusterType) => {
-            return (
-              <div
-                className={sortBy.prop === 'updated_at' ? 'fw-semi-bold' : ''}
-              >
-                <MdashCheck check={!!row.id}>
-                  {formatDateWithTimeZone(row.updated_at, myTimezone)}
-                </MdashCheck>
-              </div>
-            )
-          },
-        },
-      },
-      {
-        name: 'status',
-        label: 'Status',
-        cell: {
-          children: (row: ClusterType) => {
-            return (
-              <div className={sortBy.prop === 'status' ? 'fw-semi-bold' : ''}>
-                <Tag
-                  color={
-                    row.status === 'ACTIVE'
-                      ? 'green'
-                      : row.status === 'INACTIVE'
-                        ? 'gray'
-                        : 'red'
-                  }
-                >
-                  {row.status}
-                </Tag>
-              </div>
-            )
-          },
-        },
-      },
-      {
-        name: '',
-        label: '',
-        isButton: true,
-        noSort: true,
-        cell: {
-          children: (row: ClusterType) => {
-            return (
-              <Button
-                as='link'
-                routerComponent={Link}
-                href={`/clusters/${row.id}`}
-              >
-                Details
-              </Button>
-            )
-          },
-        },
-      },
-    ],
-    [sortBy],
-  )
-}
+    },
+    _qaTestId: `cluster-row-${cluster.id}`,
+  }))

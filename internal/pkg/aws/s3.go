@@ -9,6 +9,7 @@ import (
 	"regexp"
 
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
@@ -80,6 +81,32 @@ func ReadFromS3(ctx context.Context, name string) (io.ReadCloser, int64, error) 
 	}
 
 	return getObjectOutput.Body, contentLength, nil
+
+}
+
+func StreamToS3(ctx context.Context, name string, write func(io.Writer) error) error {
+
+	bucket, key, err := parseS3Path(name)
+	if err != nil {
+		return err
+	}
+
+	awsConfig, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	pr, pw := io.Pipe()
+	go func() { pw.CloseWithError(write(pw)) }()
+	defer pr.Close()
+
+	_, err = manager.NewUploader(s3.NewFromConfig(awsConfig)).Upload(ctx, &s3.PutObjectInput{
+		Bucket: &bucket,
+		Key:    &key,
+		Body:   pr,
+	})
+
+	return err
 
 }
 

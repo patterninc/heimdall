@@ -1,6 +1,7 @@
 package result
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"database/sql"
@@ -21,7 +22,6 @@ import (
 )
 
 const (
-	dataInitialSize   = 10000
 	messageColumn     = `message`
 	messageColumnType = `string`
 	avroExtension     = `.avro`
@@ -41,14 +41,15 @@ type avroFields struct {
 	Fields []*column.Column `yaml:"fields,omitempty" json:"fields,omitempty"`
 }
 
-func FromRows(rows *sql.Rows) (*Result, error) {
+// StreamRows writes the same shape FromRows/json.Marshal would ({"columns":...,"data":...}), one row at a time instead of buffering into a Result first.
+func StreamRows(w io.Writer, rows *sql.Rows) error {
 
 	defer rows.Close()
 
 	// let's get columns metadata
 	columnsTypes, err := rows.ColumnTypes()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	columns := make([]*column.Column, 0, len(columnsTypes))
@@ -62,24 +63,66 @@ func FromRows(rows *sql.Rows) (*Result, error) {
 	// let's get columns count
 	columnsCount := len(columns)
 
-	// let's pull data
-	data := make([][]any, 0, dataInitialSize)
+	bw := bufio.NewWriter(w)
+	if _, err := bw.WriteString(`{`); err != nil {
+		return err
+	}
+	if columnsCount > 0 {
+		columnsJSON, err := json.Marshal(columns)
+		if err != nil {
+			return err
+		}
+		if _, err := bw.WriteString(`"columns":`); err != nil {
+			return err
+		}
+		if _, err := bw.Write(columnsJSON); err != nil {
+			return err
+		}
+	}
 
+	rowCount := 0
 	for rows.Next() {
 		row := make([]any, columnsCount)
 		for i := range row {
 			row[i] = new(interface{})
 		}
 		if err := rows.Scan(row...); err != nil {
-			return nil, err
+			return err
 		}
-		data = append(data, row)
+
+		rowJSON, err := json.Marshal(row)
+		if err != nil {
+			return err
+		}
+		prefix := `,`
+		switch {
+		case rowCount == 0 && columnsCount > 0:
+			prefix = `,"data":[`
+		case rowCount == 0:
+			prefix = `"data":[`
+		}
+		if _, err := bw.WriteString(prefix); err != nil {
+			return err
+		}
+		if _, err := bw.Write(rowJSON); err != nil {
+			return err
+		}
+		rowCount++
+	}
+	if err := rows.Err(); err != nil {
+		return err
 	}
 
-	return &Result{
-		Columns: columns,
-		Data:    data,
-	}, nil
+	// mirror Result.Data's omitempty: no rows means no "data" key at all
+	if rowCount > 0 {
+		if _, err := bw.WriteString(`]`); err != nil {
+			return err
+		}
+	}
+	if _, err := bw.WriteString(`}`); err != nil {
+		return err
+	}
+	return bw.Flush()
 
 }
 

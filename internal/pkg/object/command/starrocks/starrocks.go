@@ -23,8 +23,9 @@ import (
 )
 
 const (
-	serviceName    = "starrocks"
-	authHeaderName = "authorization"
+	serviceName         = "starrocks"
+	authHeaderName      = "authorization"
+	closeSessionTimeout = 5 * time.Second
 )
 
 var (
@@ -126,6 +127,7 @@ func connect(ctx context.Context, endpoint string, useTLS bool, username, passwo
 
 	authCtx, err := flightClient.Client.AuthenticateBasicToken(ctx, username, password)
 	if err != nil {
+		flightClient.Close()
 		return nil, "", fmt.Errorf("failed to authenticate with StarRocks Flight SQL server: %v", err)
 	}
 
@@ -160,6 +162,23 @@ func dialFlightClient(ctx context.Context, endpoint string, useTLS bool) (*fligh
 
 }
 
+// closeFlightClient sends CloseSession (StarRocks keeps the FE session until this RPC), then closes gRPC.
+func closeFlightClient(client *flightsql.Client, token string) {
+	if client == nil {
+		return
+	}
+	defer client.Close()
+
+	if token == `` {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), closeSessionTimeout)
+	defer cancel()
+	ctx = metadata.AppendToOutgoingContext(ctx, authHeaderName, token)
+	_, _ = client.CloseSession(ctx, &flight.CloseSessionRequest{})
+}
+
 // HealthCheck implements the plugin.HealthChecker interface
 func (cmd *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) error {
 
@@ -174,7 +193,7 @@ func (cmd *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) 
 	if err != nil {
 		return err
 	}
-	defer client.Client.Close()
+	defer closeFlightClient(client, token)
 
 	ctx = metadata.AppendToOutgoingContext(ctx, authHeaderName, token)
 

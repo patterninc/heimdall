@@ -1,15 +1,11 @@
-import React, { useMemo } from 'react'
-import {
-  ConfigItemType,
-  Button,
-  MdashCheck,
-  Tag,
-  TagProps,
-  SortByProps,
-  TrimText,
-} from '@patterninc/react-ui'
-import Link from 'next/link'
-import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
+import type { TableColumn, TableDataRow } from '@patterninc/pattern-ui/table'
+import { Tag } from '@patterninc/pattern-ui/tag'
+import React from 'react'
+
+import { formatDateWithTimeZone, myTimezone, orDash } from '@/common/Services'
+import { jobStatusVariant } from '@/common/Services/status'
+import RowLink from '@/components/ListPage/RowLink'
+import TruncatedText from '@/components/TruncatedText/TruncatedText'
 
 export type ApiParams = {
   id?: string
@@ -92,168 +88,41 @@ export type JobType = {
   }
 }
 
-export type JobDataTypesProps = {
-  jobData?: JobType
-  isLoading: boolean
-}
+/** Column keys double as the server's `order_by` values for sortable columns. */
+export const JOB_COLUMNS: TableColumn[] = [
+  { key: 'id', header: 'Job ID', sortable: true, wrap: 'nowrap' },
+  { key: 'name', header: 'Name', minWidth: '200px' },
+  { key: 'version', header: 'Version' },
+  { key: 'user', header: 'User' },
+  { key: 'cluster_id', header: 'Cluster ID', wrap: 'nowrap' },
+  { key: 'command_id', header: 'Command ID', wrap: 'nowrap' },
+  { key: 'created_at', header: 'Created At', sortable: true, wrap: 'nowrap' },
+  { key: 'updated_at', header: 'Updated At', sortable: true, wrap: 'nowrap' },
+  { key: 'status', header: 'Status' },
+]
 
-type JobConfigProps = {
-  sortBy: SortByProps
-}
-
-export const getStatusColor = (status: string): TagProps['color'] => {
-  const statusColors: Record<string, TagProps['color']> = {
-    SUCCEEDED: 'green',
-    FAILED: 'red',
-    RUNNING: 'yellow',
-    KILLED: 'dark-gray',
-    NEW: 'blue',
-    ACCEPTED: 'orange',
-  }
-
-  return statusColors[status] || 'gray' // Default to gray if status is unknown
-}
-
-export const useJobConfig = ({
-  sortBy,
-}: JobConfigProps): ConfigItemType<JobType, Record<string, unknown>>[] => {
-  return useMemo(
-    () => [
-      {
-        name: 'id',
-        label: 'Job ID',
-
-        cell: {
-          children: (row: JobType) => {
-            return (
-              <div className={sortBy.prop === 'id' ? 'fw-semi-bold' : ''}>
-                <MdashCheck check={!!row.id}>{row.id}</MdashCheck>
-              </div>
-            )
-          },
-        },
-        mainColumn: true,
+export const toJobRows = (jobs: JobType[]): TableDataRow[] =>
+  jobs.map((job) => ({
+    id: <RowLink href={`/jobs/${job.id}`}>{job.id}</RowLink>,
+    name: job.name ? (
+      <TruncatedText text={job.name} className='whitespace-nowrap' />
+    ) : (
+      orDash(job.name)
+    ),
+    version: orDash(job.version),
+    user: orDash(job.user),
+    cluster_id: orDash(job.cluster_id),
+    command_id: orDash(job.command_id),
+    created_at: job.created_at
+      ? formatDateWithTimeZone(job.created_at, myTimezone)
+      : orDash(),
+    updated_at: job.updated_at
+      ? formatDateWithTimeZone(job.updated_at, myTimezone)
+      : orDash(),
+    _cellProps: {
+      status: {
+        tag: <Tag variant={jobStatusVariant(job.status)}>{job.status}</Tag>,
       },
-      {
-        name: 'name',
-        label: 'Name',
-        noSort: true,
-        cell: {
-          children: (row: JobType) => {
-            return (
-              <div className={sortBy.prop === 'name' ? 'fw-semi-bold' : ''}>
-                <MdashCheck check={!!row.name}>
-                  <TrimText
-                    text={row.name}
-                    limit={60}
-                    customClass='whitespace-nowrap'
-                  />
-                </MdashCheck>
-              </div>
-            )
-          },
-        },
-      },
-      {
-        name: 'version',
-        label: 'Version',
-        noSort: true,
-        cell: {
-          children: (row: JobType) => (
-            <div className={sortBy.prop === 'version' ? 'fw-semi-bold' : ''}>
-              <MdashCheck check={!!row.version}>{row.version}</MdashCheck>
-            </div>
-          ),
-        },
-      },
-      {
-        name: 'user',
-        label: 'User',
-        noSort: true,
-        cell: {
-          children: (row: JobType) => (
-            <div className={sortBy.prop === 'user' ? 'fw-semi-bold' : ''}>
-              <MdashCheck check={!!row.user}>{row.user}</MdashCheck>
-            </div>
-          ),
-        },
-      },
-      {
-        name: 'cluster_id',
-        label: 'Cluster ID',
-        noSort: true,
-        cell: {
-          children: (row: JobType) => (
-            <div className={sortBy.prop === 'cluster_id' ? 'fw-semi-bold' : ''}>
-              <MdashCheck check={!!row.cluster_id}>{row.cluster_id}</MdashCheck>
-            </div>
-          ),
-        },
-      },
-      {
-        name: 'command_id',
-        label: 'Command ID',
-        noSort: true,
-        cell: {
-          children: (row: JobType) => (
-            <div className={sortBy.prop === 'command_id' ? 'fw-semi-bold' : ''}>
-              <MdashCheck check={!!row.command_id}>{row.command_id}</MdashCheck>
-            </div>
-          ),
-        },
-      },
-      {
-        name: 'created_at',
-        label: 'Created At',
-        cell: {
-          children: (row: JobType) => (
-            <div className={sortBy.prop === 'created_at' ? 'fw-semi-bold' : ''}>
-              <MdashCheck check={!!row.created_at}>
-                {formatDateWithTimeZone(row.created_at, myTimezone)}
-              </MdashCheck>
-            </div>
-          ),
-        },
-      },
-      {
-        name: 'updated_at',
-        label: 'Updated At',
-        cell: {
-          children: (row: JobType) => (
-            <div className={sortBy.prop === 'updated_at' ? 'fw-semi-bold' : ''}>
-              <MdashCheck check={!!row.updated_at}>
-                {formatDateWithTimeZone(row.updated_at, myTimezone)}
-              </MdashCheck>
-            </div>
-          ),
-        },
-      },
-      {
-        name: 'status',
-        label: 'Status',
-        noSort: true,
-        cell: {
-          children: (row: JobType) => (
-            <div className={sortBy.prop === 'status' ? 'fw-semi-bold' : ''}>
-              <Tag color={getStatusColor(row?.status)}>{row.status}</Tag>
-            </div>
-          ),
-        },
-      },
-      {
-        isButton: true,
-        name: '',
-        label: '',
-        noSort: true,
-        cell: {
-          children: (row: JobType) => (
-            <Button as='link' routerComponent={Link} href={`/jobs/${row.id}`}>
-              Details
-            </Button>
-          ),
-        },
-      },
-    ],
-    [sortBy],
-  )
-}
+    },
+    _qaTestId: `job-row-${job.id}`,
+  }))

@@ -18,6 +18,7 @@ import (
 	"github.com/patterninc/heimdall/internal/pkg/pool"
 	"github.com/patterninc/heimdall/internal/pkg/rbac"
 	"github.com/patterninc/heimdall/internal/pkg/server"
+	heimdallContext "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/command"
 	"github.com/patterninc/heimdall/pkg/object/job"
@@ -42,25 +43,28 @@ const (
 )
 
 type Heimdall struct {
-	Server           *server.Server       `yaml:"server,omitempty" json:"server,omitempty"`
-	Commands         command.Commands     `yaml:"commands,omitempty" json:"commands,omitempty"`
-	Clusters         cluster.Clusters     `yaml:"clusters,omitempty" json:"clusters,omitempty"`
-	RBACs            rbac.RBACs           `yaml:"rbacs,omitempty" json:"rbacs,omitempty"`
-	JobsDirectory    string               `yaml:"jobs_directory,omitempty" json:"jobs_directory,omitempty"`
-	ArchiveDirectory string               `yaml:"archive_directory,omitempty" json:"archive_directory,omitempty"`
-	ResultDirectory  string               `yaml:"result_directory,omitempty" json:"result_directory,omitempty"`
-	PluginsDirectory string               `yaml:"plugin_directory,omitempty" json:"plugin_directory,omitempty"`
-	Database         *database.Database   `yaml:"database,omitempty" json:"database,omitempty"`
-	Pool             *pool.Pool[*job.Job] `yaml:"pool,omitempty" json:"pool,omitempty"`
-	Auth             *auth.Auth           `yaml:"auth,omitempty" json:"auth,omitempty"`
-	Janitor          *janitor.Janitor     `yaml:"janitor,omitempty" json:"janitor,omitempty"`
-	HealthCheck      *healthCheckConfig   `yaml:"health_check,omitempty" json:"health_check,omitempty"`
-	Version          string               `yaml:"-" json:"-"`
-	agentName        string
-	commandHandlers  map[string]plugin.Handler
+	Server               *server.Server       `yaml:"server,omitempty" json:"server,omitempty"`
+	Commands             command.Commands     `yaml:"commands,omitempty" json:"commands,omitempty"`
+	Clusters             cluster.Clusters     `yaml:"clusters,omitempty" json:"clusters,omitempty"`
+	RBACs                rbac.RBACs           `yaml:"rbacs,omitempty" json:"rbacs,omitempty"`
+	JobsDirectory        string               `yaml:"jobs_directory,omitempty" json:"jobs_directory,omitempty"`
+	ArchiveDirectory     string               `yaml:"archive_directory,omitempty" json:"archive_directory,omitempty"`
+	ResultDirectory      string               `yaml:"result_directory,omitempty" json:"result_directory,omitempty"`
+	PluginsDirectory     string               `yaml:"plugin_directory,omitempty" json:"plugin_directory,omitempty"`
+	Database             *database.Database   `yaml:"database,omitempty" json:"database,omitempty"`
+	Pool                 *pool.Pool[*job.Job] `yaml:"pool,omitempty" json:"pool,omitempty"`
+	Auth                 *auth.Auth           `yaml:"auth,omitempty" json:"auth,omitempty"`
+	Janitor              *janitor.Janitor     `yaml:"janitor,omitempty" json:"janitor,omitempty"`
+	HealthCheck          *healthCheckConfig   `yaml:"health_check,omitempty" json:"health_check,omitempty"`
+	SensitiveContextKeys []string             `yaml:"sensitive_context_keys,omitempty" json:"sensitive_context_keys,omitempty"`
+	Version              string               `yaml:"-" json:"-"`
+	agentName            string
+	commandHandlers      map[string]plugin.Handler
 }
 
 func (h *Heimdall) Init() error {
+
+	heimdallContext.AddSensitiveKeys(h.SensitiveContextKeys)
 
 	// set jobs directory if not set
 	if h.JobsDirectory == `` {

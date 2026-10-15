@@ -67,8 +67,11 @@ func (g *commandContext) HealthCheck(ctx context.Context, _ *cluster.Cluster) er
 	}
 
 	glueClient := glue.NewFromConfig(cfg)
-	maxResults := awssdk.Int32(1)
-	_, err = glueClient.GetDatabases(ctx, &glue.GetDatabasesInput{MaxResults: maxResults})
+	input := &glue.GetDatabasesInput{
+		MaxResults: awssdk.Int32(1),
+		CatalogId:  awssdk.String(g.CatalogID),
+	}
+	_, err = glueClient.GetDatabases(ctx, input)
 	return err
 }
 

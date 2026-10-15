@@ -1,7 +1,8 @@
 select
     j.job_status_id,
     j.job_error,
-    j.updated_at
+    j.updated_at,
+    j.username
 from
     jobs j
 where

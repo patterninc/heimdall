@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"io"
 
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
@@ -14,4 +15,8 @@ type Handler interface {
 
 type HealthChecker interface {
 	HealthCheck(ctx context.Context, c *cluster.Cluster) error
+}
+
+type ResultStreamer interface {
+	StreamResult(ctx context.Context, w io.Writer, r *Runtime, j *job.Job, c *cluster.Cluster) error
 }

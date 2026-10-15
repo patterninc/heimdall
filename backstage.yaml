@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: heimdall
+  description: 'A Onboard an Existing Repo to Backstage created via Backstage'
+  annotations:
+    repo: patterninc/heimdall
+  labels:
+    CostCenter: DATA
+    Environment: stage
+    Name: heimdall
+    Owner: dev-data-acquisition
+    Department: DATA
+    CreatedBy: Backstage
+spec:
+  type: service
+  system: data

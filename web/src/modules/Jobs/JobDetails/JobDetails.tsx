@@ -1,40 +1,56 @@
 'use client'
 
-import { BreadcrumbContext } from '@/common/BreadCrumbsProvider/context'
-import { useContext, useEffect } from 'react'
-import JobInformationPane from './JobInformationPane'
-import { JobType } from '../Helper'
-
-import JobDetailsHeader from './JobDetailsHeader'
 import { useQuery } from '@tanstack/react-query'
+import React from 'react'
+
 import { getJobDetails } from '@/app/api/jobs/jobs'
-import { usePathname } from 'next/navigation'
+import { jobStatusVariant } from '@/common/Services/status'
+import DetailPage from '@/components/DetailPage/DetailPage'
+import ExternalLinkButton from '@/components/ExternalLinkButton/ExternalLinkButton'
+import { JobType } from '../Helper'
+import CancelJobButton from './CancelJobButton'
+import JobInformationPane from './JobInformationPane'
 
 type JobDetailsProp = {
   id: string
 }
 
 const JobDetails = ({ id }: JobDetailsProp): React.JSX.Element => {
-  const { updateBreadcrumbs } = useContext(BreadcrumbContext)
-  const pathname = usePathname()
-
-  const { data: jobData, isLoading } = useQuery<JobType>({
+  const {
+    data: jobData,
+    isPending,
+    isError,
+  } = useQuery<JobType>({
     queryKey: ['job', id],
     queryFn: () => getJobDetails(id),
   })
 
-  useEffect(() => {
-    updateBreadcrumbs({
-      name: id,
-      link: pathname,
-    })
-  }, [updateBreadcrumbs, id, pathname])
-
   return (
-    <div className='flex flex-col md:flex-row gap-4 pt-4'>
-      <JobInformationPane jobData={jobData} isLoading={isLoading} />
-      <JobDetailsHeader jobData={jobData} isLoading={isLoading} />
-    </div>
+    <DetailPage
+      backHref='/jobs'
+      backLabel='Back to jobs'
+      resourceLabel='job'
+      title={jobData?.name || id}
+      subtitle={jobData?.name && jobData.name !== id ? id : undefined}
+      status={jobData?.status}
+      statusVariant={jobStatusVariant(jobData?.status)}
+      isError={isError || (!isPending && !jobData?.id)}
+      qaTestId='job-details'
+      right={
+        <>
+          <ExternalLinkButton
+            href={`/api/v1/job/${id}`}
+            qaTestId='job-details-api-response'
+          >
+            API response
+          </ExternalLinkButton>
+          {jobData?.id ? <CancelJobButton job={jobData} /> : null}
+        </>
+      }
+    >
+      <JobInformationPane jobData={jobData} isLoading={isPending} />
+    </DetailPage>
   )
 }
+
 export default JobDetails

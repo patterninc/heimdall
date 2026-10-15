@@ -30,9 +30,7 @@ func (j *jobContext) withAuth(ctx context.Context) context.Context {
 }
 
 func (j *jobContext) close() {
-	if j.client != nil {
-		j.client.Client.Close()
-	}
+	closeFlightClient(j.client, j.authToken)
 }
 
 func (j *jobContext) execute(ctx context.Context) (*result.Result, error) {

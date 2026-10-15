@@ -1,7 +1,12 @@
-import { SortByProps } from '@patterninc/react-ui'
 import moment from 'moment-timezone'
 
 export const API_URL = '/api/v1'
+
+/** `flip` is the descending flag. */
+export type SortBy = {
+  prop: string
+  flip: boolean
+}
 
 export const noDataAvailable = 'No Data Available'
 export const noDataAvailableDescription =
@@ -23,6 +28,16 @@ export const buildQueryString = (
   return queryParams.toString()
 }
 
+/** Em dash for empty values, matching the design system's empty-cell convention. */
+export const orDash = (value?: string | number | null): string =>
+  value === undefined || value === null || value === '' ? '—' : String(value)
+
+/** Clicking the active column flips direction; a new column starts ascending. */
+export const toggleSort = (current: SortBy, columnKey: string): SortBy =>
+  current.prop === columnKey
+    ? { prop: columnKey, flip: !current.flip }
+    : { prop: columnKey, flip: false }
+
 // Utility function to format dates with time zone
 export const formatDateWithTimeZone = (date: number, timeZone: string) => {
   return moment.unix(date).tz(timeZone).format('YYYY-MM-DD HH:mm:ss')
@@ -31,8 +46,9 @@ export const formatDateWithTimeZone = (date: number, timeZone: string) => {
 export const myTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
 // Utility function to sort data
-export const sortData = <T>(data: T[], sortBy: SortByProps): T[] => {
-  return data?.sort((a, b) => {
+export const sortData = <T>(data: T[], sortBy: SortBy): T[] => {
+  // Copy first so the react-query cache isn't sorted in place.
+  return [...(data ?? [])].sort((a, b) => {
     const aValue = a[sortBy.prop as keyof T]
     const bValue = b[sortBy.prop as keyof T]
     if (aValue < bValue) return sortBy.flip ? 1 : -1
