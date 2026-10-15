@@ -1,4 +1,4 @@
-import { Section } from '@patterninc/pattern-ui/section'
+import DetailSection from '@/components/DetailPage/DetailSection'
 import React from 'react'
 
 import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
@@ -28,7 +28,7 @@ const ClusterInformationPane = ({
 
   return (
     <>
-      <Section label='Overview' qaTestId='cluster-details-overview'>
+      <DetailSection label='Overview' qaTestId='cluster-details-overview'>
         <DetailFields
           isLoading={isLoading}
           fields={[
@@ -50,10 +50,10 @@ const ClusterInformationPane = ({
             { label: 'Description', value: cluster?.description },
           ]}
         />
-      </Section>
+      </DetailSection>
 
       {hasRuntime ? (
-        <Section label='Runtime' qaTestId='cluster-details-runtime'>
+        <DetailSection label='Runtime' qaTestId='cluster-details-runtime'>
           <DetailFields
             fields={[
               {
@@ -69,27 +69,27 @@ const ClusterInformationPane = ({
               },
             ]}
           />
-        </Section>
+        </DetailSection>
       ) : null}
 
       {properties.length > 0 ? (
-        <Section
+        <DetailSection
           label='Context properties'
           count={properties.length}
           qaTestId='cluster-details-properties'
         >
           <KeyValueList entries={properties} />
-        </Section>
+        </DetailSection>
       ) : null}
 
       {cluster?.tags?.length ? (
-        <Section
+        <DetailSection
           label='Tags'
           count={cluster.tags.length}
           qaTestId='cluster-details-tags'
         >
           <TagList values={cluster.tags} />
-        </Section>
+        </DetailSection>
       ) : null}
     </>
   )

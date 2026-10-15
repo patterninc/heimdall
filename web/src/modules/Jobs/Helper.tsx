@@ -4,7 +4,7 @@ import React from 'react'
 
 import { formatDateWithTimeZone, myTimezone, orDash } from '@/common/Services'
 import { jobStatusVariant } from '@/common/Services/status'
-import RowLink from '@/components/ListPage/RowLink'
+import RowActionButton from '@/components/ListPage/RowActionButton'
 import TruncatedText from '@/components/TruncatedText/TruncatedText'
 
 export type ApiParams = {
@@ -99,11 +99,12 @@ export const JOB_COLUMNS: TableColumn[] = [
   { key: 'created_at', header: 'Created At', sortable: true, wrap: 'nowrap' },
   { key: 'updated_at', header: 'Updated At', sortable: true, wrap: 'nowrap' },
   { key: 'status', header: 'Status' },
+  { key: 'actions', header: '', minWidth: '88px' },
 ]
 
 export const toJobRows = (jobs: JobType[]): TableDataRow[] =>
   jobs.map((job) => ({
-    id: <RowLink href={`/jobs/${job.id}`}>{job.id}</RowLink>,
+    id: job.id,
     name: job.name ? (
       <TruncatedText text={job.name} className='whitespace-nowrap' />
     ) : (
@@ -119,6 +120,11 @@ export const toJobRows = (jobs: JobType[]): TableDataRow[] =>
     updated_at: job.updated_at
       ? formatDateWithTimeZone(job.updated_at, myTimezone)
       : orDash(),
+    actions: (
+      <RowActionButton href={`/jobs/${job.id}`} qaTestId={`job-view-${job.id}`}>
+        View
+      </RowActionButton>
+    ),
     _cellProps: {
       status: {
         tag: <Tag variant={jobStatusVariant(job.status)}>{job.status}</Tag>,

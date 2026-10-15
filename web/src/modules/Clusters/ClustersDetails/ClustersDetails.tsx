@@ -6,7 +6,7 @@ import React from 'react'
 import { getCluster } from '@/app/api/clusters/clusters'
 import { resourceStatusVariant } from '@/common/Services/status'
 import DetailPage from '@/components/DetailPage/DetailPage'
-import ExternalLinkButton from '@/components/ExternalLinkButton/ExternalLinkButton'
+import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
 import { ClusterType } from '../Helper'
 import ClusterInformationPane from './ClusterInformationPane'
 
@@ -36,12 +36,10 @@ const ClustersDetails = ({ id }: ClusterDetailsProps): React.JSX.Element => {
       isError={isError || (!isPending && !cluster)}
       qaTestId='cluster-details'
       right={
-        <ExternalLinkButton
+        <ApiResponseButton
           href={`/api/v1/clusters?id=${cluster?.id ?? id}`}
           qaTestId='cluster-details-api-response'
-        >
-          API response
-        </ExternalLinkButton>
+        />
       }
     >
       <ClusterInformationPane cluster={cluster} isLoading={isPending} />

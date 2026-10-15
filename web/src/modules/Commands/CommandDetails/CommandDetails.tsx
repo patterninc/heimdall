@@ -6,7 +6,7 @@ import React from 'react'
 import { getCommandDetails } from '@/app/api/commands/commands'
 import { resourceStatusVariant } from '@/common/Services/status'
 import DetailPage from '@/components/DetailPage/DetailPage'
-import ExternalLinkButton from '@/components/ExternalLinkButton/ExternalLinkButton'
+import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
 import { CommandType } from '../Helper'
 import CommandInformationPane from './CommandInformationPane'
 
@@ -38,12 +38,10 @@ export const CommandDetails = ({
       isError={isError || (!isPending && !command)}
       qaTestId='command-details'
       right={
-        <ExternalLinkButton
+        <ApiResponseButton
           href={`/api/v1/commands?id=${command?.id ?? id}`}
           qaTestId='command-details-api-response'
-        >
-          API response
-        </ExternalLinkButton>
+        />
       }
     >
       <CommandInformationPane command={command} isLoading={isPending} />

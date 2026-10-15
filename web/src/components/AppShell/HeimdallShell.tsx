@@ -53,13 +53,19 @@ const HeimdallShell = ({
   }, [pathname, router])
 
   const userName = user || 'X-Pattern-User'
-  // getInitials splits on spaces; usernames here are hyphen/underscore/dot separated. First + last
+  // getInitials splits on spaces; usernames here are hyphen/underscore/dot separated, and may be an
+  // email — drop the domain first, or "jane.doe@pattern.com" yields "JC" (from "com"). First + last
   // word matches the initials NavMobileDrawer derives from `navProfile.displayName`.
-  const nameWords = userName.split(/[-_.\s]+/).filter(Boolean)
+  const nameWords = userName
+    .split('@')[0]
+    .split(/[-_.\s]+/)
+    .filter(Boolean)
   const initials =
     nameWords.length > 1
       ? getInitials(`${nameWords[0]} ${nameWords[nameWords.length - 1]}`)
-      : getInitials(userName)
+      : getInitials(nameWords[0] ?? userName)
+
+  const navDisplayName = userName.split('@')[0].replace(/[-_.]+/g, ' ')
 
   const navItems: NavItem[] = APP_ROUTES.map((route) => ({
     id: route.id,
@@ -118,28 +124,37 @@ const HeimdallShell = ({
     </div>
   )
 
-  const avatarPopover = {
-    trigger: (
-      <button
-        type='button'
-        className='cursor-pointer'
-        aria-label={`${userName} — user menu`}
-      >
-        <Avatar initials={initials} size='medium' />
-      </button>
-    ),
+  const buildAvatarPopover = (trigger: ReactElement) => ({
+    trigger,
     children: userMenuContent,
     position: 'top-start' as const,
     variant: 'inverse' as const,
     className: 'min-w-64 max-h-none overflow-visible',
     open: userMenuOpen,
     onOpenChange: setUserMenuOpen,
-  }
+  })
+
+  const railAvatarPopover = buildAvatarPopover(
+    <button
+      type='button'
+      className='cursor-pointer'
+      aria-label={`${userName} — user menu`}
+    >
+      <Avatar initials={initials} size='medium' />
+    </button>,
+  )
+
+  // NavMobileDrawer wraps its trigger in its own profile-row <button>; a nested button is invalid
+  // HTML and a hydration error, so the drawer's trigger is a plain element.
+  const drawerAvatarPopover = buildAvatarPopover(
+    <span className='flex'>
+      <Avatar initials={initials} size='medium' />
+    </span>,
+  )
 
   const sharedNavProps = {
     renderItem,
-    avatarPopover,
-    navProfile: { displayName: userName },
+    navProfile: { displayName: navDisplayName },
   }
 
   const navRail = (
@@ -147,6 +162,7 @@ const HeimdallShell = ({
       <div className='hidden h-full md:flex'>
         <Nav
           {...sharedNavProps}
+          avatarPopover={railAvatarPopover}
           items={navItems}
           appIcon={
             <Link href='/jobs' aria-label='Heimdall home'>
@@ -158,6 +174,7 @@ const HeimdallShell = ({
       <div className='md:hidden'>
         <NavMobileDrawer
           {...sharedNavProps}
+          avatarPopover={drawerAvatarPopover}
           items={navItems}
           open={mobileNavOpen}
           onOpenChange={setMobileNavOpen}

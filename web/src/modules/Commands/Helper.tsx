@@ -4,7 +4,7 @@ import React from 'react'
 
 import { formatDateWithTimeZone, myTimezone, orDash } from '@/common/Services'
 import { resourceStatusVariant } from '@/common/Services/status'
-import RowLink from '@/components/ListPage/RowLink'
+import RowActionButton from '@/components/ListPage/RowActionButton'
 import TruncatedText from '@/components/TruncatedText/TruncatedText'
 
 export type ApiParams = {
@@ -59,15 +59,12 @@ export const COMMAND_COLUMNS: TableColumn[] = [
   { key: 'updated_at', header: 'Updated At', sortable: true, wrap: 'nowrap' },
   { key: 'plugin', header: 'Plugin', sortable: true },
   { key: 'status', header: 'Status', sortable: true },
+  { key: 'actions', header: '', minWidth: '88px' },
 ]
 
 export const toCommandRows = (commands: CommandType[]): TableDataRow[] =>
   commands.map((command) => ({
-    name: (
-      <RowLink href={`/commands/${command.id}`}>
-        {command.name || command.id}
-      </RowLink>
-    ),
+    name: command.name || command.id,
     version: orDash(command.version),
     user: orDash(command.user),
     description: command.description ? (
@@ -82,6 +79,14 @@ export const toCommandRows = (commands: CommandType[]): TableDataRow[] =>
       ? formatDateWithTimeZone(command.updated_at, myTimezone)
       : orDash(),
     plugin: orDash(command.plugin),
+    actions: (
+      <RowActionButton
+        href={`/commands/${command.id}`}
+        qaTestId={`command-view-${command.id}`}
+      >
+        View
+      </RowActionButton>
+    ),
     _cellProps: {
       status: {
         tag: (
