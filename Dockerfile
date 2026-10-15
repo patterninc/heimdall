@@ -1,4 +1,4 @@
-FROM golang:1.25.0 AS go-builder
+FROM golang:1.27.2 AS go-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential \
@@ -22,7 +22,7 @@ COPY plugins ./plugins
 ARG BUILD_VERSION=dev
 RUN BUILD_VERSION="${BUILD_VERSION}" ./build.sh --go
 
-FROM node:20-bookworm AS web-builder
+FROM node:24-bookworm AS web-builder
 
 WORKDIR /app
 
@@ -33,7 +33,7 @@ COPY build.sh ./
 COPY web/ ./web/
 RUN ./build.sh --ui
 
-FROM node:20-bookworm-slim AS runtime
+FROM node:24-bookworm-slim AS runtime
 
 RUN apt-get update && \
       apt-get install -y curl && \
