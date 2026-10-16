@@ -6,7 +6,7 @@ import React from 'react'
 import { getJobDetails } from '@/app/api/jobs/jobs'
 import { jobStatusVariant } from '@/common/Services/status'
 import DetailPage from '@/components/DetailPage/DetailPage'
-import ExternalLinkButton from '@/components/ExternalLinkButton/ExternalLinkButton'
+import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
 import { JobType } from '../Helper'
 import CancelJobButton from './CancelJobButton'
 import JobInformationPane from './JobInformationPane'
@@ -38,12 +38,10 @@ const JobDetails = ({ id }: JobDetailsProp): React.JSX.Element => {
       qaTestId='job-details'
       right={
         <>
-          <ExternalLinkButton
+          <ApiResponseButton
             href={`/api/v1/job/${id}`}
             qaTestId='job-details-api-response'
-          >
-            API response
-          </ExternalLinkButton>
+          />
           {jobData?.id ? <CancelJobButton job={jobData} /> : null}
         </>
       }

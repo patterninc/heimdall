@@ -4,6 +4,7 @@ import { ContentHeader } from '@patterninc/pattern-ui/content-header'
 import { Table, type TableProps } from '@patterninc/pattern-ui/table'
 import { useViewportTableHeight } from '@patterninc/pattern-ui/use-viewport-table-height'
 import React, { type ReactNode } from 'react'
+import { useMediaQuery } from 'usehooks-ts'
 
 import { AutoRefreshSelect } from '@/common/AutoRefreshSelect/AutoRefreshSelect'
 
@@ -27,6 +28,11 @@ const ListPage = ({
   // Shell inset (8px) + page bottom padding (16px), so the table body scrolls instead of the page.
   const { ref: tableWrapperRef, height: tableHeight } = useViewportTableHeight({
     bottomOffset: 24,
+  })
+  // The last column is always pinned; the first only on wide screens, where an ID column of ~300px
+  // would otherwise leave a phone no room for the columns between the two pins.
+  const isWide = useMediaQuery('(min-width: 768px)', {
+    initializeWithValue: false,
   })
 
   return (
@@ -57,6 +63,7 @@ const ListPage = ({
             rowSize='medium'
             headerBackground='filled'
             className='min-h-0'
+            stickyColumns={{ start: isWide ? 1 : 0, end: 1 }}
             {...tableProps}
           />
         </div>

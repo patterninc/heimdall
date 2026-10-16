@@ -1,7 +1,6 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { useRouter } from 'next/navigation'
 import { useQueryState } from 'nuqs'
 import React, { useContext, useState } from 'react'
 import { useDebounceValue } from 'usehooks-ts'
@@ -36,7 +35,6 @@ type CursorPaging = {
 }
 
 const Jobs = (): React.JSX.Element => {
-  const router = useRouter()
   const { refreshInterval } = useContext(AutoRefreshContext)
 
   const [jobId, setJobId] = useQueryState('id', { defaultValue: '' })
@@ -220,11 +218,6 @@ const Jobs = (): React.JSX.Element => {
         sortedColumn: sortBy.prop,
         sortDirection: sortBy.flip ? 'desc' : 'asc',
         onSort: (columnKey) => setSortBy(toggleSort(sortBy, columnKey)),
-        onRowClick: (rowIndex) => {
-          const job = jobs[rowIndex]
-          if (job) router.push(`/jobs/${job.id}`)
-        },
-        stickyColumns: { start: 1 },
         emptyState: (
           <ListEmptyState onClearFilters={hasFilters ? clearAll : undefined} />
         ),

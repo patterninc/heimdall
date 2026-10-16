@@ -133,7 +133,7 @@ export const FilterMenu = ({
           }
         }}
       >
-        <DrawerPopup showBar showCloseButton surface='weak'>
+        <DrawerPopup showBar surface='weak'>
           <DrawerHeader>
             <h2 className='pui-text-label-large text-text-strong'>Filters</h2>
           </DrawerHeader>
@@ -179,7 +179,7 @@ export const FilterMenu = ({
               if (!open) setMobileDimensionKey(null)
             }}
           >
-            <DrawerPopup showBar showCloseButton surface='weak'>
+            <DrawerPopup showBar surface='weak'>
               <DrawerHeader>
                 <h2 className='pui-text-label-large text-text-strong'>
                   {activeDimension?.label ?? ''}

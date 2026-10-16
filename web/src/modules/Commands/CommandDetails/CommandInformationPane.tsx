@@ -1,4 +1,4 @@
-import { Section } from '@patterninc/pattern-ui/section'
+import DetailSection from '@/components/DetailPage/DetailSection'
 import React from 'react'
 
 import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
@@ -31,7 +31,7 @@ const CommandInformationPane = ({
 
   return (
     <>
-      <Section label='Overview' qaTestId='command-details-overview'>
+      <DetailSection label='Overview' qaTestId='command-details-overview'>
         <DetailFields
           isLoading={isLoading}
           fields={[
@@ -63,42 +63,42 @@ const CommandInformationPane = ({
             { label: 'Description', value: command?.description },
           ]}
         />
-      </Section>
+      </DetailSection>
 
       {links.length > 0 ? (
-        <Section label='Links' qaTestId='command-details-links'>
+        <DetailSection label='Links' qaTestId='command-details-links'>
           <ExternalLinkList links={links} qaTestId='command-details-link' />
-        </Section>
+        </DetailSection>
       ) : null}
 
       {properties.length > 0 ? (
-        <Section
+        <DetailSection
           label='Context properties'
           count={properties.length}
           qaTestId='command-details-properties'
         >
           <KeyValueList entries={properties} />
-        </Section>
+        </DetailSection>
       ) : null}
 
       {command?.tags?.length ? (
-        <Section
+        <DetailSection
           label='Tags'
           count={command.tags.length}
           qaTestId='command-details-tags'
         >
           <TagList values={command.tags} />
-        </Section>
+        </DetailSection>
       ) : null}
 
       {command?.cluster_tags?.length ? (
-        <Section
+        <DetailSection
           label='Cluster tags'
           count={command.cluster_tags.length}
           qaTestId='command-details-cluster-tags'
         >
           <TagList values={command.cluster_tags} />
-        </Section>
+        </DetailSection>
       ) : null}
     </>
   )

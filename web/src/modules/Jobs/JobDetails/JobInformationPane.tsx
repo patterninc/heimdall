@@ -1,6 +1,6 @@
 import FileErrorIcon from '@patterninc/pattern-ui/icons/FileErrorIcon'
 import { CodeBlock } from '@patterninc/pattern-ui/artifact/CodeBlock'
-import { Section } from '@patterninc/pattern-ui/section'
+import DetailSection from '@/components/DetailPage/DetailSection'
 import Link from 'next/link'
 import React from 'react'
 
@@ -43,7 +43,7 @@ const JobInformationPane = ({
   return (
     <>
       {jobData?.status === 'FAILED' && jobData.error ? (
-        <Section
+        <DetailSection
           label='Error'
           prefix={{ icon: FileErrorIcon, color: 'negative-base' }}
           qaTestId='job-details-error'
@@ -51,14 +51,15 @@ const JobInformationPane = ({
           <p className='pui-text-mono-small text-text-strong p-4 wrap-break-word whitespace-pre-wrap'>
             {jobData.error}
           </p>
-        </Section>
+        </DetailSection>
       ) : null}
 
-      <Section label='Overview' qaTestId='job-details-overview'>
+      <DetailSection label='Overview' qaTestId='job-details-overview'>
         <DetailFields
           isLoading={isLoading}
           fields={[
             { label: 'Job ID', value: jobData?.id, mono: true },
+            { label: 'Name', value: jobData?.name },
             { label: 'User', value: jobData?.user },
             { label: 'Version', value: jobData?.version },
             {
@@ -104,26 +105,26 @@ const JobInformationPane = ({
               : []),
           ]}
         />
-      </Section>
+      </DetailSection>
 
       {outputLinks.length > 0 ? (
-        <Section label='Outputs' qaTestId='job-details-outputs'>
+        <DetailSection label='Outputs' qaTestId='job-details-outputs'>
           <ExternalLinkList links={outputLinks} qaTestId='job-details-link' />
-        </Section>
+        </DetailSection>
       ) : null}
 
       {textAttributes.length > 0 ? (
-        <Section
+        <DetailSection
           label='Attributes'
           count={textAttributes.length}
           qaTestId='job-details-attributes'
         >
           <KeyValueList entries={textAttributes} />
-        </Section>
+        </DetailSection>
       ) : null}
 
       {jobData?.context?.query ? (
-        <Section label='SQL query' qaTestId='job-details-query'>
+        <DetailSection label='SQL query' qaTestId='job-details-query'>
           {/* The theme sets inline `white-space: pre` on pre/code, hence the important modifiers to wrap long lines. */}
           <div className='px-3 pt-1 pb-3'>
             <CodeBlock
@@ -132,47 +133,47 @@ const JobInformationPane = ({
               className='[&_.max-h-\[600px\]]:max-h-72 [&_code]:wrap-break-word! [&_code]:whitespace-pre-wrap! [&_pre]:whitespace-pre-wrap!'
             />
           </div>
-        </Section>
+        </DetailSection>
       ) : null}
 
       {properties.length > 0 ? (
-        <Section
+        <DetailSection
           label='Context properties'
           count={properties.length}
           qaTestId='job-details-properties'
         >
           <KeyValueList entries={properties} />
-        </Section>
+        </DetailSection>
       ) : null}
 
       {jobData?.tags?.length ? (
-        <Section
+        <DetailSection
           label='Tags'
           count={jobData.tags.length}
           qaTestId='job-details-tags'
         >
           <TagList values={jobData.tags} />
-        </Section>
+        </DetailSection>
       ) : null}
 
       {jobData?.command_criteria?.length ? (
-        <Section
+        <DetailSection
           label='Command criteria'
           count={jobData.command_criteria.length}
           qaTestId='job-details-command-criteria'
         >
           <TagList values={jobData.command_criteria} />
-        </Section>
+        </DetailSection>
       ) : null}
 
       {jobData?.cluster_criteria?.length ? (
-        <Section
+        <DetailSection
           label='Cluster criteria'
           count={jobData.cluster_criteria.length}
           qaTestId='job-details-cluster-criteria'
         >
           <TagList values={jobData.cluster_criteria} />
-        </Section>
+        </DetailSection>
       ) : null}
     </>
   )

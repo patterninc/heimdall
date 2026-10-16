@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import React, { useState } from 'react'
 
 import { cancelJob } from '@/app/api/jobs/jobs'
+import { useIsSmUp } from '@/common/hooks/useIsSmUp'
 import { JobType } from '../Helper'
 
 const CANCELABLE_STATUSES = ['NEW', 'ACCEPTED', 'RUNNING']
@@ -19,6 +20,7 @@ type CancelJobButtonProps = {
 const CancelJobButton = ({ job }: CancelJobButtonProps): React.JSX.Element => {
   const queryClient = useQueryClient()
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const isSmUp = useIsSmUp()
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) => cancelJob(id),
@@ -44,6 +46,14 @@ const CancelJobButton = ({ job }: CancelJobButtonProps): React.JSX.Element => {
   const isCancelable =
     CANCELABLE_STATUSES.includes(job.status) && job.is_sync !== true
   const isCanceling = job.status === 'CANCELING'
+  const label = isCanceling ? 'Canceling job…' : 'Cancel job'
+  // Icon-only on phones, where the header has no room for labels.
+  const tooltipContent =
+    !isCancelable && !isCanceling
+      ? 'Only running or queued async jobs can be canceled'
+      : isSmUp
+        ? undefined
+        : label
 
   return (
     <>
@@ -53,15 +63,12 @@ const CancelJobButton = ({ job }: CancelJobButtonProps): React.JSX.Element => {
         prefix={{ icon: StopIcon }}
         disabled={!isCancelable || isCanceling}
         isLoading={isCanceling}
-        tooltipProps={
-          !isCancelable && !isCanceling
-            ? { content: 'Only running or queued async jobs can be canceled' }
-            : undefined
-        }
+        aria-label={label}
+        tooltipProps={tooltipContent ? { content: tooltipContent } : undefined}
         onClick={() => setConfirmOpen(true)}
         qaTestId='job-details-cancel'
       >
-        {isCanceling ? 'Canceling job…' : 'Cancel job'}
+        {isSmUp ? label : undefined}
       </Button>
       <ConfirmationDialog
         open={confirmOpen}
