@@ -37,20 +37,18 @@ func (j *jobContext) execute(ctx context.Context) (*result.Result, error) {
 
 	ctx = j.withAuth(ctx)
 
-	if !j.ReturnResult {
-		n, err := j.client.ExecuteUpdate(ctx, j.Query)
-		if err != nil {
-			return nil, fmt.Errorf("failed to execute statement: %v", err)
-		}
-		return result.FromMessage(fmt.Sprintf("%d row(s) affected", n))
-	}
 
 	info, err := j.client.Execute(ctx, j.Query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %v", err)
 	}
 
-	return collectResults(ctx, j.client, info, j.endpoint, j.useTLS)
+	res, err := collectResults(ctx, j.client, info, j.endpoint, j.useTLS)
+	if err != nil || j.ReturnResult {
+		return res, err
+	}
+
+	return result.FromMessage("statement executed")
 
 }
 

@@ -74,7 +74,7 @@ A StarRocks job provides the SQL query to execute and result handling preference
 }
 ```
 
-🔹 When `return_result` is `true`, the plugin runs the query via Flight SQL `GetFlightInfo`/`DoGet`, streaming Arrow record batches back and converting them into Heimdall's structured result format. When `false`, the statement is executed via Flight SQL's `ExecuteUpdate` (appropriate for `INSERT`/`UPDATE`/`DELETE`/DDL), and the result is a single `message` row reporting the number of affected rows.
+🔹 StarRocks runs every statement, including `INSERT`/`UPDATE`/`DELETE` and DDL, through Flight SQL `GetFlightInfo`/`DoGet`. It does not implement `ExecuteUpdate` (`DoPut` / `acceptPutStatement`). When `return_result` is `true`, the plugin returns those batches as Heimdall's structured result. When `false`, the stream is still consumed so the statement finishes, and the job result is a single `message` row (`statement executed`).
 
 ---
 
@@ -83,7 +83,7 @@ A StarRocks job provides the SQL query to execute and result handling preference
 The StarRocks plugin handles:
 
 * **Connection Management**: Dials the FE's Arrow Flight SQL gRPC endpoint and performs the Basic → Bearer token handshake
-* **Query Execution**: Executes SQL via Arrow Flight SQL `Execute`/`ExecuteUpdate`
+* **Query Execution**: Executes SQL via Arrow Flight SQL `Execute` (`GetFlightInfo`/`DoGet`)
 * **Type Handling**: Converts Arrow column types (ints, floats, decimals, strings, booleans, dates/timestamps) into Heimdall's result column types
 * **Result Collection**: `GetFlightInfo` returns one endpoint per BE holding a slice of the result. Rather than proxying every row back through the FE, the plugin dials each distinct BE location directly (reusing the bearer token from the FE handshake — no re-authentication needed) and redeems tickets with `DoGet` in parallel across goroutines. Endpoints that advertise `LocationReuseConnection` or the FE's own address are still served over the existing FE connection. Direct BE connections are cached per query and closed once all endpoints are drained.
 
