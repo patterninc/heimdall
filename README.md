@@ -13,7 +13,7 @@ Originally inspired by [Netflix Genie](https://github.com/Netflix/genie), Heimda
 ## ✨ Key Features
 
 * 🔁 **Sync & Async Job Execution**
-* 🧩 **Plugin-Based Execution Framework**: Shell, Glue, Snowflake, Spark, Trino, DynamoDB, and Ping
+* 🧩 **Plugin-Based Execution Framework**: Shell, Glue, Snowflake, Spark, Trino, DynamoDB, EKS custom resources, and Ping
 * 📬 **REST API** for programmatic access
 * 🌍 **Web UI** for visual management
 * 🔐 **Secure orchestration without credential leakage**
@@ -113,6 +113,7 @@ Heimdall supports a growing set of pluggable command types:
 | `snowflake`   | [Query execution in Snowflake](https://github.com/patterninc/heimdall/blob/main/plugins/snowflake/README.md)           | Async          |
 | `spark`       | [SparkSQL query execution on EMR on EKS](https://github.com/patterninc/heimdall/blob/main/plugins/spark/README.md) | Async          |
 | `sparkeks`    | [SparkSQL query execution on EKS](https://github.com/patterninc/heimdall/blob/main/plugins/sparkeks/README.md) | Async          |
+| `eksjob`      | [Run a job as a Kubernetes custom resource on EKS](https://github.com/patterninc/heimdall/blob/main/plugins/eksjob/README.md) | Async          |
 | `trino`       | [Query execution in Trino](https://github.com/patterninc/heimdall/blob/main/plugins/trino/README.md) | Async          |
 | `clickhouse`  | [Query execution in Clickhouse](https://github.com/patterninc/heimdall/blob/main/plugins/clickhouse/README.md) | Sync          |
 | `ecs fargate` | [Task Deployment in ECS Fargate](https://github.com/patterninc/heimdall/blob/main/plugins/ecs/README.md) | Async |
