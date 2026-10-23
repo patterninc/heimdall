@@ -1,4 +1,4 @@
-FROM golang:1.27.2 AS go-builder
+FROM golang:1.27.3 AS go-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential \
