@@ -90,15 +90,14 @@ clusters:
 
 The role must be mapped to a Kubernetes identity (EKS access entry or `aws-auth`) that can, in the namespace:
 
-| Resource | Verbs |
-|---|---|
-| `<crd_plural>` | create, get, list, watch, patch, update |
-| `<crd_plural>/status` | get |
-| `pods` | get, list, watch |
-| `pods/log` | get |
-| `events` | get, list, watch |
+| Resource | Verbs | Used for |
+|---|---|---|
+| `<crd_plural>` | create, get, list, patch | Creating the run, polling its status, the health check, cancelling |
+| `pods` | list | Finding the run's pods |
+| `pods/log` | get | Streaming their logs |
+| `events` | list | Reporting Warning events when a run fails |
 
-plus IAM `eks:DescribeCluster` on the cluster.
+plus IAM `eks:DescribeCluster` on the cluster. The plugin never deletes, updates or watches anything, and reads status through `get` on the resource itself, so it needs no `<crd_plural>/status` access.
 
 ### Job context
 
@@ -152,7 +151,7 @@ The plugin lists the run's pods (`<pod_selector_label>=<resource name>`) every f
 
 Logs are streamed to stdout; the plugin's own progress lines go to stdout and warnings to stderr. When the run finishes the plugin waits up to 30 seconds for open streams to reach the end of the log.
 
-Logs of a container instance that started and restarted between two listings are not backfilled.
+Logs of a container instance that started and restarted between two listings are not backfilled. Only `spec.containers` are streamed: init containers (including native sidecars) are neither streamed nor reported when waiting.
 
 ## Outputs
 
