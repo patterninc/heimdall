@@ -51,10 +51,11 @@ type logStreamer struct {
 }
 
 type instanceState struct {
-	active bool      // a stream is open
-	ended  bool      // a stream reached EOF
-	last   time.Time // timestamp of the last line written
-	warned bool      // a stream error was reported
+	active     bool      // a stream is open
+	ended      bool      // a stream reached EOF
+	last       time.Time // timestamp of the last line written
+	resumeFrom time.Time // while set, a resumed stream is replaying lines up to this timestamp
+	warned     bool      // a stream error was reported
 }
 
 func newLogStreamer(kube kubernetes.Interface, namespace, selector string, out, warn io.Writer, interval time.Duration) *logStreamer {
@@ -208,6 +209,7 @@ func (s *logStreamer) stream(podName, containerName string, multiContainer bool,
 	s.mu.Lock()
 	state := s.streams[key]
 	since := state.last
+	state.resumeFrom = since
 	s.mu.Unlock()
 
 	opts := &corev1.PodLogOptions{Container: containerName, Follow: true, Timestamps: true}
@@ -250,6 +252,10 @@ func (s *logStreamer) stream(podName, containerName string, multiContainer bool,
 // writeLine strips the kubelet timestamp, drops lines already written by an earlier stream of
 // the same container instance and writes the line, prefixed with the pod (and container) name
 // once more than one pod has been seen.
+//
+// Only a resumed stream's replay is deduplicated: SinceTime has second granularity, so the
+// stream starts by repeating lines up to resumeFrom. The first newer line ends the replay, after
+// which every line is written, including lines that share a timestamp or follow a clock step back.
 func (s *logStreamer) writeLine(state *instanceState, podName, containerName string, multiContainer bool, line string) {
 
 	text := line
@@ -257,8 +263,9 @@ func (s *logStreamer) writeLine(state *instanceState, podName, containerName str
 		if ts, err := time.Parse(time.RFC3339Nano, line[:i]); err == nil {
 			text = line[i+1:]
 			s.mu.Lock()
-			duplicate := !state.last.IsZero() && !ts.After(state.last)
+			duplicate := !state.resumeFrom.IsZero() && !ts.After(state.resumeFrom)
 			if !duplicate {
+				state.resumeFrom = time.Time{}
 				state.last = ts
 			}
 			s.mu.Unlock()

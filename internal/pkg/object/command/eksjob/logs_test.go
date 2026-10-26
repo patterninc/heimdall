@@ -150,18 +150,36 @@ func TestLogStreamerResumesFromLastTimestamp(t *testing.T) {
 	state := &instanceState{}
 
 	s.writeLine(state, "p", "c", false, "2026-01-01T00:00:01.000000001Z first\n")
-	s.writeLine(state, "p", "c", false, "2026-01-01T00:00:02Z second\n")
-	// a resumed stream (since=second granularity) replays lines already written
+	s.writeLine(state, "p", "c", false, "2026-01-01T00:00:02.5Z second\n")
+	// a resumed stream starts at the last line written; since=second granularity, so it replays
+	// lines already written
+	state.resumeFrom = state.last
 	s.writeLine(state, "p", "c", false, "2026-01-01T00:00:01.000000001Z first\n")
-	s.writeLine(state, "p", "c", false, "2026-01-01T00:00:02Z second\n")
+	s.writeLine(state, "p", "c", false, "2026-01-01T00:00:02.5Z second\n")
 	s.writeLine(state, "p", "c", false, "2026-01-01T00:00:03Z third")
+	// the replay is over: a line sharing the previous timestamp is new
+	s.writeLine(state, "p", "c", false, "2026-01-01T00:00:03Z fourth\n")
 	s.writeLine(state, "p", "c", false, "no timestamp\n")
 
-	if got, want := out.String(), "first\nsecond\nthird\nno timestamp\n"; got != want {
+	if got, want := out.String(), "first\nsecond\nthird\nfourth\nno timestamp\n"; got != want {
 		t.Errorf("stdout = %q, want %q", got, want)
 	}
-	if !state.last.Equal(time.Date(2026, 1, 1, 0, 0, 3, 0, time.UTC)) {
-		t.Errorf("last = %v", state.last)
+	if !state.last.Equal(time.Date(2026, 1, 1, 0, 0, 3, 0, time.UTC)) || !state.resumeFrom.IsZero() {
+		t.Errorf("last = %v, resumeFrom = %v", state.last, state.resumeFrom)
+	}
+}
+
+func TestLogStreamerKeepsSameOrEarlierTimestampsOutsideReplay(t *testing.T) {
+	s, out, _ := newTestStreamer(kubefake.NewSimpleClientset())
+	state := &instanceState{}
+
+	s.writeLine(state, "p", "c", false, "2026-01-01T00:00:01Z a\n")
+	s.writeLine(state, "p", "c", false, "2026-01-01T00:00:01Z b\n")
+	// the node clock stepped back
+	s.writeLine(state, "p", "c", false, "2026-01-01T00:00:00Z c\n")
+
+	if got, want := out.String(), "a\nb\nc\n"; got != want {
+		t.Errorf("stdout = %q, want %q", got, want)
 	}
 }
 
