@@ -88,30 +88,23 @@ func (r *runner) run(ctx context.Context, obj *unstructured.Unstructured) error 
 
 	final, err := r.waitForTerminal(ctx)
 
-	if ctx.Err() != nil {
-		// Heimdall canceled the job: stop streaming and cancel the run with a fresh context,
-		// since sync jobs never reach the janitor's Cleanup.
+	if ctx.Err() != nil || err != nil {
+		// Either Heimdall canceled the job (sync jobs never reach the janitor's Cleanup) or the
+		// wait gave up while the run may still be going (the job fails, and the janitor never
+		// cleans up failed jobs). Cancel the run so it is not left running unwatched, or
+		// alongside a retry of the job.
 		if logs != nil {
 			logs.abort()
 		}
-		if r.cmd.CancelField != `` {
-			cancelCtx, cancel := context.WithTimeout(context.Background(), cancelTimeout)
-			defer cancel()
-			if patched, cancelErr := r.cmd.cancelRun(cancelCtx, r.clients.dynamic, r.namespace, r.name); cancelErr != nil {
-				fmt.Fprintf(r.stderr, "eksjob: failed to cancel %s: %v\n", r.ref(), cancelErr)
-			} else if patched {
-				fmt.Fprintf(r.stdout, "eksjob: requested cancellation of %s\n", r.ref())
-			}
+		r.cancelUnfinished()
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
-		return ctx.Err()
+		return err
 	}
 
 	if logs != nil {
 		logs.finish(r.logDrainTimeout)
-	}
-
-	if err != nil {
-		return err
 	}
 
 	r.printTimes(final)
@@ -207,6 +200,27 @@ func (r *runner) waitForTerminal(ctx context.Context) (*unstructured.Unstructure
 		case <-ticker.C:
 		}
 
+	}
+
+}
+
+// cancelUnfinished makes a best-effort cancelRun with a fresh context, since the job's context
+// may already be done, and reports the outcome. It does nothing when cancellation is disabled.
+func (r *runner) cancelUnfinished() {
+
+	if r.cmd.CancelField == `` {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), cancelTimeout)
+	defer cancel()
+
+	patched, err := r.cmd.cancelRun(ctx, r.clients.dynamic, r.namespace, r.name)
+	switch {
+	case err != nil:
+		fmt.Fprintf(r.stderr, "eksjob: failed to cancel %s: %v\n", r.ref(), err)
+	case patched:
+		fmt.Fprintf(r.stdout, "eksjob: requested cancellation of %s\n", r.ref())
 	}
 
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -666,6 +667,57 @@ func TestExecuteCanceledPatchesCancelField(t *testing.T) {
 	}
 	if !strings.Contains(r.stdout(t), "requested cancellation") {
 		t.Errorf("stdout:\n%s", r.stdout(t))
+	}
+}
+
+func TestExecutePollFailureCancelsRun(t *testing.T) {
+	c := newCommand(t, contractCommandContext())
+	f := newFakes()
+	f.install(c)
+
+	// the API fails until the poll gives up, then recovers for the cancel
+	var mu sync.Mutex
+	gets := 0
+	f.dynamic.PrependReactor("get", testGVR.Resource, func(k8stesting.Action) (bool, runtime.Object, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		gets++
+		if gets <= maxConsecutivePollErrors {
+			return true, nil, errors.New("connection refused")
+		}
+		return false, nil, nil
+	})
+
+	r := newRuntime(t)
+	err := c.Execute(context.Background(), r.Runtime, testJob(defaultJobContext()), testCluster())
+	if err == nil || !strings.Contains(err.Error(), "connection refused") {
+		t.Fatalf("expected the poll error, got %v", err)
+	}
+
+	if state, _, _ := unstructured.NestedString(f.run(t).Object, "spec", "setState"); state != "cancel" {
+		t.Errorf("spec.setState = %q, want cancel", state)
+	}
+	if !strings.Contains(r.stdout(t), "requested cancellation") {
+		t.Errorf("stdout:\n%s", r.stdout(t))
+	}
+}
+
+func TestExecuteDeletedRunIsNotPatched(t *testing.T) {
+	c := newCommand(t, contractCommandContext())
+	f := newFakes()
+	f.install(c)
+	f.dynamic.PrependReactor("get", testGVR.Resource, func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, apierrors.NewNotFound(testGVR.GroupResource(), testRunName)
+	})
+
+	err := c.Execute(context.Background(), newRuntime(t).Runtime, testJob(defaultJobContext()), testCluster())
+	if err == nil || !strings.Contains(err.Error(), "deleted before it finished") {
+		t.Fatalf("got %v", err)
+	}
+	for _, a := range f.dynamic.Actions() {
+		if a.GetVerb() == "patch" {
+			t.Error("a deleted run was patched")
+		}
 	}
 }
 
