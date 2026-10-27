@@ -1,7 +1,11 @@
 minimumReleaseAge: 1440 # To reduce the risk of installing compromised packages, let them sit on the registry for 1 day before installing
 minimumReleaseAgeExclude:
-- '@patterninc/pattern-ui' # allow pulling in pattern-ui with no delay
+  - '@patterninc/pattern-ui' # allow pulling in pattern-ui with no delay
+
+# sharp is only used for next/image optimization, which Heimdall doesn't use. Skipping it keeps native
+# binaries out of the standalone output, so it can be built on Alpine (musl) and run on Debian (glibc).
+ignoredOptionalDependencies:
+  - sharp
 
 allowBuilds:
-  sharp: false
   unrs-resolver: false

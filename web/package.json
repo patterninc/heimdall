@@ -5,15 +5,15 @@
   "packageManager": "pnpm@12.15.0",
   "scripts": {
     "dev": "PORT=4000 next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
+    "start": "node .next/standalone/server.js",
     "lint": "eslint .",
     "prettier": "prettier --write .",
     "prettier-fix": "prettier --write --ignore-path .gitignore src/**/*",
     "prettier-check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "lint-fix": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0 --fix",
     "format": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
-    "type-check": "tsc --noEmit"
+    "type-check": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "@patterninc/pattern-ui": "latest",

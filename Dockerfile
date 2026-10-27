@@ -22,7 +22,9 @@ COPY plugins ./plugins
 ARG BUILD_VERSION=dev
 RUN BUILD_VERSION="${BUILD_VERSION}" ./build.sh --go
 
-FROM node:26-bookworm AS web-builder
+FROM public.ecr.aws/patterninc/parent-image/nodejs:26 AS web-builder
+
+RUN apk add --no-cache bash
 
 WORKDIR /app
 
@@ -42,7 +44,6 @@ RUN apt-get update && \
       awscli \
       jq \
       build-essential \
- && npm install -g pnpm@12.15.0 \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=go-builder /usr/local/go /usr/local/go
@@ -58,6 +59,6 @@ COPY configs/local.yaml /etc/heimdall/heimdall.yaml
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY assets ./assets
 COPY --from=go-builder /go/src/github.com/patterninc/heimdall/dist ./dist
-COPY --from=web-builder /app/web ./web
+COPY --from=web-builder /app/web/.next/standalone ./web
 
 CMD [ "/usr/local/bin/entrypoint.sh" ]

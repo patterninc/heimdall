@@ -1,10 +1,15 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  // Don't typecheck during `next build`, so Docker build is faster.
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  output: 'standalone',
+
+  // `pnpm type-check` runs TypeScript 7 in CI instead. `next build` would check with TypeScript 6,
+  // because `typescript` is aliased to @typescript/typescript6 until typescript-eslint supports 7.
   typescript: { ignoreBuildErrors: true },
 
   reactCompiler: true,
 
+  // Evaluated at build time with `output: 'standalone'`, so API_URL must be set when building.
   async rewrites() {
     const apiUrl = process.env.API_URL || 'http://localhost:9090'
 
