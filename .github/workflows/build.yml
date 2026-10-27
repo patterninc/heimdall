@@ -12,12 +12,12 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
-          go-version: 1.27.3 # keep in sync with the golang image in the Dockerfile
+          go-version: 1.27.3 # keep this in sync with the golang image in the Dockerfile
           # setup-go caches the module + build cache keyed on go.sum by default.
       - name: Setup pnpm and Node
+        # Gets node version from web/.nvmrc and pnpm version from `packageManager` in web/package.json
         uses: pnpm/setup@v3
         with:
-          # Gets node version from web/.nvmrc and pnpm version from `packageManager` in web/package.json
           working-directory: web
           cache: true
           install: false # build.sh runs the install
