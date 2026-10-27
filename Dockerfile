@@ -1,6 +1,3 @@
-# Keep in sync with web/.nvmrc
-ARG NODE_MAJOR=26
-
 FROM golang:1.27.3 AS go-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -25,9 +22,7 @@ COPY plugins ./plugins
 ARG BUILD_VERSION=dev
 RUN BUILD_VERSION="${BUILD_VERSION}" ./build.sh --go
 
-FROM public.ecr.aws/patterninc/parent-image/nodejs:${NODE_MAJOR} AS web-builder
-
-RUN apk add --no-cache bash
+FROM node:26-bookworm AS web-builder
 
 WORKDIR /app
 
@@ -38,7 +33,7 @@ COPY build.sh ./
 COPY web/ ./web/
 RUN ./build.sh --ui
 
-FROM node:${NODE_MAJOR}-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 
 RUN apt-get update && \
       apt-get install -y curl && \
@@ -62,6 +57,6 @@ COPY configs/local.yaml /etc/heimdall/heimdall.yaml
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY assets ./assets
 COPY --from=go-builder /go/src/github.com/patterninc/heimdall/dist ./dist
-COPY --from=web-builder /app/web/.next/standalone ./web
+COPY --from=web-builder /app/web ./web
 
 CMD [ "/usr/local/bin/entrypoint.sh" ]

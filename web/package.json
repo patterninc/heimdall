@@ -5,8 +5,8 @@
   "packageManager": "pnpm@12.15.0",
   "scripts": {
     "dev": "PORT=4000 next dev",
-    "build": "next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
-    "start": "node .next/standalone/server.js",
+    "build": "next build",
+    "start": "next start",
     "lint": "eslint .",
     "prettier": "prettier --write .",
     "prettier-fix": "prettier --write --ignore-path .gitignore src/**/*",
