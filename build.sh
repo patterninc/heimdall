@@ -51,7 +51,7 @@ if [ "${BUILD_WEB}" = "true" ]; then
   if ! command -v pnpm > /dev/null 2>&1; then
     npm install -g --allow-scripts=pnpm "$(cd ${WORKING_DIR}/web && node -p "require('./package.json').packageManager")"
   fi
-  (cd ${WORKING_DIR}/web && pnpm install --frozen-lockfile --ignore-scripts)
+  (cd ${WORKING_DIR}/web && pnpm install --frozen-lockfile)
 
   (cd ${WORKING_DIR}/web && pnpm run build)
 fi
