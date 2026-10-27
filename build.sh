@@ -52,4 +52,9 @@ if [ "${BUILD_WEB}" = "true" ]; then
     npm install -g "$(cd ${WORKING_DIR}/web && node -p "require('./package.json').packageManager")"
   fi
   (cd ${WORKING_DIR}/web && pnpm install --frozen-lockfile --ignore-scripts && pnpm run build)
+
+  # next build skips type checking (ignoreBuildErrors) and generates next-env.d.ts, which tsc needs
+  if [ "${RUN_TESTS}" = "true" ]; then
+    (cd ${WORKING_DIR}/web && pnpm run type-check)
+  fi
 fi
