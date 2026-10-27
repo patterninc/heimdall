@@ -27,7 +27,7 @@ FROM node:26-bookworm-slim AS web-builder
 WORKDIR /app
 
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./web/
-RUN npm install -g --allow-scripts=pnpm "$(node -p "require('./web/package.json').packageManager")" && (cd web && pnpm fetch)
+RUN npm install --global "$(node -p "require('./web/package.json').packageManager")" && (cd web && pnpm fetch)
 
 COPY build.sh ./
 COPY web/ ./web/
