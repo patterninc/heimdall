@@ -17,10 +17,10 @@ jobs:
       - name: Setup pnpm and Node
         uses: pnpm/setup@v3
         with:
-          # pnpm and Node versions come from web/package.json `packageManager` and web/.nvmrc
+          # Gets node version from web/.nvmrc and pnpm version from `packageManager` in web/package.json
           working-directory: web
           cache: true
-          # build.sh runs the install
-          install: false
+          install: false # build.sh runs the install
+
       - name: Build and Test
         run: ./build.sh --go --ui --test
