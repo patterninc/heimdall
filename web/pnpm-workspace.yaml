@@ -2,6 +2,8 @@ minimumReleaseAge: 1440 # To reduce the risk of installing compromised packages,
 minimumReleaseAgeExclude:
   - '@patterninc/pattern-ui' # allow pulling in pattern-ui with no delay
 
+ignoredOptionalDependencies:
+  - sharp # only used for next/image optimization, which Heimdall doesn't use
+
 allowBuilds:
-  sharp: false
   unrs-resolver: false

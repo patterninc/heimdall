@@ -22,7 +22,7 @@ COPY plugins ./plugins
 ARG BUILD_VERSION=dev
 RUN BUILD_VERSION="${BUILD_VERSION}" ./build.sh --go
 
-FROM node:26-bookworm AS web-builder
+FROM node:26-bookworm-slim AS web-builder
 
 WORKDIR /app
 
