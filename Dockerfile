@@ -22,18 +22,18 @@ COPY plugins ./plugins
 ARG BUILD_VERSION=dev
 RUN BUILD_VERSION="${BUILD_VERSION}" ./build.sh --go
 
-FROM node:24-bookworm AS web-builder
+FROM node:26-bookworm AS web-builder
 
 WORKDIR /app
 
 COPY web/pnpm-lock.yaml web/pnpm-workspace.yaml ./web/
-RUN corepack enable && corepack prepare pnpm@10.28.2 --activate && (cd web && pnpm fetch)
+RUN npm install -g pnpm@12.15.0 && (cd web && pnpm fetch)
 
 COPY build.sh ./
 COPY web/ ./web/
 RUN ./build.sh --ui
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 
 RUN apt-get update && \
       apt-get install -y curl && \
@@ -42,7 +42,7 @@ RUN apt-get update && \
       awscli \
       jq \
       build-essential \
- && corepack enable && corepack prepare pnpm@10.28.2 --activate \
+ && npm install -g pnpm@12.15.0 \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=go-builder /usr/local/go /usr/local/go

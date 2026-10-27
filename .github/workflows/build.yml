@@ -14,12 +14,15 @@ jobs:
         with:
           go-version: 1.25.0
           # setup-go caches the module + build cache keyed on go.sum by default.
-      - name: Cache pnpm store
-        uses: actions/cache@v4
+      - name: Setup Node
+        uses: actions/setup-node@v7
         with:
-          path: ~/.local/share/pnpm/store
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('web/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
+          node-version-file: web/.nvmrc
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+          cache: true
+          cache_dependency_path: web/pnpm-lock.yaml
       - name: Build and Test
         run: ./build.sh --go --ui --test

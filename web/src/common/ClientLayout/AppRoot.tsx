@@ -1,10 +1,8 @@
 'use client'
 
 import { i18n } from '@patterninc/pattern-ui/i18n'
-import { I18nEnglishProvider } from '@patterninc/pattern-ui/i18n-english-provider'
-import { PulseProvider } from '@patterninc/pattern-ui/pulse'
+import { SimpleProvider } from '@patterninc/pattern-ui/simple-provider'
 import { ThemeProvider } from '@patterninc/pattern-ui/theme'
-import { TooltipProvider } from '@patterninc/pattern-ui/tooltip'
 import { ReactNode } from 'react'
 
 import HeimdallShell from '@/components/AppShell/HeimdallShell'
@@ -18,18 +16,15 @@ i18n.activate('en')
 
 const AppRoot = ({ children }: { children: ReactNode }) => {
   return (
-    <I18nEnglishProvider>
+    <SimpleProvider>
       <ThemeProvider>
-        <TooltipProvider>
-          <ReactQueryProvider>
-            <AutoRefreshProvider>
-              <PulseProvider />
-              <HeimdallShell>{children}</HeimdallShell>
-            </AutoRefreshProvider>
-          </ReactQueryProvider>
-        </TooltipProvider>
+        <ReactQueryProvider>
+          <AutoRefreshProvider>
+            <HeimdallShell>{children}</HeimdallShell>
+          </AutoRefreshProvider>
+        </ReactQueryProvider>
       </ThemeProvider>
-    </I18nEnglishProvider>
+    </SimpleProvider>
   )
 }
 

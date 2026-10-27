@@ -2,6 +2,6 @@ minimumReleaseAge: 1440 # To reduce the risk of installing compromised packages,
 minimumReleaseAgeExclude:
 - '@patterninc/pattern-ui' # allow pulling in pattern-ui with no delay
 
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
