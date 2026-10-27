@@ -49,7 +49,7 @@ if [ "${BUILD_WEB}" = "true" ]; then
   # build web
   # node 25+ no longer bundles corepack, so install the pinned pnpm when it isn't already on the PATH
   if ! command -v pnpm > /dev/null 2>&1; then
-    npm install -g "$(cd ${WORKING_DIR}/web && node -p "require('./package.json').packageManager")"
+    npm install -g --allow-scripts=pnpm "$(cd ${WORKING_DIR}/web && node -p "require('./package.json').packageManager")"
   fi
   (cd ${WORKING_DIR}/web && pnpm install --frozen-lockfile --ignore-scripts)
 

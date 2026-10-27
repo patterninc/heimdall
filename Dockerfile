@@ -1,3 +1,6 @@
+# Keep in sync with web/.nvmrc
+ARG NODE_MAJOR=26
+
 FROM golang:1.27.3 AS go-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -22,20 +25,20 @@ COPY plugins ./plugins
 ARG BUILD_VERSION=dev
 RUN BUILD_VERSION="${BUILD_VERSION}" ./build.sh --go
 
-FROM public.ecr.aws/patterninc/parent-image/nodejs:26 AS web-builder
+FROM public.ecr.aws/patterninc/parent-image/nodejs:${NODE_MAJOR} AS web-builder
 
 RUN apk add --no-cache bash
 
 WORKDIR /app
 
-COPY web/pnpm-lock.yaml web/pnpm-workspace.yaml ./web/
-RUN npm install -g pnpm@12.15.0 && (cd web && pnpm fetch)
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./web/
+RUN npm install -g --allow-scripts=pnpm "$(node -p "require('./web/package.json').packageManager")" && (cd web && pnpm fetch)
 
 COPY build.sh ./
 COPY web/ ./web/
 RUN ./build.sh --ui
 
-FROM node:26-bookworm-slim AS runtime
+FROM node:${NODE_MAJOR}-bookworm-slim AS runtime
 
 RUN apt-get update && \
       apt-get install -y curl && \
