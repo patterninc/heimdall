@@ -8,21 +8,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: 1.25.0
           # setup-go caches the module + build cache keyed on go.sum by default.
-      - name: Setup Node
-        uses: actions/setup-node@v7
+      - name: Setup pnpm and Node
+        uses: pnpm/setup@v3
         with:
-          node-version-file: web/.nvmrc
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          package_json_file: web/package.json
+          # pnpm and Node versions come from web/package.json `packageManager` and web/.nvmrc
+          working-directory: web
           cache: true
-          cache_dependency_path: web/pnpm-lock.yaml
+          # build.sh runs the install
+          install: false
       - name: Build and Test
         run: ./build.sh --go --ui --test
