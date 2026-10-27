@@ -53,10 +53,5 @@ if [ "${BUILD_WEB}" = "true" ]; then
   fi
   (cd ${WORKING_DIR}/web && pnpm install --frozen-lockfile --ignore-scripts)
 
-  # next build skips type checking (ignoreBuildErrors)
-  if [ "${RUN_TESTS}" = "true" ]; then
-    (cd ${WORKING_DIR}/web && pnpm run type-check)
-  fi
-
   (cd ${WORKING_DIR}/web && pnpm run build)
 fi

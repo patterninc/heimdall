@@ -1,10 +1,6 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  // `pnpm type-check` runs TypeScript 7 in CI instead. `next build` would check with TypeScript 6,
-  // because `typescript` is aliased to @typescript/typescript6 until typescript-eslint supports 7.
-  typescript: { ignoreBuildErrors: true },
-
   reactCompiler: true,
 
   async rewrites() {
