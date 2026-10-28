@@ -10,6 +10,7 @@ demand. Read the matching entry before starting a task it covers.
 | When the task is…                                                                                                                                                   | Read                                                              |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | **UI-only** change to the web app (`web/`) — buttons/links, labels, layout, responsiveness, tooltips, table columns, rendering data the API already returns | [`.agents/skills/heimdall-ui.md`](.agents/skills/heimdall-ui.md) |
+| **Any** change to the web app (`web/`) — points at the Next.js docs matching the installed version                                                                  | [`web/AGENTS.md`](web/AGENTS.md)                                  |
 
 ## Personas — `.agents/personas/`
 

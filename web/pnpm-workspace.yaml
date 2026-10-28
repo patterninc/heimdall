@@ -1,7 +1,8 @@
-minimumReleaseAge: 1440 # To reduce the risk of installing compromised packages, let them sit on the registry for 1 day before installing
 minimumReleaseAgeExclude:
-- '@patterninc/pattern-ui' # allow pulling in pattern-ui with no delay
+  - '@patterninc/pattern-ui' # pnpm by default disallows packages newer than a day, but allow pulling in pattern-ui with no delay
 
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver
+ignoredOptionalDependencies:
+  - sharp # only used for next/image optimization, which Heimdall doesn't use
+
+allowBuilds:
+  unrs-resolver: false

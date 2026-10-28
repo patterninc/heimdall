@@ -1,8 +1,6 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  // Don't typecheck during `next build`, so Docker build is faster.
-  typescript: { ignoreBuildErrors: true },
+import type { NextConfig } from 'next'
 
+const nextConfig: NextConfig = {
   reactCompiler: true,
 
   async rewrites() {

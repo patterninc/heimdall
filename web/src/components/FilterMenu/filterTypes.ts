@@ -27,9 +27,7 @@ export type CustomFilterDimension = FilterDimensionBase & {
 }
 
 export type FilterDimension =
-  | TextFilterDimension
-  | MultiFilterDimension
-  | CustomFilterDimension
+  TextFilterDimension | MultiFilterDimension | CustomFilterDimension
 
 export const isDimensionActive = (dimension: FilterDimension): boolean => {
   switch (dimension.type) {
