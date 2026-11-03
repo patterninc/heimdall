@@ -1,6 +1,8 @@
 package heimdall
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -57,9 +59,11 @@ type Heimdall struct {
 	Janitor              *janitor.Janitor     `yaml:"janitor,omitempty" json:"janitor,omitempty"`
 	HealthCheck          *healthCheckConfig   `yaml:"health_check,omitempty" json:"health_check,omitempty"`
 	SensitiveContextKeys []string             `yaml:"sensitive_context_keys,omitempty" json:"sensitive_context_keys,omitempty"`
+	ShutdownTimeout      int                  `yaml:"shutdown_timeout,omitempty" json:"shutdown_timeout,omitempty"`
 	Version              string               `yaml:"-" json:"-"`
 	agentName            string
 	commandHandlers      map[string]plugin.Handler
+	background           background
 }
 
 func (h *Heimdall) Init() error {
@@ -167,7 +171,8 @@ func (h *Heimdall) Init() error {
 
 }
 
-func (h *Heimdall) Start() error {
+// Start serves the API until ctx is done, then drains in-flight work for up to ShutdownTimeout seconds.
+func (h *Heimdall) Start(ctx context.Context) error {
 	// set routes
 	router := mux.NewRouter()
 
@@ -234,6 +239,50 @@ func (h *Heimdall) Start() error {
 		}),
 	))
 
-	return h.Server.Start(router)
+	if err := h.Server.Listen(router); err != nil {
+		return err
+	}
+
+	served := make(chan error, 1)
+	go func() { served <- h.Server.Serve() }()
+
+	select {
+	case err := <-served:
+		return err
+	case <-ctx.Done():
+	}
+
+	return h.shutdown()
+
+}
+
+// shutdown stops claiming async jobs first, so unclaimed jobs stay new for other agents,
+// then waits for sync requests, claimed async jobs and background work to finish.
+func (h *Heimdall) shutdown() error {
+
+	fmt.Println(`shutdown: draining, timeout`, h.ShutdownTimeout, `seconds`)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(h.ShutdownTimeout)*time.Second)
+	defer cancel()
+
+	h.Pool.Stop()
+
+	var errs []error
+	if err := h.Server.Shutdown(ctx); err != nil {
+		errs = append(errs, fmt.Errorf("http requests: %w", err))
+	}
+	if err := h.Pool.Wait(ctx); err != nil {
+		errs = append(errs, fmt.Errorf("async jobs: %w", err))
+	}
+	if err := h.background.Wait(ctx); err != nil {
+		errs = append(errs, fmt.Errorf("background work: %w", err))
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("shutdown: drain incomplete: %w", errors.Join(errs...))
+	}
+
+	fmt.Println(`shutdown: drained`)
+	return nil
 
 }
