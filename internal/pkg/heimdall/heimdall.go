@@ -2,7 +2,6 @@ package heimdall
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -10,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -63,7 +63,7 @@ type Heimdall struct {
 	Version              string               `yaml:"-" json:"-"`
 	agentName            string
 	commandHandlers      map[string]plugin.Handler
-	background           background
+	background           sync.WaitGroup
 }
 
 func (h *Heimdall) Init() error {
@@ -256,8 +256,7 @@ func (h *Heimdall) Start(ctx context.Context) error {
 
 }
 
-// shutdown stops claiming async jobs first, so unclaimed jobs stay new for other agents,
-// then waits for sync requests, claimed async jobs and background work to finish.
+// shutdown stops claiming async jobs, then waits for sync requests, claimed async jobs and background work.
 func (h *Heimdall) shutdown() error {
 
 	fmt.Println(`shutdown: draining, timeout`, h.ShutdownTimeout, `seconds`)
@@ -267,22 +266,35 @@ func (h *Heimdall) shutdown() error {
 
 	h.Pool.Stop()
 
-	var errs []error
 	if err := h.Server.Shutdown(ctx); err != nil {
-		errs = append(errs, fmt.Errorf("http requests: %w", err))
+		return fmt.Errorf("shutdown: http requests: %w", err)
 	}
 	if err := h.Pool.Wait(ctx); err != nil {
-		errs = append(errs, fmt.Errorf("async jobs: %w", err))
+		return fmt.Errorf("shutdown: async jobs: %w", err)
 	}
-	if err := h.background.Wait(ctx); err != nil {
-		errs = append(errs, fmt.Errorf("background work: %w", err))
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("shutdown: drain incomplete: %w", errors.Join(errs...))
+	// requests and jobs are done, so nothing new is added to background
+	if err := wait(ctx, &h.background); err != nil {
+		return fmt.Errorf("shutdown: background work: %w", err)
 	}
 
 	fmt.Println(`shutdown: drained`)
 	return nil
+
+}
+
+func wait(ctx context.Context, wg *sync.WaitGroup) error {
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 
 }

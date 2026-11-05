@@ -27,8 +27,7 @@ type Runtime struct {
 	UserAgent        string
 	Stdout           *os.File
 	Stderr           *os.File
-	// Background runs work that outlives the job, such as archiving. Nil runs it in a plain goroutine.
-	Background func(func()) `yaml:"-" json:"-"`
+	Background       func(func()) `yaml:"-" json:"-"` // runs the archive copy; nil runs it in a plain goroutine
 }
 
 func (r *Runtime) Set() (err error) {
