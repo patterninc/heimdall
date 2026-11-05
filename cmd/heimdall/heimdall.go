@@ -27,7 +27,7 @@ const (
 	defaultStaleJob          = 45 // seconds
 	defaultCleanInterval     = 60 // seconds
 	defaultShutdownTimeout   = 30 // seconds
-	stopTimeoutEnvVar        = `ECS_STOP_TIMEOUT`
+	shutdownTimeoutEnvVar    = `HEIMDALL_SHUTDOWN_TIMEOUT`
 )
 
 var (
@@ -62,7 +62,7 @@ func main() {
 	}
 
 	// size the drain to the container's stop timeout when the deployment passes it in
-	if v, err := strconv.Atoi(os.Getenv(stopTimeoutEnvVar)); err == nil && v > 0 {
+	if v, err := strconv.Atoi(os.Getenv(shutdownTimeoutEnvVar)); err == nil && v > 0 {
 		h.ShutdownTimeout = v
 	}
 
