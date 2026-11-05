@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/babourine/x/pkg/config"
@@ -18,14 +19,15 @@ import (
 const (
 	defaultAddress           = `0.0.0.0:9090`
 	defaultBuild             = `0.0.0`
-	defaultReadTimeout       = 15  // seconds
-	defaulWriteTimeout       = 15  // seconds
-	defaultIdleTimeout       = 30  // seconds
-	defaultReadHeaderTimeout = 2   // seconds
-	defaultJanitorKeepalive  = 5   // seconds
-	defaultStaleJob          = 45  // seconds
-	defaultCleanInterval     = 60  // seconds
-	defaultShutdownTimeout   = 110 // seconds; keep under the ECS stopTimeout or the drain is cut off
+	defaultReadTimeout       = 15 // seconds
+	defaulWriteTimeout       = 15 // seconds
+	defaultIdleTimeout       = 30 // seconds
+	defaultReadHeaderTimeout = 2  // seconds
+	defaultJanitorKeepalive  = 5  // seconds
+	defaultStaleJob          = 45 // seconds
+	defaultCleanInterval     = 60 // seconds
+	defaultShutdownTimeout   = 30 // seconds; the ECS default stopTimeout
+	stopTimeoutEnvVar        = `ECS_STOP_TIMEOUT`
 )
 
 var (
@@ -57,6 +59,11 @@ func main() {
 			CleanInterval: defaultCleanInterval,
 		},
 		ShutdownTimeout: defaultShutdownTimeout,
+	}
+
+	// size the drain to the container's stop timeout when the deployment passes it in
+	if v, err := strconv.Atoi(os.Getenv(stopTimeoutEnvVar)); err == nil && v > 0 {
+		h.ShutdownTimeout = v
 	}
 
 	// load config file
