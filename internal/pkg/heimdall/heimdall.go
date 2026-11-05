@@ -237,41 +237,17 @@ func (h *Heimdall) Start(ctx context.Context) error {
 		}),
 	))
 
-	if err := h.Server.Listen(router); err != nil {
+	// on shutdown, stop claiming async jobs while sync requests drain
+	context.AfterFunc(ctx, h.Pool.Stop)
+
+	timeout := time.Duration(h.ShutdownTimeout) * time.Second
+	if err := h.Server.Start(ctx, router, timeout); err != nil {
 		return err
 	}
 
-	served := make(chan error, 1)
-	go func() { served <- h.Server.Serve() }()
-
-	select {
-	case err := <-served:
-		return err
-	case <-ctx.Done():
-	}
-
-	return h.shutdown()
-
-}
-
-// shutdown stops claiming async jobs, then waits for sync requests and claimed async jobs.
-func (h *Heimdall) shutdown() error {
-
-	fmt.Println(`shutdown: draining, timeout`, h.ShutdownTimeout, `seconds`)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(h.ShutdownTimeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	h.Pool.Stop()
-
-	if err := h.Server.Shutdown(ctx); err != nil {
-		return fmt.Errorf("shutdown: http requests: %w", err)
-	}
-	if err := h.Pool.Wait(ctx); err != nil {
-		return fmt.Errorf("shutdown: async jobs: %w", err)
-	}
-
-	fmt.Println(`shutdown: drained`)
-	return nil
+	return h.Pool.Wait(ctx)
 
 }

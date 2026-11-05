@@ -17,7 +17,6 @@ type Pool[T any] struct {
 	Sleep      int `yaml:"sleep,omitempty" json:"sleep,omitempty"`
 	queue      chan T
 	stop       chan struct{}
-	stopOnce   sync.Once
 	feederDone chan struct{}
 	workers    sync.WaitGroup
 }
@@ -133,7 +132,7 @@ func (p *Pool[T]) Start(worker func(context.Context, T) error, getWork func(int)
 // Stop makes the pool claim no more work. Work already claimed keeps running; use Wait to wait for it.
 func (p *Pool[T]) Stop() {
 
-	p.stopOnce.Do(func() { close(p.stop) })
+	close(p.stop)
 
 }
 
