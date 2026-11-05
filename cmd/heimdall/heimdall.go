@@ -1,7 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
 
 	"github.com/babourine/x/pkg/config"
 	"github.com/babourine/x/pkg/process"
@@ -21,6 +26,8 @@ const (
 	defaultJanitorKeepalive  = 5  // seconds
 	defaultStaleJob          = 45 // seconds
 	defaultCleanInterval     = 60 // seconds
+	defaultShutdownTimeout   = 30 // seconds
+	shutdownTimeoutEnvVar    = `HEIMDALL_SHUTDOWN_TIMEOUT`
 )
 
 var (
@@ -51,6 +58,12 @@ func main() {
 			StaleJob:      defaultStaleJob,
 			CleanInterval: defaultCleanInterval,
 		},
+		ShutdownTimeout: defaultShutdownTimeout,
+	}
+
+	// size the drain to the container's stop timeout when the deployment passes it in
+	if v, err := strconv.Atoi(os.Getenv(shutdownTimeoutEnvVar)); err == nil && v > 0 {
+		h.ShutdownTimeout = v
 	}
 
 	// load config file
@@ -65,8 +78,15 @@ func main() {
 		h.Version = defaultBuild
 	}
 
+	// the first SIGTERM or interrupt starts a graceful drain; a second one exits immediately
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
+
 	// start proxy
-	if err := h.Start(); err != nil {
+	if err := h.Start(ctx); err != nil {
 		process.Bail(`server`, err)
 	}
 

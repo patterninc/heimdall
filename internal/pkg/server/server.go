@@ -1,6 +1,9 @@
 package server
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -15,7 +18,8 @@ type Server struct {
 	ReadHeaderTimeout int    `yaml:"read_header_timeout,omitempty" json:"read_header_timeout,omitempty"`
 }
 
-func (s *Server) Start(router *mux.Router) error {
+// Start serves until ctx is done, then waits up to shutdownTimeout for in-flight requests.
+func (s *Server) Start(ctx context.Context, router *mux.Router, shutdownTimeout time.Duration) error {
 
 	// configure server
 	server := &http.Server{
@@ -27,6 +31,21 @@ func (s *Server) Start(router *mux.Router) error {
 		Handler:           router,
 	}
 
-	return server.ListenAndServe()
+	shutdown := make(chan error, 1)
+	context.AfterFunc(ctx, func() {
+		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		shutdown <- server.Shutdown(ctx)
+	})
+
+	if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	if err := <-shutdown; err != nil {
+		return fmt.Errorf("shutdown: http requests: %w", err)
+	}
+
+	return nil
 
 }

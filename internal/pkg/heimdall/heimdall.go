@@ -1,6 +1,7 @@
 package heimdall
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -57,6 +58,7 @@ type Heimdall struct {
 	Janitor              *janitor.Janitor     `yaml:"janitor,omitempty" json:"janitor,omitempty"`
 	HealthCheck          *healthCheckConfig   `yaml:"health_check,omitempty" json:"health_check,omitempty"`
 	SensitiveContextKeys []string             `yaml:"sensitive_context_keys,omitempty" json:"sensitive_context_keys,omitempty"`
+	ShutdownTimeout      int                  `yaml:"shutdown_timeout,omitempty" json:"shutdown_timeout,omitempty"`
 	Version              string               `yaml:"-" json:"-"`
 	agentName            string
 	commandHandlers      map[string]plugin.Handler
@@ -167,7 +169,8 @@ func (h *Heimdall) Init() error {
 
 }
 
-func (h *Heimdall) Start() error {
+// Start serves the API until ctx is done, then drains in-flight work for up to ShutdownTimeout seconds.
+func (h *Heimdall) Start(ctx context.Context) error {
 	// set routes
 	router := mux.NewRouter()
 
@@ -234,6 +237,26 @@ func (h *Heimdall) Start() error {
 		}),
 	))
 
-	return h.Server.Start(router)
+	// on shutdown, stop claiming async jobs while sync requests drain
+	context.AfterFunc(ctx, func() {
+		fmt.Printf("shutdown: %v, draining, timeout %d seconds\n", context.Cause(ctx), h.ShutdownTimeout)
+		h.Pool.Stop()
+	})
+
+	timeout := time.Duration(h.ShutdownTimeout) * time.Second
+	if err := h.Server.Start(ctx, router, timeout); err != nil {
+		return err
+	}
+	fmt.Println(`shutdown: http requests drained`)
+
+	waitCtx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	if err := h.Pool.Wait(waitCtx); err != nil {
+		return fmt.Errorf("shutdown: async jobs: %w", err)
+	}
+	fmt.Println(`shutdown: async jobs drained`)
+
+	return nil
 
 }
