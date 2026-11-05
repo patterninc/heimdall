@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -41,6 +42,10 @@ func (s *Server) Start(ctx context.Context, router *mux.Router, shutdownTimeout 
 		return err
 	}
 
-	return <-shutdown
+	if err := <-shutdown; err != nil {
+		return fmt.Errorf("shutdown: http requests: %w", err)
+	}
+
+	return nil
 
 }

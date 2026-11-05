@@ -238,16 +238,25 @@ func (h *Heimdall) Start(ctx context.Context) error {
 	))
 
 	// on shutdown, stop claiming async jobs while sync requests drain
-	context.AfterFunc(ctx, h.Pool.Stop)
+	context.AfterFunc(ctx, func() {
+		fmt.Printf("shutdown: %v, draining, timeout %d seconds\n", context.Cause(ctx), h.ShutdownTimeout)
+		h.Pool.Stop()
+	})
 
 	timeout := time.Duration(h.ShutdownTimeout) * time.Second
 	if err := h.Server.Start(ctx, router, timeout); err != nil {
 		return err
 	}
+	fmt.Println(`shutdown: http requests drained`)
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	waitCtx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	return h.Pool.Wait(ctx)
+	if err := h.Pool.Wait(waitCtx); err != nil {
+		return fmt.Errorf("shutdown: async jobs: %w", err)
+	}
+	fmt.Println(`shutdown: async jobs drained`)
+
+	return nil
 
 }
