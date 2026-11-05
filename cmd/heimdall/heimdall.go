@@ -26,7 +26,7 @@ const (
 	defaultJanitorKeepalive  = 5  // seconds
 	defaultStaleJob          = 45 // seconds
 	defaultCleanInterval     = 60 // seconds
-	defaultShutdownTimeout   = 30 // seconds; the ECS default stopTimeout
+	defaultShutdownTimeout   = 30 // seconds
 	stopTimeoutEnvVar        = `ECS_STOP_TIMEOUT`
 )
 

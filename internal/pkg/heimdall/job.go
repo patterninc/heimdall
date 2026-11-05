@@ -96,7 +96,7 @@ func (h *Heimdall) submitJob(ctx context.Context, j *job.Job) (any, error) {
 	err = h.runJob(ctx, j, command, cluster)
 
 	// before we process the error, we'll make the best effort to record this job in the database
-	h.background.Go(func() { h.insertJob(j, cluster.ID, command.ID) })
+	go h.insertJob(j, cluster.ID, command.ID)
 
 	return j, err
 
@@ -114,7 +114,6 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 		ResultDirectory:  h.ResultDirectory + separator + j.ID,
 		Version:          h.Version,
 		UserAgent:        fmt.Sprintf(formatUserAgent, h.Version),
-		Background:       h.background.Go,
 	}
 
 	// we're done with funtime...
@@ -209,7 +208,7 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 	if j.StoreResultSync || !j.IsSync {
 		h.storeResults(runtime, j)
 	} else {
-		h.background.Go(func() { h.storeResults(runtime, j) })
+		go h.storeResults(runtime, j)
 	}
 
 	j.Status = jobStatus.Succeeded

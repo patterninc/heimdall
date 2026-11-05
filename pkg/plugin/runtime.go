@@ -27,7 +27,6 @@ type Runtime struct {
 	UserAgent        string
 	Stdout           *os.File
 	Stderr           *os.File
-	Background       func(func()) `yaml:"-" json:"-"` // runs the archive copy; nil runs it in a plain goroutine
 }
 
 func (r *Runtime) Set() (err error) {
@@ -71,7 +70,7 @@ func (r *Runtime) Close() {
 
 	// we're making our best effort to move files from working dir to archive
 	// we start it as a go routine to minimize impact of sync commands
-	archive := func() {
+	go func() {
 		// archive files...
 		if err := copyDir(r.WorkingDirectory, r.ArchiveDirectory); err != nil {
 			// FIXME: implement better error handling
@@ -83,13 +82,7 @@ func (r *Runtime) Close() {
 			// FIXME: implement better error handling
 			fmt.Println(`cleanup:`, err)
 		}
-	}
-
-	if r.Background != nil {
-		r.Background(archive)
-	} else {
-		go archive()
-	}
+	}()
 
 }
 
