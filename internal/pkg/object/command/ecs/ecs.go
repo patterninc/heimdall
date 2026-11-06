@@ -127,6 +127,7 @@ const (
 	errMaxFailCount                         = "task %s failed %d times (max: %d), giving up"
 	errPollingTimeout                       = "polling timed out for arns %v after %v"
 	errJobTerminated                        = "job marked as stale or canceled"
+	errNoTaskToResume                       = "no task started by %s to resume"
 	Timeout                   FailureReason = "timeout"
 	Error                     FailureReason = "error"
 	maxLogChunkSize                         = 200                // Process 200 log entries at a time
@@ -177,6 +178,29 @@ func (e *commandContext) Execute(ctx context.Context, r *plugin.Runtime, job *jo
 	if err := execCtx.startTasks(ctx, job.ID); err != nil {
 		return err
 	}
+
+	return execCtx.waitForTasks(ctx)
+
+}
+
+// Resume implements the plugin.Resumer interface by reattaching to the tasks an earlier agent started
+func (e *commandContext) Resume(ctx context.Context, r *plugin.Runtime, job *job.Job, cluster *cluster.Cluster) error {
+
+	execCtx, err := buildExecutionContext(ctx, e, job, cluster, r)
+	if err != nil {
+		return err
+	}
+
+	if err := execCtx.attachTasks(ctx, job.ID); err != nil {
+		return err
+	}
+
+	return execCtx.waitForTasks(ctx)
+
+}
+
+// waitForTasks polls the tracked tasks until they finish, then pulls their logs
+func (execCtx *executionContext) waitForTasks(ctx context.Context) error {
 
 	// Poll for completion
 	if err := execCtx.pollForCompletion(ctx); err != nil {
@@ -303,7 +327,7 @@ func newTaskDefinitionWrapper(taskDef *types.TaskDefinition) *taskDefinitionWrap
 func (execCtx *executionContext) startTasks(ctx context.Context, jobID string) error {
 
 	for i := 0; i < execCtx.TaskCount; i++ {
-		taskARN, err := runTask(ctx, execCtx, fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, i), i)
+		taskARN, err := runTask(ctx, execCtx, fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, i), i, 0)
 		if err != nil {
 			return err
 		}
@@ -317,6 +341,97 @@ func (execCtx *executionContext) startTasks(ctx context.Context, jobID string) e
 	}
 
 	return nil
+
+}
+
+// attachTasks tracks the newest task of each task number and adopts its task definition for restarts
+func (execCtx *executionContext) attachTasks(ctx context.Context, jobID string) error {
+
+	cluster := aws.String(execCtx.ClusterConfig.ClusterName)
+
+	for i := 0; i < execCtx.TaskCount; i++ {
+		taskName := fmt.Sprintf("%s%s-%d", startedByPrefix, jobID, i)
+
+		var task *types.Task
+		started := 0
+		for _, desiredStatus := range []types.DesiredStatus{types.DesiredStatusRunning, types.DesiredStatusStopped} {
+			newest, count, err := execCtx.tasksStartedBy(ctx, &ecs.ListTasksInput{Cluster: cluster, StartedBy: aws.String(taskName), DesiredStatus: desiredStatus})
+			if err != nil {
+				return err
+			}
+			if task == nil {
+				task = newest
+			}
+			started += count
+		}
+		if task == nil {
+			return fmt.Errorf(errNoTaskToResume, taskName)
+		}
+
+		if execCtx.taskDefARN == nil {
+			if err := execCtx.adoptTaskDefinition(ctx, aws.ToString(task.TaskDefinitionArn)); err != nil {
+				return err
+			}
+		}
+
+		taskARN := aws.ToString(task.TaskArn)
+		execCtx.runtime.Stdout.WriteString(fmt.Sprintf("ecs: resumed task name=%s arn=%s status=%s\n", taskName, taskARN, aws.ToString(task.LastStatus)))
+		execCtx.tasks[taskName] = &taskTracker{
+			Name:      taskName,
+			ActiveARN: taskARN,
+			TaskNum:   i,
+			// every task before the newest one failed and was restarted; counting them keeps max_fail_count
+			// across agents and makes the next restart use a client token the earlier agent hasn't used
+			Retries: started - 1,
+		}
+	}
+
+	return nil
+
+}
+
+// tasksStartedBy lists every task matching input and returns the most recently created one and how many there are
+func (execCtx *executionContext) tasksStartedBy(ctx context.Context, input *ecs.ListTasksInput) (*types.Task, int, error) {
+
+	var newest *types.Task
+	count := 0
+	for {
+		var listOutput *ecs.ListTasksOutput
+		if err := retryWithBackoff(ctx, defaultThrottleMaxRetries, func() error {
+			var listErr error
+			listOutput, listErr = execCtx.ecsClient.ListTasks(ctx, input)
+			return listErr
+		}); err != nil {
+			return nil, 0, err
+		}
+
+		if len(listOutput.TaskArns) > 0 {
+			var describeOutput *ecs.DescribeTasksOutput
+			if err := retryWithBackoff(ctx, defaultThrottleMaxRetries, func() error {
+				var descErr error
+				describeOutput, descErr = execCtx.ecsClient.DescribeTasks(ctx, &ecs.DescribeTasksInput{
+					Cluster: input.Cluster,
+					Tasks:   listOutput.TaskArns,
+				})
+				return descErr
+			}); err != nil {
+				return nil, 0, err
+			}
+
+			for i := range describeOutput.Tasks {
+				task := &describeOutput.Tasks[i]
+				if newest == nil || aws.ToTime(task.CreatedAt).After(aws.ToTime(newest.CreatedAt)) {
+					newest = task
+				}
+			}
+			count += len(describeOutput.Tasks)
+		}
+
+		if listOutput.NextToken == nil {
+			return newest, count, nil
+		}
+		input.NextToken = listOutput.NextToken
+	}
 
 }
 
@@ -397,7 +512,7 @@ func (execCtx *executionContext) pollForCompletion(ctx context.Context) error {
 				break
 			}
 
-			newTaskARN, err := runTask(ctx, execCtx, tracker.Name, tracker.TaskNum)
+			newTaskARN, err := runTask(ctx, execCtx, tracker.Name, tracker.TaskNum, tracker.Retries)
 			if err != nil {
 				return err
 			}
@@ -625,7 +740,7 @@ func loadTaskDefinitionTemplate(templatePath string) (*taskDefinitionWrapper, er
 }
 
 // runTask runs a single task and returns the task ARN
-func runTask(ctx context.Context, execCtx *executionContext, startedBy string, taskNum int) (string, error) {
+func runTask(ctx context.Context, execCtx *executionContext, startedBy string, taskNum, attempt int) (string, error) {
 
 	// Create a copy of the overrides and add TASK_NAME and TASK_NUM env variables
 	finalOverrides := append([]types.ContainerOverride{}, execCtx.ContainerOverrides...)
@@ -661,6 +776,8 @@ func runTask(ctx context.Context, execCtx *executionContext, startedBy string, t
 			},
 		},
 		Tags: toECSTags(execCtx.Tags),
+		// one token per task and attempt, so a retried RunTask call returns the task it already started
+		ClientToken: aws.String(fmt.Sprintf("%s-%d", startedBy, attempt)),
 	}
 
 	var runTaskOutput *ecs.RunTaskOutput
