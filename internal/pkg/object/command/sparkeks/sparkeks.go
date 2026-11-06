@@ -205,6 +205,12 @@ func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 	return nil
 }
 
+// Resume implements the plugin.Resumer interface. Execute attaches to the job's SparkApplication if it still exists;
+// if it is gone, Execute submits a new one and the Spark job runs again.
+func (s *commandContext) Resume(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+	return s.Execute(ctx, r, j, c)
+}
+
 // HealthCheck implements the plugin.HealthChecker interface
 func (s *commandContext) HealthCheck(ctx context.Context, c *cluster.Cluster) error {
 	clusterCtx := &clusterContext{}
@@ -435,8 +441,17 @@ func (e *executionContext) submitSparkApp(ctx context.Context) error {
 		e.runtime.Stdout.WriteString(fmt.Sprintf("Spark Submit Parameters: %s\n", *sparkSubmitParams))
 	}
 
-	// Submit the application
-	submittedApp, err := e.sparkClient.SparkoperatorV1beta2().SparkApplications(e.sparkApp.Namespace).Create(ctx, e.sparkApp, metav1.CreateOptions{})
+	// Attach to the application an earlier agent submitted for this job, or submit it
+	sparkApps := e.sparkClient.SparkoperatorV1beta2().SparkApplications(e.sparkApp.Namespace)
+	submittedApp, err := sparkApps.Get(ctx, e.sparkApp.Name, metav1.GetOptions{})
+	if err == nil {
+		e.submittedApp = submittedApp
+		e.runtime.Stdout.WriteString(fmt.Sprintf("Attached to existing Spark application: %s/%s\n", submittedApp.Namespace, submittedApp.Name))
+		return nil
+	}
+	if apierrors.IsNotFound(err) {
+		submittedApp, err = sparkApps.Create(ctx, e.sparkApp, metav1.CreateOptions{})
+	}
 	if err != nil {
 		e.runtime.Stderr.WriteString(fmt.Sprintf("Failed to submit Spark application: %v\n", err))
 		return ErrJobSubmission

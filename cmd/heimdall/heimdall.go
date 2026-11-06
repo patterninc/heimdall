@@ -19,14 +19,14 @@ import (
 const (
 	defaultAddress           = `0.0.0.0:9090`
 	defaultBuild             = `0.0.0`
-	defaultReadTimeout       = 15 // seconds
-	defaulWriteTimeout       = 15 // seconds
-	defaultIdleTimeout       = 30 // seconds
-	defaultReadHeaderTimeout = 2  // seconds
-	defaultJanitorKeepalive  = 5  // seconds
-	defaultStaleJob          = 45 // seconds
-	defaultCleanInterval     = 60 // seconds
-	defaultShutdownTimeout   = 30 // seconds
+	defaultReadTimeout       = 15   // seconds
+	defaulWriteTimeout       = 15   // seconds
+	defaultIdleTimeout       = 30   // seconds
+	defaultReadHeaderTimeout = 2    // seconds
+	defaultJanitorKeepalive  = 5    // seconds
+	defaultStaleJob          = 3600 // seconds
+	defaultCleanInterval     = 60   // seconds
+	defaultShutdownTimeout   = 30   // seconds
 	shutdownTimeoutEnvVar    = `HEIMDALL_SHUTDOWN_TIMEOUT`
 )
 
