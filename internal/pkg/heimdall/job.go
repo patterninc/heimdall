@@ -44,6 +44,7 @@ var (
 	ErrJobCancelFailed            = fmt.Errorf(`async job unrecognized or already in final state`)
 	ErrCallerNotAllowed           = fmt.Errorf(`caller is not allowed to run this command`)
 	ErrResultNotReady             = fmt.Errorf(`result is not available until the job has succeeded`)
+	ErrJobNotResumable            = fmt.Errorf(`awol: job is stale, marking failed`)
 	runJobMethod                  = telemetry.NewMethod("runJob", "heimdall")
 	cancelJobMethod               = telemetry.NewMethod("db_connection", "cancel_job")
 	renderAttributesMethod        = telemetry.NewMethod("renderAttributes", "heimdall")
@@ -93,7 +94,7 @@ func (h *Heimdall) submitJob(ctx context.Context, j *job.Job) (any, error) {
 	}
 
 	// let's run the job
-	err = h.runJob(ctx, j, command, cluster)
+	err = h.runJob(ctx, j, command, cluster, false)
 
 	// before we process the error, we'll make the best effort to record this job in the database
 	go h.insertJob(j, cluster.ID, command.ID)
@@ -102,7 +103,8 @@ func (h *Heimdall) submitJob(ctx context.Context, j *job.Job) (any, error) {
 
 }
 
-func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Command, cluster *cluster.Cluster) error {
+// runJob runs the job's plugin, or reattaches to its remote work when resume is set.
+func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Command, cluster *cluster.Cluster, resume bool) error {
 
 	defer runJobMethod.RecordLatency(time.Now(), command.Name, cluster.Name)
 	runJobMethod.CountRequest(command.Name, cluster.Name)
@@ -146,7 +148,20 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 		handler := h.commandHandlers[command.ID]
 
 		var err error
-		if rs, ok := handler.(plugin.ResultStreamer); ok {
+		if resume {
+			if rs, ok := handler.(plugin.Resumer); ok {
+				err = rs.Resume(pluginCtx, runtime, j, cluster)
+			} else {
+				err = ErrJobNotResumable
+			}
+			// a failed resume can leave remote work running (say ECS task 0 is up but task 1 is gone);
+			// stop it here, because the janitor did not run Cleanup when it released this job
+			if err != nil {
+				if cleanupErr := handler.Cleanup(ctx, j.ID, cluster); cleanupErr != nil {
+					runtime.Stderr.WriteString(fmt.Sprintf("cleanup after failed resume: %v\n", cleanupErr))
+				}
+			}
+		} else if rs, ok := handler.(plugin.ResultStreamer); ok {
 			err = h.writeResultToDestination(pluginCtx, runtime, func(w io.Writer) error {
 				return rs.StreamResult(pluginCtx, w, runtime, j, cluster)
 			})

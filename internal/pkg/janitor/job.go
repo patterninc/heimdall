@@ -13,6 +13,7 @@ import (
 	"github.com/patterninc/heimdall/internal/pkg/database"
 	"github.com/patterninc/heimdall/pkg/object/job"
 	jobStatus "github.com/patterninc/heimdall/pkg/object/job/status"
+	"github.com/patterninc/heimdall/pkg/plugin"
 )
 
 var (
@@ -26,6 +27,9 @@ var queryStaleAndCancelingJobsSelect string
 
 //go:embed queries/active_jobs_delete.sql
 var queryActiveJobsDelete string
+
+//go:embed queries/active_jobs_release.sql
+var queryActiveJobsRelease string
 
 //go:embed queries/jobs_set_canceled.sql
 var queryJobsSetCanceled string
@@ -83,6 +87,13 @@ func (j *Janitor) worker() bool {
 		return false
 	}
 
+	// stale jobs that can be resumed are released with their remote work left running
+	jobs, released := j.splitResumable(jobs)
+	if err := j.releaseJobs(sess, released); err != nil {
+		workerMethod.LogAndCountError(err, "release_jobs")
+		return false
+	}
+
 	// call Cleanup for each job in parallel
 	var wg sync.WaitGroup
 	for i, jb := range jobs {
@@ -137,6 +148,45 @@ func (j *Janitor) queryJobs(sess *database.Session) ([]*job.Job, error) {
 	}
 
 	return jobs, nil
+
+}
+
+// splitResumable separates running jobs whose plugin implements plugin.Resumer from the rest.
+func (j *Janitor) splitResumable(jobs []*job.Job) (rest, resumable []*job.Job) {
+
+	for _, jb := range jobs {
+		if _, ok := j.commandHandlers[jb.CommandID].(plugin.Resumer); ok && jb.Status == jobStatus.Running {
+			resumable = append(resumable, jb)
+		} else {
+			rest = append(rest, jb)
+		}
+	}
+
+	return rest, resumable
+
+}
+
+// releaseJobs clears the agent claim on jobs so another agent claims and resumes them.
+func (j *Janitor) releaseJobs(sess *database.Session, jobs []*job.Job) error {
+
+	if len(jobs) == 0 {
+		return nil
+	}
+
+	systemIDs := make([]any, 0, len(jobs))
+	for _, jb := range jobs {
+		systemIDs = append(systemIDs, jb.SystemID)
+	}
+
+	query, args, err := database.PrepareSliceQuery(queryActiveJobsRelease, "$%d", systemIDs)
+	if err != nil {
+		return errors.Wrap(err, "prepare_active_jobs_release")
+	}
+	if _, err := sess.Exec(query, args...); err != nil {
+		return errors.Wrap(err, "release_active_jobs")
+	}
+
+	return nil
 
 }
 

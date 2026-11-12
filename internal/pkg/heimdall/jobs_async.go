@@ -87,11 +87,15 @@ func (h *Heimdall) getAsyncJobs(limit int) ([]*job.Job, error) {
 		}
 
 		result = append(result, j)
-		jobIDs = append(jobIDs, j.SystemID)
+
+		// released jobs stay running while they are resumed
+		if j.Status != status.Running {
+			jobIDs = append(jobIDs, j.SystemID)
+		}
 
 	}
 
-	if len(result) > 0 {
+	if len(jobIDs) > 0 {
 		// let's update status of the jobs
 		updateJobSliceStatusQuery, jobSystemIDs, err := database.PrepareSliceQuery(queryJobSliceStatusUpdate, `$%d`, jobIDs, status.Accepted)
 		if err != nil {
@@ -122,6 +126,9 @@ func (h *Heimdall) runAsyncJob(ctx context.Context, j *job.Job) error {
 	defer runAsyncJobMethod.RecordLatency(time.Now())
 	runAsyncJobMethod.CountRequest()
 
+	// a job claimed while already running was released by the janitor, so we reattach to it
+	resume := j.Status == status.Running
+
 	// let's updte job status that we're running it...
 	sess, err := h.Database.NewSession(false)
 	if err != nil {
@@ -147,7 +154,7 @@ func (h *Heimdall) runAsyncJob(ctx context.Context, j *job.Job) error {
 	}
 
 	runAsyncJobMethod.CountSuccess()
-	return h.updateAsyncJobStatus(j, h.runJob(ctx, j, command, cluster))
+	return h.updateAsyncJobStatus(j, h.runJob(ctx, j, command, cluster, resume))
 
 }
 
