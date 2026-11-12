@@ -75,7 +75,7 @@ func (j *Janitor) worker() bool {
 	defer sess.Close()
 
 	// query for stale and canceling jobs
-	jobs, err := j.queryJobs(sess)
+	jobs, awol, err := j.queryJobs(sess)
 	if err != nil {
 		workerMethod.LogAndCountError(err, "query_jobs")
 		return false
@@ -88,7 +88,7 @@ func (j *Janitor) worker() bool {
 	}
 
 	// stale jobs that can be resumed are released with their remote work left running
-	jobs, released := j.splitResumable(jobs)
+	jobs, released := j.splitResumable(jobs, awol)
 	if err := j.releaseJobs(sess, released); err != nil {
 		workerMethod.LogAndCountError(err, "release_jobs")
 		return false
@@ -127,35 +127,38 @@ func (j *Janitor) worker() bool {
 
 }
 
-func (j *Janitor) queryJobs(sess *database.Session) ([]*job.Job, error) {
+func (j *Janitor) queryJobs(sess *database.Session) ([]*job.Job, map[int64]bool, error) {
 
 	// query all stale and canceling jobs
-	rows, err := sess.Query(queryStaleAndCancelingJobsSelect, j.StaleJob, defaultJobLimit)
+	rows, err := sess.Query(queryStaleAndCancelingJobsSelect, j.StaleJob, defaultJobLimit, j.AWOLTimeout)
 	if err != nil {
-		return nil, errors.Wrap(err, "query_stale_and_canceling_jobs_select")
+		return nil, nil, errors.Wrap(err, "query_stale_and_canceling_jobs_select")
 	}
 	defer rows.Close()
 
 	// collect jobs
-	jobs := make([]*job.Job, 0)
+	jobs, awol := make([]*job.Job, 0), make(map[int64]bool)
 	for rows.Next() {
 		jb := &job.Job{}
-		if err := rows.Scan(&jb.SystemID, &jb.ID, &jb.Status, &jb.CommandID, &jb.ClusterID); err != nil {
+		var isAWOL bool
+		if err := rows.Scan(&jb.SystemID, &jb.ID, &jb.Status, &jb.CommandID, &jb.ClusterID, &isAWOL); err != nil {
 			workerMethod.CountError("scan")
 			continue
 		}
 		jobs = append(jobs, jb)
+		awol[jb.SystemID] = isAWOL
 	}
 
-	return jobs, nil
+	return jobs, awol, nil
 
 }
 
-// splitResumable separates running jobs whose plugin implements plugin.Resumer from the rest.
-func (j *Janitor) splitResumable(jobs []*job.Job) (rest, resumable []*job.Job) {
+// splitResumable separates accepted and running jobs whose plugin implements plugin.Resumer from the rest;
+// jobs without a heartbeat for awol_timeout are not resumed.
+func (j *Janitor) splitResumable(jobs []*job.Job, awol map[int64]bool) (rest, resumable []*job.Job) {
 
 	for _, jb := range jobs {
-		if _, ok := j.commandHandlers[jb.CommandID].(plugin.Resumer); ok && jb.Status == jobStatus.Running {
+		if _, ok := j.commandHandlers[jb.CommandID].(plugin.Resumer); ok && (jb.Status == jobStatus.Accepted || jb.Status == jobStatus.Running) && !awol[jb.SystemID] {
 			resumable = append(resumable, jb)
 		} else {
 			rest = append(rest, jb)
