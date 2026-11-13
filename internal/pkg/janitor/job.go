@@ -181,7 +181,7 @@ func (j *Janitor) releaseJobs(sess *database.Session, jobs []*job.Job) error {
 		systemIDs = append(systemIDs, jb.SystemID)
 	}
 
-	query, args, err := database.PrepareSliceQuery(queryActiveJobsRelease, "$%d", systemIDs)
+	query, args, err := database.PrepareSliceQuery(queryActiveJobsRelease, "$%d", systemIDs, j.StaleJob)
 	if err != nil {
 		return errors.Wrap(err, "prepare_active_jobs_release")
 	}

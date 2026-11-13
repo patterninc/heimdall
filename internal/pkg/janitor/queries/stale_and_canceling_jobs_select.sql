@@ -1,18 +1,24 @@
-with candidate_ids as (
+with stale_ids as (
+  -- stale jobs still in active_jobs table (worker stopped heartbeating); released jobs only once awol.
+  -- locking rechecks a row an agent claimed or heartbeated after this query's snapshot
+  select aj.system_job_id
+  from active_jobs aj
+  where aj.last_heartbeat > 0
+    and aj.last_heartbeat < (extract(epoch from now())::int - $1)
+    and (aj.agent_name is not null or aj.last_heartbeat < (extract(epoch from now())::int - $3))
+  for update skip locked
+),
+candidate_ids as (
   -- canceling jobs that were never claimed by an agent or stopped heartbeating
   select j.system_job_id
   from jobs j
   left join active_jobs aj on aj.system_job_id = j.system_job_id
   where j.job_status_id = 7
-    and (aj.system_job_id is null or aj.last_heartbeat is null)
+    and (aj.system_job_id is null or aj.last_heartbeat is null or aj.agent_name is null)
 
   union
 
-  -- stale jobs still in active_jobs table (worker stopped heartbeating)
-  select aj.system_job_id
-  from active_jobs aj
-  where aj.last_heartbeat > 0
-    and aj.last_heartbeat < (extract(epoch from now())::int - $1)
+  select system_job_id from stale_ids
 ),
 picked as (
   select
