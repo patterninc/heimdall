@@ -24,7 +24,8 @@ const (
 	defaultIdleTimeout       = 30   // seconds
 	defaultReadHeaderTimeout = 2    // seconds
 	defaultJanitorKeepalive  = 5    // seconds
-	defaultStaleJob          = 3600 // seconds
+	defaultStaleJob          = 45   // seconds
+	defaultAWOLTimeout       = 3600 // seconds
 	defaultCleanInterval     = 60   // seconds
 	defaultShutdownTimeout   = 30   // seconds
 	shutdownTimeoutEnvVar    = `HEIMDALL_SHUTDOWN_TIMEOUT`
@@ -56,6 +57,7 @@ func main() {
 		Janitor: &janitor.Janitor{
 			Keepalive:     defaultJanitorKeepalive,
 			StaleJob:      defaultStaleJob,
+			AWOLTimeout:   defaultAWOLTimeout,
 			CleanInterval: defaultCleanInterval,
 		},
 		ShutdownTimeout: defaultShutdownTimeout,
