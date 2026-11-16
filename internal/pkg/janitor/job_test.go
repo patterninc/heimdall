@@ -36,17 +36,18 @@ func TestSplitResumable(t *testing.T) {
 
 	rest, resumable := j.splitResumable([]*job.Job{
 		newJob(1, `resumable`, jobStatus.Running),   // released
-		newJob(2, `resumable`, jobStatus.Accepted),  // never started, failed as today
+		newJob(2, `resumable`, jobStatus.Accepted),  // released, run again from the start
 		newJob(3, `resumable`, jobStatus.Canceling), // canceled as today
 		newJob(4, `plain`, jobStatus.Running),       // no Resumer, failed as today
 		newJob(5, `unknown`, jobStatus.Running),     // command no longer loaded
-	})
+		newJob(6, `resumable`, jobStatus.Running),   // past awol_timeout, failed
+	}, map[int64]bool{6: true})
 
-	if len(resumable) != 1 || resumable[0].SystemID != 1 {
-		t.Fatalf("resumable: got %v, want job 1 only", ids(resumable))
+	if got := ids(resumable); len(got) != 2 || got[0] != 1 || got[1] != 2 {
+		t.Fatalf("resumable: got %v, want jobs 1 and 2", got)
 	}
-	if got := ids(rest); len(got) != 4 || got[0] != 2 || got[3] != 5 {
-		t.Fatalf("rest: got %v, want jobs 2 to 5", got)
+	if got := ids(rest); len(got) != 4 || got[0] != 3 || got[3] != 6 {
+		t.Fatalf("rest: got %v, want jobs 3 to 6", got)
 	}
 
 }

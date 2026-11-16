@@ -20,6 +20,7 @@ var (
 type Janitor struct {
 	Keepalive                int `yaml:"keepalive,omitempty" json:"keepalive,omitempty"`
 	StaleJob                 int `yaml:"stale_job,omitempty" json:"stale_job,omitempty"`
+	AWOLTimeout              int `yaml:"awol_timeout,omitempty" json:"awol_timeout,omitempty"`
 	FinishedJobRetentionDays int `yaml:"finished_job_retention_days,omitempty" json:"finished_job_retention_days,omitempty"`
 	CleanInterval            int `yaml:"clean_interval,omitempty" json:"clean_interval,omitempty"`
 	db                       *database.Database
