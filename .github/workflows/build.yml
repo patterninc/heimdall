@@ -7,6 +7,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      # same image and credentials as docker-compose.yaml
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: heimdall
+          POSTGRES_PASSWORD: heimdall
+          POSTGRES_DB: heimdall
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -d heimdall -U heimdall"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v7
       - name: Setup Go
@@ -22,5 +37,36 @@ jobs:
           cache: true
           install: false # build.sh runs the install
 
+      - name: Deploy test database schema
+        run: |
+          # configs/local.yaml reaches Postgres by its compose hostname; the service container is on localhost here
+          sed 's/@postgres:5432/@localhost:5432/' configs/local.yaml > "$RUNNER_TEMP/heimdall.yaml"
+          grep -q '@localhost:5432' "$RUNNER_TEMP/heimdall.yaml"
+          go run ./cmd/deploydb -conf "$RUNNER_TEMP/heimdall.yaml" assets/databases/heimdall/build/heimdall.lst
+          # tests that need Postgres skip unless HEIMDALL_TEST_DATABASE is set; reuse the config's connection string
+          connection_string=$(sed -n 's/^ *connection_string: *"\(.*\)" *$/\1/p' "$RUNNER_TEMP/heimdall.yaml")
+          test -n "$connection_string"
+          echo "HEIMDALL_TEST_DATABASE=$connection_string" >> "$GITHUB_ENV"
+
       - name: Build and Test
         run: ./build.sh --go --ui --test
+
+      - name: API integration test
+        run: |
+          set -o pipefail # so a go test failure is not hidden by tee
+          # start the server just built, with the ping command and localhost cluster from configs/local.yaml
+          (cd dist && ./heimdall -conf "$RUNNER_TEMP/heimdall.yaml" > "$RUNNER_TEMP/heimdall.log" 2>&1 &)
+          for attempt in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://127.0.0.1:9090/api/v1/commands; then break; fi
+            sleep 1
+          done
+          HEIMDALL_TEST_URL=http://127.0.0.1:9090 go test -count=1 -v ./internal/pkg/apitest/ | tee "$RUNNER_TEMP/apitest.log"
+          # a skipped test here means the step is misconfigured, so fail instead of passing quietly
+          if grep -q -- '--- SKIP' "$RUNNER_TEMP/apitest.log"; then
+            echo "API integration tests were skipped" >&2
+            exit 1
+          fi
+
+      - name: Show Heimdall server log
+        if: failure()
+        run: cat "$RUNNER_TEMP/heimdall.log" || true
