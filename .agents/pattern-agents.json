@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "github": {
+    "repo": "patterninc/heimdall"
+  },
+  "skills": {
+    "sourceRepo": "patterninc/skills",
+    "sourceRef": "main",
+    "plugins": [
+      "engineering"
+    ]
+  }
+}
