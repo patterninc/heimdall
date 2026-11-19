@@ -1,0 +1,5 @@
+# Generated code: collapsed in GitHub diffs and excluded from language stats.
+# ANTLR output from TrinoLexer.g4 / TrinoParser.g4
+internal/pkg/sql/parser/trino/grammar/** linguist-generated=true
+# mockery output
+internal/pkg/rbac/ranger/mocks/** linguist-generated=true

@@ -25,8 +25,35 @@ rm -rf ${OUTPUT_DIR} > /dev/null 2>&1
 mkdir -p ${OUTPUT_DIR}/web ${OUTPUT_DIR}/plugins
 
 if [ "${RUN_TESTS}" = "true" ]; then
+  echo "checking go formatting"
+  UNFORMATTED=$(cd ${WORKING_DIR} && gofmt -l cmd internal pkg plugins)
+
+  # run the tests even when formatting fails, so one run reports both
   echo "running tests"
-  (cd ${WORKING_DIR} && go test ./internal/pkg/... && go test ./pkg/...)
+  TESTS_FAILED=false
+  (cd ${WORKING_DIR} && go test ./internal/pkg/... ./pkg/...) || TESTS_FAILED=true
+
+  # report both results together, without command tracing in the way
+  set +x
+  echo "==================== check results ===================="
+  if [ -n "${UNFORMATTED}" ]; then
+    echo "gofmt: FAILED - these files need formatting:"
+    echo "${UNFORMATTED}" | sed 's/^/  /'
+    echo "  fix with: gofmt -w cmd internal pkg plugins"
+  else
+    echo "gofmt: ok"
+  fi
+  if [ "${TESTS_FAILED}" = "true" ]; then
+    echo "tests: FAILED - see the go test output above"
+  else
+    echo "tests: ok"
+  fi
+  echo "======================================================="
+  if [ -n "${UNFORMATTED}" ] || [ "${TESTS_FAILED}" = "true" ]; then
+    echo "build stopped: fix the failed checks above" >&2
+    exit 1
+  fi
+  set -x
 fi
 
 if [ "${BUILD_GO}" = "true" ]; then

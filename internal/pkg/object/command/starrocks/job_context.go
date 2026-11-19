@@ -37,7 +37,6 @@ func (j *jobContext) execute(ctx context.Context) (*result.Result, error) {
 
 	ctx = j.withAuth(ctx)
 
-
 	info, err := j.client.Execute(ctx, j.Query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %v", err)
