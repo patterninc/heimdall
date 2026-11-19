@@ -244,3 +244,7 @@ job.SetOutput("some_runtime_metadata", value)
 ## 👥 Credits
 
 **Heimdall** was created at **Pattern, Inc** by Stan Babourine, with contributions from Will Graham, Gaurav Warale and Josh Diaz.
+
+## 📚 Operations and design docs
+
+Operations: [`docs/oncall.md`](docs/oncall.md) and [`docs/runbooks/`](docs/runbooks/README.md). Decisions: [`docs/adr/`](docs/adr/README.md). API description: [`docs/openapi/heimdall.yaml`](docs/openapi/heimdall.yaml). Release history: [`CHANGELOG.md`](CHANGELOG.md).

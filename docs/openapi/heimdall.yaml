@@ -1,0 +1,165 @@
+openapi: 3.0.3
+info:
+  title: Heimdall API
+  version: 1.10.0
+  description: >
+    Routes registered in internal/pkg/heimdall/heimdall.go (Start). Request and response bodies are described at the
+    envelope level; see README.md "Core Concepts" for object fields. Nothing enforces parity with the router yet:
+    update this file in the same change as any route edit.
+servers:
+  - url: http://localhost:9090
+security:
+  - userHeader: []
+components:
+  securitySchemes:
+    userHeader:
+      type: apiKey
+      in: header
+      name: X-Heimdall-User
+      description: Caller identity, resolved by the configured auth plugin (configs/local.yaml, auth.plugin).
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    Object:
+      type: object
+      additionalProperties: true
+  responses:
+    Ok:
+      description: Success
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Object' }
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Object' }
+paths:
+  /api/v1/job:
+    post:
+      summary: Submit a job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Object' }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
+  /api/v1/jobs:
+    get:
+      summary: List jobs
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
+  /api/v1/job/statuses:
+    get:
+      summary: List job statuses
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /api/v1/job/{id}:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    get:
+      summary: Get job details
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
+  /api/v1/job/{id}/status:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    get:
+      summary: Get job status
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
+  /api/v1/job/{id}/cancel:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    post:
+      summary: Cancel an async job
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
+  /api/v1/job/{id}/{file}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+      - name: file
+        in: path
+        required: true
+        description: One of stdout, stderr, result (README, API Overview).
+        schema: { type: string }
+    get:
+      summary: Get a job output file
+      responses:
+        '200': { description: File content }
+        default: { $ref: '#/components/responses/Error' }
+  /api/v1/commands:
+    get:
+      summary: List commands
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /api/v1/command/statuses:
+    get:
+      summary: List command statuses
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /api/v1/command/{id}:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    get:
+      summary: Get command details
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
+    put:
+      summary: Upsert a command
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Object' }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
+  /api/v1/command/{id}/status:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    get:
+      summary: Get command status
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
+    put:
+      summary: Set command status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Object' }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
+  /api/v1/clusters:
+    get:
+      summary: List clusters
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /api/v1/clusters/health:
+    get:
+      summary: Health check all opted-in clusters (200 if all pass, 503 if any fail)
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/cluster/statuses:
+    get:
+      summary: List cluster statuses
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /api/v1/cluster/{id}:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    get:
+      summary: Get cluster details
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
+    put:
+      summary: Upsert a cluster
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Object' }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
+  /api/v1/cluster/{id}/status:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    get:
+      summary: Get cluster status
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
+    put:
+      summary: Set cluster status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Object' }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
+  /api/v1/cluster/{id}/health:
+    parameters: [ { $ref: '#/components/parameters/id' } ]
+    get:
+      summary: Health check a single cluster
+      responses: { '200': { $ref: '#/components/responses/Ok' }, default: { $ref: '#/components/responses/Error' } }
