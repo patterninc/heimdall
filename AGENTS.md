@@ -25,8 +25,9 @@ are independent; `--test` fails on unformatted Go (`gofmt -l`), then runs
 **Integration tests** skip locally unless their variable is set; CI sets both. After
 `docker compose up --build -d`:
 
-- `HEIMDALL_TEST_DATABASE=postgres://heimdall:heimdall@localhost:5433/heimdall?sslmode=disable`
-  runs the Postgres-backed tests (they roll back what they write).
+- `HEIMDALL_TEST_DATABASE` set to a connection string for the compose Postgres (the one in
+  `configs/local.yaml`, with host `localhost:5433`) runs the Postgres-backed tests; they roll back
+  what they write.
 - `HEIMDALL_TEST_URL=http://127.0.0.1:9090` runs `internal/pkg/apitest/`, which submits a ping job
   to the running server and reads its result. Add API-level cases there.
 

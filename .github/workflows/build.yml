@@ -22,9 +22,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-    env:
-      # tests that need Postgres skip unless this is set
-      HEIMDALL_TEST_DATABASE: postgres://heimdall:heimdall@localhost:5432/heimdall?sslmode=disable
     steps:
       - uses: actions/checkout@v7
       - name: Setup Go
@@ -46,6 +43,10 @@ jobs:
           sed 's/@postgres:5432/@localhost:5432/' configs/local.yaml > "$RUNNER_TEMP/heimdall.yaml"
           grep -q '@localhost:5432' "$RUNNER_TEMP/heimdall.yaml"
           go run ./cmd/deploydb -conf "$RUNNER_TEMP/heimdall.yaml" assets/databases/heimdall/build/heimdall.lst
+          # tests that need Postgres skip unless HEIMDALL_TEST_DATABASE is set; reuse the config's connection string
+          connection_string=$(sed -n 's/^ *connection_string: *"\(.*\)" *$/\1/p' "$RUNNER_TEMP/heimdall.yaml")
+          test -n "$connection_string"
+          echo "HEIMDALL_TEST_DATABASE=$connection_string" >> "$GITHUB_ENV"
 
       - name: Build and Test
         run: ./build.sh --go --ui --test
