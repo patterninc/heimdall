@@ -117,6 +117,7 @@ Heimdall supports a growing set of pluggable command types:
 | `clickhouse`  | [Query execution in Clickhouse](https://github.com/patterninc/heimdall/blob/main/plugins/clickhouse/README.md) | Sync          |
 | `ecs fargate` | [Task Deployment in ECS Fargate](https://github.com/patterninc/heimdall/blob/main/plugins/ecs/README.md) | Async |
 | `postgres`    | [PostgreSQL query execution](https://github.com/patterninc/heimdall/blob/main/plugins/postgres/README.md) | Sync or Async  |
+| `starrocks`    | [Starrocks query execution](https://github.com/patterninc/heimdall/blob/main/plugins/starrocks/README.md) | Sync or Async  |
 
 ---
 
