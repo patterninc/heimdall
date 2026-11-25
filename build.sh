@@ -53,5 +53,10 @@ if [ "${BUILD_WEB}" = "true" ]; then
   fi
   (cd ${WORKING_DIR}/web && pnpm install --frozen-lockfile)
 
+  if [ "${RUN_TESTS}" = "true" ]; then
+    # unit, integration and snapshot tests; fails on a failing test or coverage below the threshold
+    (cd ${WORKING_DIR}/web && pnpm test)
+  fi
+
   (cd ${WORKING_DIR}/web && pnpm run build)
 fi
