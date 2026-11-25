@@ -201,244 +201,6 @@ exports[`DetailPage > matches the snapshot in the error state 1`] = `
 </div>
 `;
 
-exports[`DetailPage > matches the snapshot while content is loading 1`] = `
-<div>
-  <div
-    class="flex min-h-0 flex-1 flex-col"
-    qa-test-id="cluster-details"
-  >
-    <div
-      class="w-full overflow-hidden sticky z-30 bg-base-inverse top-14 md:top-0"
-      data-name="ContentHeader"
-      qa-test-id="cluster-details-header"
-    >
-      <div
-        class="relative flex h-18 items-center gap-3 p-4"
-      >
-        <div
-          class="flex min-w-0 flex-1 items-center gap-3"
-        >
-          <button
-            aria-label="Back to clusters"
-            class="relative isolate box-border flex shrink-0 items-center justify-center rounded-xl transition-colors duration-150 ease-out px-2 size-9 bg-depth-black-4 hover:bg-depth-black-8 focus:bg-depth-black-8 focus-visible:shadow-button-secondary data-[state=open]:bg-depth-black-8 aria-expanded:bg-depth-black-8 focus:outline-none cursor-pointer"
-            data-slot="tooltip-trigger"
-            data-state="closed"
-            qa-test-id="cluster-details-back"
-            tabindex="0"
-          >
-            <div
-              class="[&_svg]:pointer-events-none text-icon-sub"
-            >
-              <svg
-                color="var(--color-icon-sub)"
-                fill="transparent"
-                height="20"
-                viewBox="0 0 24 24"
-                width="20"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M10.25 6.75L4.75 12L10.25 17.25"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.5"
-                />
-                
-  
-                <path
-                  d="M19.25 12H5"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.5"
-                />
-              </svg>
-            </div>
-          </button>
-          <div
-            class="min-w-0 w-full"
-          >
-            <p
-              class="pui-text-label-medium truncate text-text-sub"
-            >
-              cluster-emr
-            </p>
-          </div>
-        </div>
-        <div
-          class="flex shrink-0 items-center justify-end gap-3 justify-self-end"
-        >
-          <div
-            class="flex items-center gap-2"
-          />
-        </div>
-      </div>
-    </div>
-    <div
-      class="flex flex-col gap-4 px-4 pb-6"
-    >
-      <div
-        class="flex flex-col overflow-hidden rounded-2xl border border-depth-black-4 [&>div:first-child]:bg-depth-black-4/30"
-        id="_id0_"
-        qa-test-id="cluster-details-overview"
-      >
-        <div
-          class="flex min-h-12 items-center gap-2 transition-colors"
-        >
-          <div
-            class="flex min-h-12 min-w-0 flex-1 items-center gap-2 px-3"
-          >
-            <span
-              class="pui-text-label-medium min-w-0 truncate text-text-sub"
-            >
-              Overview
-            </span>
-          </div>
-        </div>
-        <div
-          aria-label="Overview"
-          class="flex flex-col"
-          role="region"
-        >
-          <div
-            class="w-full"
-            qa-test-id="cluster-details-overview-body-divider"
-            role="separator"
-          >
-            <div
-              class="h-px border-t border-depth-black-4 w-full"
-            />
-          </div>
-          <div
-            class="flex flex-col py-1"
-          >
-            <dl
-              class="grid grid-cols-1 gap-x-6 gap-y-4 p-4 sm:grid-cols-2 xl:grid-cols-3"
-            >
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  Cluster ID
-                </dt>
-                <dd
-                  class="pui-text-mono-small text-text-strong min-w-0 break-words"
-                >
-                  <span
-                    aria-hidden="true"
-                    class="block animate-pulse rounded-md bg-depth-black-8 motion-reduce:animate-none h-4 w-32"
-                    data-slot="skeleton"
-                    qa-test-id="skeleton"
-                  />
-                </dd>
-              </div>
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  User
-                </dt>
-                <dd
-                  class="pui-text-body-medium text-text-strong min-w-0 break-words"
-                >
-                  <span
-                    aria-hidden="true"
-                    class="block animate-pulse rounded-md bg-depth-black-8 motion-reduce:animate-none h-4 w-32"
-                    data-slot="skeleton"
-                    qa-test-id="skeleton"
-                  />
-                </dd>
-              </div>
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  Version
-                </dt>
-                <dd
-                  class="pui-text-body-medium text-text-strong min-w-0 break-words"
-                >
-                  <span
-                    aria-hidden="true"
-                    class="block animate-pulse rounded-md bg-depth-black-8 motion-reduce:animate-none h-4 w-32"
-                    data-slot="skeleton"
-                    qa-test-id="skeleton"
-                  />
-                </dd>
-              </div>
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  Created at
-                </dt>
-                <dd
-                  class="pui-text-body-medium text-text-strong min-w-0 break-words"
-                >
-                  <span
-                    aria-hidden="true"
-                    class="block animate-pulse rounded-md bg-depth-black-8 motion-reduce:animate-none h-4 w-32"
-                    data-slot="skeleton"
-                    qa-test-id="skeleton"
-                  />
-                </dd>
-              </div>
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  Updated at
-                </dt>
-                <dd
-                  class="pui-text-body-medium text-text-strong min-w-0 break-words"
-                >
-                  <span
-                    aria-hidden="true"
-                    class="block animate-pulse rounded-md bg-depth-black-8 motion-reduce:animate-none h-4 w-32"
-                    data-slot="skeleton"
-                    qa-test-id="skeleton"
-                  />
-                </dd>
-              </div>
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  Description
-                </dt>
-                <dd
-                  class="pui-text-body-medium text-text-strong min-w-0 break-words"
-                >
-                  <span
-                    aria-hidden="true"
-                    class="block animate-pulse rounded-md bg-depth-black-8 motion-reduce:animate-none h-4 w-32"
-                    data-slot="skeleton"
-                    qa-test-id="skeleton"
-                  />
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-`;
-
 exports[`DetailPage > matches the snapshot with header, status and content 1`] = `
 <div>
   <div
@@ -542,348 +304,94 @@ exports[`DetailPage > matches the snapshot with header, status and content 1`] =
     <div
       class="flex flex-col gap-4 px-4 pb-6"
     >
+      <p>
+        Detail content
+      </p>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`DetailPage > matches the snapshot with only the required header props 1`] = `
+<div>
+  <div
+    class="flex min-h-0 flex-1 flex-col"
+    qa-test-id="cluster-details"
+  >
+    <div
+      class="w-full overflow-hidden sticky z-30 bg-base-inverse top-14 md:top-0"
+      data-name="ContentHeader"
+      qa-test-id="cluster-details-header"
+    >
       <div
-        class="flex flex-col overflow-hidden rounded-2xl border border-depth-black-4 [&>div:first-child]:bg-depth-black-4/30"
-        id="_id0_"
-        qa-test-id="cluster-details-overview"
+        class="relative flex h-18 items-center gap-3 p-4"
       >
         <div
-          class="flex min-h-12 items-center gap-2 transition-colors"
+          class="flex min-w-0 flex-1 items-center gap-3"
         >
-          <div
-            class="flex min-h-12 min-w-0 flex-1 items-center gap-2 px-3"
-          >
-            <span
-              class="pui-text-label-medium min-w-0 truncate text-text-sub"
-            >
-              Overview
-            </span>
-          </div>
-        </div>
-        <div
-          aria-label="Overview"
-          class="flex flex-col"
-          role="region"
-        >
-          <div
-            class="w-full"
-            qa-test-id="cluster-details-overview-body-divider"
-            role="separator"
+          <button
+            aria-label="Back to clusters"
+            class="relative isolate box-border flex shrink-0 items-center justify-center rounded-xl transition-colors duration-150 ease-out px-2 size-9 bg-depth-black-4 hover:bg-depth-black-8 focus:bg-depth-black-8 focus-visible:shadow-button-secondary data-[state=open]:bg-depth-black-8 aria-expanded:bg-depth-black-8 focus:outline-none cursor-pointer"
+            data-slot="tooltip-trigger"
+            data-state="closed"
+            qa-test-id="cluster-details-back"
+            tabindex="0"
           >
             <div
-              class="h-px border-t border-depth-black-4 w-full"
-            />
-          </div>
-          <div
-            class="flex flex-col py-1"
-          >
-            <dl
-              class="grid grid-cols-1 gap-x-6 gap-y-4 p-4 sm:grid-cols-2 xl:grid-cols-3"
+              class="[&_svg]:pointer-events-none text-icon-sub"
             >
-              <div
-                class="flex min-w-0 flex-col gap-1"
+              <svg
+                color="var(--color-icon-sub)"
+                fill="transparent"
+                height="20"
+                viewBox="0 0 24 24"
+                width="20"
+                xmlns="http://www.w3.org/2000/svg"
               >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  Cluster ID
-                </dt>
-                <dd
-                  class="pui-text-mono-small text-text-strong min-w-0 break-words"
-                >
-                  cluster-emr
-                </dd>
-              </div>
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  User
-                </dt>
-                <dd
-                  class="pui-text-body-medium text-text-strong min-w-0 break-words"
-                >
-                  alice
-                </dd>
-              </div>
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  Version
-                </dt>
-                <dd
-                  class="pui-text-body-medium text-text-strong min-w-0 break-words"
-                >
-                  7.1.0
-                </dd>
-              </div>
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  Created at
-                </dt>
-                <dd
-                  class="pui-text-body-medium text-text-strong min-w-0 break-words"
-                >
-                  2026-01-15 10:30:00
-                </dd>
-              </div>
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  Updated at
-                </dt>
-                <dd
-                  class="pui-text-body-medium text-text-strong min-w-0 break-words"
-                >
-                  2026-01-15 10:45:00
-                </dd>
-              </div>
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  Description
-                </dt>
-                <dd
-                  class="pui-text-body-medium text-text-strong min-w-0 break-words"
-                >
-                  Production EMR on EKS
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </div>
-      </div>
-      <div
-        class="flex flex-col overflow-hidden rounded-2xl border border-depth-black-4 [&>div:first-child]:bg-depth-black-4/30"
-        id="_id1_"
-        qa-test-id="cluster-details-runtime"
-      >
-        <div
-          class="flex min-h-12 items-center gap-2 transition-colors"
-        >
-          <div
-            class="flex min-h-12 min-w-0 flex-1 items-center gap-2 px-3"
-          >
-            <span
-              class="pui-text-label-medium min-w-0 truncate text-text-sub"
-            >
-              Runtime
-            </span>
-          </div>
-        </div>
-        <div
-          aria-label="Runtime"
-          class="flex flex-col"
-          role="region"
-        >
-          <div
-            class="w-full"
-            qa-test-id="cluster-details-runtime-body-divider"
-            role="separator"
-          >
-            <div
-              class="h-px border-t border-depth-black-4 w-full"
-            />
-          </div>
-          <div
-            class="flex flex-col py-1"
-          >
-            <dl
-              class="grid grid-cols-1 gap-x-6 gap-y-4 p-4 sm:grid-cols-2 xl:grid-cols-3"
-            >
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  EMR release
-                </dt>
-                <dd
-                  class="pui-text-mono-small text-text-strong min-w-0 break-words"
-                >
-                  emr-7.1.0
-                </dd>
-              </div>
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  Role ARN
-                </dt>
-                <dd
-                  class="pui-text-mono-small text-text-strong min-w-0 break-words"
-                >
-                  arn:aws:iam::123456789012:role/emr
-                </dd>
-              </div>
-              <div
-                class="flex min-w-0 flex-col gap-1"
-              >
-                <dt
-                  class="pui-text-label-small text-text-sub"
-                >
-                  Execution role ARN
-                </dt>
-                <dd
-                  class="pui-text-mono-small text-text-strong min-w-0 break-words"
-                >
-                  arn:aws:iam::123456789012:role/emr-exec
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </div>
-      </div>
-      <div
-        class="flex flex-col overflow-hidden rounded-2xl border border-depth-black-4 [&>div:first-child]:bg-depth-black-4/30"
-        id="_id2_"
-        qa-test-id="cluster-details-properties"
-      >
-        <div
-          class="flex min-h-12 items-center gap-2 transition-colors"
-        >
-          <div
-            class="flex min-h-12 min-w-0 flex-1 items-center gap-2 px-3"
-          >
-            <span
-              class="pui-text-label-medium min-w-0 truncate text-text-sub"
-            >
-              Context properties
-            </span>
-            <span
-              class="inline-flex shrink-0 items-center justify-center tabular-nums pui-text-mono-small-alt-bold rounded-lg bg-depth-black-4 text-text-strong h-6 min-w-6 px-1.5"
-              qa-test-id="_id2_-count-badge"
-            >
-              1
-            </span>
-          </div>
-        </div>
-        <div
-          aria-label="Context properties"
-          class="flex flex-col"
-          role="region"
-        >
-          <div
-            class="w-full"
-            qa-test-id="cluster-details-properties-body-divider"
-            role="separator"
-          >
-            <div
-              class="h-px border-t border-depth-black-4 w-full"
-            />
-          </div>
-          <div
-            class="flex flex-col py-1"
-          >
-            <dl
-              class="flex flex-col"
-            >
-              <div
-                class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-4 "
-              >
-                <dt
-                  class="pui-text-mono-small text-text-sub min-w-0 sm:w-72 sm:shrink-0"
-                >
-                  spark.executor.memory
-                </dt>
-                <dd
-                  class="pui-text-mono-small text-text-strong min-w-0 break-all"
-                >
-                  8g
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </div>
-      </div>
-      <div
-        class="flex flex-col overflow-hidden rounded-2xl border border-depth-black-4 [&>div:first-child]:bg-depth-black-4/30"
-        id="_id3_"
-        qa-test-id="cluster-details-tags"
-      >
-        <div
-          class="flex min-h-12 items-center gap-2 transition-colors"
-        >
-          <div
-            class="flex min-h-12 min-w-0 flex-1 items-center gap-2 px-3"
-          >
-            <span
-              class="pui-text-label-medium min-w-0 truncate text-text-sub"
-            >
-              Tags
-            </span>
-            <span
-              class="inline-flex shrink-0 items-center justify-center tabular-nums pui-text-mono-small-alt-bold rounded-lg bg-depth-black-4 text-text-strong h-6 min-w-6 px-1.5"
-              qa-test-id="_id3_-count-badge"
-            >
-              2
-            </span>
-          </div>
-        </div>
-        <div
-          aria-label="Tags"
-          class="flex flex-col"
-          role="region"
-        >
-          <div
-            class="w-full"
-            qa-test-id="cluster-details-tags-body-divider"
-            role="separator"
-          >
-            <div
-              class="h-px border-t border-depth-black-4 w-full"
-            />
-          </div>
-          <div
-            class="flex flex-col py-1"
-          >
-            <div
-              class="flex flex-wrap gap-2 p-4"
-            >
-              <span
-                class="pui-text-mono-small inline-flex items-center justify-center gap-0.5 whitespace-nowrap transition-colors bg-neutral-lighter text-neutral-base rounded-lg px-1.5 py-1"
-                data-slot="tag"
-                qa-test-id="tag"
-              >
-                <span
-                  class="flex min-w-0 items-center justify-center truncate px-0.5 py-0"
-                >
-                  type:emr
-                </span>
-              </span>
-              <span
-                class="pui-text-mono-small inline-flex items-center justify-center gap-0.5 whitespace-nowrap transition-colors bg-neutral-lighter text-neutral-base rounded-lg px-1.5 py-1"
-                data-slot="tag"
-                qa-test-id="tag"
-              >
-                <span
-                  class="flex min-w-0 items-center justify-center truncate px-0.5 py-0"
-                >
-                  env:prod
-                </span>
-              </span>
+                <path
+                  d="M10.25 6.75L4.75 12L10.25 17.25"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                />
+                
+  
+                <path
+                  d="M19.25 12H5"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                />
+              </svg>
             </div>
+          </button>
+          <div
+            class="min-w-0 w-full"
+          >
+            <p
+              class="pui-text-label-medium truncate text-text-sub"
+            >
+              cluster-emr
+            </p>
           </div>
         </div>
+        <div
+          class="flex shrink-0 items-center justify-end gap-3 justify-self-end"
+        >
+          <div
+            class="flex items-center gap-2"
+          />
+        </div>
       </div>
+    </div>
+    <div
+      class="flex flex-col gap-4 px-4 pb-6"
+    >
+      <p>
+        Detail content
+      </p>
     </div>
   </div>
 </div>

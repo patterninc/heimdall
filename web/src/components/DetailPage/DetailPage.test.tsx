@@ -2,7 +2,6 @@ import { screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import { resourceStatusVariant } from '@/common/Services/status'
-import ClusterInformationPane from '@/modules/Clusters/ClustersDetails/ClusterInformationPane'
 import { buildCluster } from '@/test/fixtures'
 import { renderWithProviders } from '@/test/render'
 import { withStableIds } from '@/test/snapshot'
@@ -25,7 +24,7 @@ const renderDetailPage = (props: { isError?: boolean } = {}) =>
       qaTestId='cluster-details'
       {...props}
     >
-      <ClusterInformationPane cluster={cluster} isLoading={false} />
+      <p>Detail content</p>
     </DetailPage>,
   )
 
@@ -33,6 +32,9 @@ describe('DetailPage', () => {
   it('matches the snapshot with header, status and content', () => {
     const { container } = renderDetailPage()
 
+    expect(screen.getByTestId('cluster-details-status')).toHaveTextContent(
+      cluster.status,
+    )
     expect(withStableIds(container)).toMatchSnapshot()
   })
 
@@ -43,7 +45,7 @@ describe('DetailPage', () => {
     expect(withStableIds(container)).toMatchSnapshot()
   })
 
-  it('matches the snapshot while content is loading', () => {
+  it('matches the snapshot with only the required header props', () => {
     const { container } = renderWithProviders(
       <DetailPage
         backHref='/clusters'
@@ -52,10 +54,13 @@ describe('DetailPage', () => {
         title='cluster-emr'
         qaTestId='cluster-details'
       >
-        <ClusterInformationPane isLoading />
+        <p>Detail content</p>
       </DetailPage>,
     )
 
+    expect(
+      screen.queryByTestId('cluster-details-status'),
+    ).not.toBeInTheDocument()
     expect(withStableIds(container)).toMatchSnapshot()
   })
 
