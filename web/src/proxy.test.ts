@@ -1,3 +1,4 @@
+import { unstable_doesMiddlewareMatch } from 'next/experimental/testing/server'
 import { NextRequest } from 'next/server'
 import { describe, expect, it } from 'vitest'
 
@@ -29,10 +30,13 @@ describe('proxy', () => {
   })
 
   it('skips API and static routes', () => {
-    const matcher = new RegExp(`^${config.matcher[0]}$`)
+    const matches = (url: string) =>
+      unstable_doesMiddlewareMatch({ config, url })
 
-    expect(matcher.test('/jobs/job-0001')).toBe(true)
-    expect(matcher.test('/api/v1/jobs')).toBe(false)
-    expect(matcher.test('/_next/static/chunk.js')).toBe(false)
+    expect(matches('/jobs/job-0001')).toBe(true)
+    expect(matches('/api/v1/jobs')).toBe(false)
+    expect(matches('/_next/static/chunk.js')).toBe(false)
+    expect(matches('/_next/image?url=x')).toBe(false)
+    expect(matches('/favicon.ico')).toBe(false)
   })
 })
