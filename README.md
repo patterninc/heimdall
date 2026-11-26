@@ -92,7 +92,7 @@ GET /api/v1/job/<job_id>/stderr
 ```bash
 ./build.sh --go          # build Go binaries (cmd/*) + plugins (plugins/*.so)
 ./build.sh --ui          # build the Next.js web UI
-./build.sh --test        # run the Go test suites (with --ui, also the web tests: pnpm test)
+./build.sh --test        # run all tests: the Go test suites and the web tests (pnpm test)
 ./build.sh --go --ui --test   # do everything (what CI runs)
 ```
 

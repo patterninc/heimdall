@@ -19,7 +19,7 @@ Vitest, React Testing Library and MSW. Run from `web/`:
 | `pnpm vitest run src/test/integration -t "Jobs"` | Runs a subset by path and test name.                                                         |
 | `pnpm vitest run -u`                             | Rewrites snapshots after an intended UI change. Review the `.snap` diff before you commit.   |
 
-CI: the **Build and Test** workflow runs `./build.sh --go --ui --test`. With `--ui --test`, `build.sh` runs `pnpm test` before `pnpm run build`, so a failing test or a coverage drop fails the required `build` check.
+CI: the **Build and Test** workflow runs `./build.sh --go --ui --test`. With `--test`, `build.sh` runs `pnpm test` after the Go tests and before `pnpm run build`, so a failing test or a coverage drop fails the required `build` check.
 
 Layout:
 
