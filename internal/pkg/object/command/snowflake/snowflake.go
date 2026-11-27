@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -22,6 +23,21 @@ import (
 const (
 	privateKeyType      = `PRIVATE KEY`
 	snowflakeDriverName = `snowflake`
+	formatQueryTag      = `heimdall-job-%s`
+	queryHistorySlack   = 60 // seconds before the job was created, for clock skew
+
+	// query history only applies result_limit before the where clause, so the time range keeps it to queries
+	// that started around the job; without end_time_range_end, queries still running are included
+	queryHistorySelect = `select query_id
+from table(information_schema.query_history_by_user(end_time_range_start => to_timestamp_ltz(%d), result_limit => 10000))
+where query_tag = ?
+order by start_time desc
+limit 1`
+
+	runningQueryCancel = `select system$cancel_query(query_id)
+from table(information_schema.query_history_by_user(end_time_range_start => dateadd('minute', -1, current_timestamp()), result_limit => 10000))
+where query_tag = ?
+  and upper(execution_status) in ('RUNNING', 'QUEUED', 'BLOCKED', 'RESUMING_WAREHOUSE')`
 )
 
 var (
@@ -92,29 +108,92 @@ func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 // StreamResult implements plugin.ResultStreamer: rows stream straight to w via result.StreamRows, so j.Result's full [][]any never exists.
 func (s *commandContext) StreamResult(ctx context.Context, w io.Writer, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
-	clusterContext := &clusterContext{}
-	if c.Context != nil {
-		if err := c.Context.Unmarshal(clusterContext); err != nil {
-			return err
-		}
-	}
-
 	// let's unmarshal job context
 	jobContext := &jobContext{}
 	if err := j.Context.Unmarshal(jobContext); err != nil {
 		return err
 	}
 
+	db, err := s.open(c, r.UserAgent)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	return streamQuery(ctx, w, db, j.ID, jobContext.Query)
+
+}
+
+// ResumeStream implements plugin.StreamResumer. Snowflake keeps running a query after its client disconnects,
+// so the job's query is found by its query tag and its result fetched by query ID; a query that was never
+// submitted runs now.
+func (s *commandContext) ResumeStream(ctx context.Context, w io.Writer, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+
+	jobContext := &jobContext{}
+	if err := j.Context.Unmarshal(jobContext); err != nil {
+		return err
+	}
+
+	db, err := s.open(c, r.UserAgent)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	var queryID string
+	err = db.QueryRowContext(ctx, fmt.Sprintf(queryHistorySelect, j.CreatedAt-queryHistorySlack), queryTag(j.ID)).Scan(&queryID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return streamQuery(ctx, w, db, j.ID, jobContext.Query)
+	}
+	if err != nil {
+		return err
+	}
+
+	// the driver polls a running query until it finishes; a failed or canceled query returns its error
+	rows, err := db.QueryContext(sf.WithFetchResultByID(ctx, queryID), ``)
+	if err != nil {
+		return err
+	}
+
+	return result.StreamRows(w, rows)
+
+}
+
+func streamQuery(ctx context.Context, w io.Writer, db *sql.DB, jobID, query string) error {
+
+	rows, err := db.QueryContext(sf.WithQueryTag(ctx, queryTag(jobID)), query)
+	if err != nil {
+		return err
+	}
+
+	return result.StreamRows(w, rows)
+
+}
+
+func queryTag(jobID string) string {
+	return fmt.Sprintf(formatQueryTag, jobID)
+}
+
+// open connects to the cluster's warehouse as its user, with the command's role.
+func (s *commandContext) open(c *cluster.Cluster, application string) (*sql.DB, error) {
+
+	clusterContext := &clusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterContext); err != nil {
+			return nil, err
+		}
+	}
+
 	// prepare snowflake config
 	privateKeyBytes, err := os.ReadFile(clusterContext.PrivateKey)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Parse the private key
 	privateKey, err := parsePrivateKey(privateKeyBytes)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// s.Role from command context; empty string = Snowflake uses user's default role
@@ -126,25 +205,13 @@ func (s *commandContext) StreamResult(ctx context.Context, w io.Writer, r *plugi
 		Role:          s.Role,
 		Authenticator: sf.AuthTypeJwt,
 		PrivateKey:    privateKey,
-		Application:   r.UserAgent,
+		Application:   application,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// open connection
-	db, err := sql.Open(snowflakeDriverName, dsn)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	rows, err := db.QueryContext(ctx, jobContext.Query)
-	if err != nil {
-		return err
-	}
-
-	return result.StreamRows(w, rows)
+	return sql.Open(snowflakeDriverName, dsn)
 
 }
 
@@ -253,7 +320,24 @@ func scanToString(v any) string {
 	}
 }
 
+// Cleanup cancels the job's query if it is still running, so a query left by an agent that died stops using the warehouse.
 func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
-	// TODO: Implement cleanup if needed
-	return nil
+
+	db, err := s.open(c, ``)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	rows, err := db.QueryContext(ctx, runningQueryCancel, queryTag(jobID))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+	}
+
+	return rows.Err()
+
 }

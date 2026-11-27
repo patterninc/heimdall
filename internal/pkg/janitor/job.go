@@ -153,12 +153,12 @@ func (j *Janitor) queryJobs(sess *database.Session) ([]*job.Job, map[int64]bool,
 
 }
 
-// splitResumable separates accepted and running jobs whose plugin implements plugin.Resumer from the rest;
+// splitResumable separates accepted and running jobs whose plugin is resumable (plugin.IsResumable) from the rest;
 // jobs without a heartbeat for awol_timeout are not resumed.
 func (j *Janitor) splitResumable(jobs []*job.Job, awol map[int64]bool) (rest, resumable []*job.Job) {
 
 	for _, jb := range jobs {
-		if _, ok := j.commandHandlers[jb.CommandID].(plugin.Resumer); ok && (jb.Status == jobStatus.Accepted || jb.Status == jobStatus.Running) && !awol[jb.SystemID] {
+		if plugin.IsResumable(j.commandHandlers[jb.CommandID]) && (jb.Status == jobStatus.Accepted || jb.Status == jobStatus.Running) && !awol[jb.SystemID] {
 			resumable = append(resumable, jb)
 		} else {
 			rest = append(rest, jb)

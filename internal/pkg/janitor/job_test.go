@@ -2,6 +2,7 @@ package janitor
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	"github.com/patterninc/heimdall/pkg/object/cluster"
@@ -21,11 +22,18 @@ type resumer struct{ handler }
 
 func (resumer) Resume(context.Context, *plugin.Runtime, *job.Job, *cluster.Cluster) error { return nil }
 
+type streamResumer struct{ handler }
+
+func (streamResumer) ResumeStream(context.Context, io.Writer, *plugin.Runtime, *job.Job, *cluster.Cluster) error {
+	return nil
+}
+
 func TestSplitResumable(t *testing.T) {
 
 	j := &Janitor{commandHandlers: map[string]plugin.Handler{
 		`plain`:     handler{},
 		`resumable`: resumer{},
+		`streaming`: streamResumer{},
 	}}
 
 	newJob := func(id int64, command string, status jobStatus.Status) *job.Job {
@@ -41,10 +49,11 @@ func TestSplitResumable(t *testing.T) {
 		newJob(4, `plain`, jobStatus.Running),       // no Resumer, failed as today
 		newJob(5, `unknown`, jobStatus.Running),     // command no longer loaded
 		newJob(6, `resumable`, jobStatus.Running),   // past awol_timeout, failed
+		newJob(7, `streaming`, jobStatus.Running),   // StreamResumer, released
 	}, map[int64]bool{6: true})
 
-	if got := ids(resumable); len(got) != 2 || got[0] != 1 || got[1] != 2 {
-		t.Fatalf("resumable: got %v, want jobs 1 and 2", got)
+	if got := ids(resumable); len(got) != 3 || got[0] != 1 || got[1] != 2 || got[2] != 7 {
+		t.Fatalf("resumable: got %v, want jobs 1, 2 and 7", got)
 	}
 	if got := ids(rest); len(got) != 4 || got[0] != 3 || got[3] != 6 {
 		t.Fatalf("rest: got %v, want jobs 3 to 6", got)
