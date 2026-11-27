@@ -30,6 +30,8 @@ Heimdall includes a web interface running alongside the API.
 * **API**: `http://localhost:9090/api/v1`
 * **Web UI**: `http://localhost:9090/ui`
 
+To work on the web UI with a dev server, see [`web/README.md`](web/README.md).
+
 ---
 
 ## 🚀 Getting Started
