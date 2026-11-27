@@ -102,19 +102,59 @@ func (s *commandContext) Execute(ctx context.Context, r *plugin.Runtime, j *job.
 // StreamResult implements plugin.ResultStreamer: rows stream straight to w via result.StreamRows, so j.Result's full [][]any never exists.
 func (s *commandContext) StreamResult(ctx context.Context, w io.Writer, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
+	clusterContext := &clusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterContext); err != nil {
+			return err
+		}
+	}
+
 	// let's unmarshal job context
 	jobContext := &jobContext{}
 	if err := j.Context.Unmarshal(jobContext); err != nil {
 		return err
 	}
 
-	db, err := s.open(c, r.UserAgent)
+	// prepare snowflake config
+	privateKeyBytes, err := os.ReadFile(clusterContext.PrivateKey)
+	if err != nil {
+		return err
+	}
+
+	// Parse the private key
+	privateKey, err := parsePrivateKey(privateKeyBytes)
+	if err != nil {
+		return err
+	}
+
+	// s.Role from command context; empty string = Snowflake uses user's default role
+	dsn, err := sf.DSN(&sf.Config{
+		Account:       clusterContext.Account,
+		User:          clusterContext.User,
+		Database:      clusterContext.Database,
+		Warehouse:     clusterContext.Warehouse,
+		Role:          s.Role,
+		Authenticator: sf.AuthTypeJwt,
+		PrivateKey:    privateKey,
+		Application:   r.UserAgent,
+	})
+	if err != nil {
+		return err
+	}
+
+	// open connection
+	db, err := sql.Open(snowflakeDriverName, dsn)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	return streamQuery(ctx, w, db, j.ID, jobContext.Query)
+	rows, err := db.QueryContext(sf.WithQueryTag(ctx, queryTag(j.ID)), jobContext.Query)
+	if err != nil {
+		return err
+	}
+
+	return result.StreamRows(w, rows)
 
 }
 
