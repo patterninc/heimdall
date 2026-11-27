@@ -89,11 +89,11 @@ pnpm dev:stack --build
 
 Options:
 
-| Setting             | Default                 | Description                                                                                                                                              |
-| ------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--build`           | not set                 | Rebuild the Heimdall image before the start.                                                                                                             |
-| `API_URL`           | `http://localhost:9090` | The address that the script waits for and that the dev server uses. Set it in the shell. Change it only when Docker publishes ports on a different host. |
-| `DEV_STACK_TIMEOUT` | `180`                   | The maximum number of seconds to wait for the API.                                                                                                       |
+| Setting             | Default                 | Description                                                                                                                                                                                                                                                                          |
+| ------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--build`           | not set                 | Rebuild the Heimdall image before the start.                                                                                                                                                                                                                                         |
+| `DEV_STACK_API_URL` | `http://localhost:9090` | The address that the script waits for and that the dev server uses as `API_URL`. Set it in the shell. Change it only when Docker publishes ports on a different host. The script does not read `API_URL` from the shell, so an `API_URL` for a remote API does not change the stack. |
+| `DEV_STACK_TIMEOUT` | `180`                   | The maximum number of seconds to wait for the API.                                                                                                                                                                                                                                   |
 
 `docker-compose.yaml` gives the `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` and `AWS_REGION` variables from your shell to the API container. Only the plugins that use AWS need them. The `ping` command in `configs/local.yaml` does not need them.
 
@@ -119,6 +119,8 @@ These commands run `docker compose down` (with `--volumes` for the second comman
 docker compose down            # keep the data
 docker compose down --volumes  # delete the data
 ```
+
+`--build` works only with `pnpm dev:stack`, and `--volumes` works only with `pnpm dev:stack:down`. The script stops with an error when you use a flag with the wrong command. `pnpm dev:stack` also stops before it starts Docker when `pnpm install` was not done.
 
 To see the API logs, run `docker compose logs -f heimdall` from the repository root.
 

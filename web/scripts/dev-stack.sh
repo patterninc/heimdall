@@ -5,7 +5,7 @@ set -eu
 
 WEB_DIR=$(cd "$(dirname "$0")/.." && pwd)
 COMPOSE_FILE="$WEB_DIR/../docker-compose.yaml"
-API_URL=${API_URL:-http://localhost:9090}
+API_URL=${DEV_STACK_API_URL:-http://localhost:9090}
 TIMEOUT=${DEV_STACK_TIMEOUT:-180}
 
 BUILD_FLAG=
@@ -19,6 +19,18 @@ for arg in "$@"; do
     *) echo "unknown flag: $arg (use --build, --down, --volumes)" >&2; exit 1 ;;
   esac
 done
+
+if [ "$DOWN" = true ] && [ -n "$BUILD_FLAG" ]; then
+  echo "dev:stack: --build cannot be used with --down" >&2; exit 1
+fi
+if [ "$DOWN" = false ] && [ -n "$VOLUMES_FLAG" ]; then
+  echo "dev:stack: --volumes works only with --down (pnpm dev:stack:down --volumes)" >&2; exit 1
+fi
+
+if [ "$DOWN" = false ] && [ ! -x "$WEB_DIR/node_modules/.bin/next" ]; then
+  echo "dev:stack: dependencies are missing. Run 'pnpm install' in web/ first." >&2
+  exit 1
+fi
 
 if ! docker info > /dev/null 2>&1; then
   echo "dev:stack: Docker is not running or not installed. Start Docker and try again." >&2
