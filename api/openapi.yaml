@@ -906,7 +906,7 @@ components:
     CommandInput:
       type: object
       description: Body of `PUT /command/{id}`. The path sets the ID.
-      required: [status, plugin]
+      required: [status, plugin, tags, cluster_tags]
       properties:
         name:
           type: string
@@ -968,7 +968,7 @@ components:
     ClusterInput:
       type: object
       description: Body of `PUT /cluster/{id}`. The path sets the ID.
-      required: [status]
+      required: [status, tags]
       properties:
         name:
           type: string

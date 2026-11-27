@@ -520,12 +520,12 @@ export interface components {
             name?: string;
             version?: string;
             description?: string;
-            tags?: components["schemas"]["Tags"];
+            tags: components["schemas"]["Tags"];
             context?: components["schemas"]["Context"];
             status: components["schemas"]["StatusInput"];
             plugin: string;
             is_sync?: boolean;
-            cluster_tags?: components["schemas"]["Tags"];
+            cluster_tags: components["schemas"]["Tags"];
             /** @description The server accepts this field but does not store it. */
             allowed_callers?: string[];
         };
@@ -551,7 +551,7 @@ export interface components {
             name?: string;
             version?: string;
             description?: string;
-            tags?: components["schemas"]["Tags"];
+            tags: components["schemas"]["Tags"];
             context?: components["schemas"]["Context"];
             status: components["schemas"]["StatusInput"];
             /** @description The server accepts this field but does not store it. */

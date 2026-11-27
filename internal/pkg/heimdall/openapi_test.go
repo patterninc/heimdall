@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/babourine/x/pkg/set"
 	"github.com/gorilla/mux"
 	"gopkg.in/yaml.v3"
 
@@ -29,6 +30,7 @@ var openAPIMethods = []string{`get`, `put`, `post`, `delete`, `patch`, `head`, `
 
 type openAPISchema struct {
 	Properties map[string]any `yaml:"properties"`
+	Required   []string       `yaml:"required"`
 	Enum       []string       `yaml:"enum"`
 }
 
@@ -210,6 +212,48 @@ func TestOpenAPISchemasMatchGoTypes(t *testing.T) {
 		for _, prop := range schemaProperties(t, spec, name) {
 			if !slices.Contains(allowed, prop) {
 				t.Errorf("schema %s has property %s, which the Go type does not have", name, prop)
+			}
+		}
+	}
+}
+
+func setFieldNames(t reflect.Type) []string {
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	var names []string
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		name, _, _ := strings.Cut(field.Tag.Get(`json`), `,`)
+		if field.Anonymous && name == `` {
+			names = append(names, setFieldNames(field.Type)...)
+			continue
+		}
+		if field.Type == reflect.TypeFor[*set.Set[string]]() {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+func TestOpenAPIInputsRequireTheSetsTheHandlerReads(t *testing.T) {
+	spec := loadOpenAPISpec(t)
+
+	inputs := []struct {
+		schema  string
+		goType  reflect.Type
+		notRead []string
+	}{
+		{`JobInput`, reflect.TypeFor[job.Job](), []string{`tags`}},
+		{`CommandInput`, reflect.TypeFor[command.Command](), []string{`allowed_callers`}},
+		{`ClusterInput`, reflect.TypeFor[cluster.Cluster](), nil},
+	}
+	for _, input := range inputs {
+		required := spec.Components.Schemas[input.schema].Required
+		for _, name := range without(setFieldNames(input.goType), input.notRead...) {
+			if !slices.Contains(required, name) {
+				t.Errorf("schema %s does not require %s, but the handler dereferences this set without a nil check", input.schema, name)
 			}
 		}
 	}
