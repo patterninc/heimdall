@@ -2,33 +2,13 @@ import type { TableColumn, TableDataRow } from '@patterninc/pattern-ui/table'
 import { Tag } from '@patterninc/pattern-ui/tag'
 import React from 'react'
 
+import type { Job } from '@/common/api/types'
 import { formatDateWithTimeZone, myTimezone, orDash } from '@/common/Services'
 import { jobStatusVariant } from '@/common/Services/status'
 import RowActionButton from '@/components/ListPage/RowActionButton'
 import TruncatedText from '@/components/TruncatedText/TruncatedText'
 
-export type ApiParams = {
-  id?: string
-  username?: string
-  name?: string
-  version?: string
-  cluster?: string
-  command?: string
-  status?: string[]
-  tags?: string
-  limit?: string
-  cursor?: string
-  order_by?: string
-  direction?: string
-}
-
 export const JOBS_PAGE_SIZE = 20
-
-export type JobsResponse = {
-  data: JobType[]
-  has_more?: boolean
-  next_cursor?: string
-}
 
 export type TagPair = {
   key: string
@@ -56,38 +36,6 @@ export const parseTags = (value: string): TagPair[] =>
       return acc
     }, [])
 
-export type JobType = {
-  id: string
-  name: string
-  version: string
-  user: string
-  tags: string[]
-  created_at: number
-  updated_at: number
-  status: string
-  is_sync: boolean
-  command_criteria: string[]
-  cluster_criteria: string[]
-  command_id: string
-  command_name: string
-  cluster_id: string
-  cluster_name: string
-  canceled_by?: string
-  job_attributes?: Record<string, { kind?: string; value?: string }>
-  error?: string
-  context?: {
-    properties: {
-      'spark.driver.cores': string
-      'spark.driver.memory': string
-      'spark.executor.cores': string
-      'spark.executor.instances': string
-      'spark.executor.memory': string
-    }
-    query: string
-    return_result?: boolean
-  }
-}
-
 /** Column keys double as the server's `order_by` values for sortable columns. */
 export const JOB_COLUMNS: TableColumn[] = [
   { key: 'id', header: 'Job ID', sortable: true, wrap: 'nowrap' },
@@ -102,7 +50,7 @@ export const JOB_COLUMNS: TableColumn[] = [
   { key: 'actions', header: '', minWidth: '88px' },
 ]
 
-export const toJobRows = (jobs: JobType[]): TableDataRow[] =>
+export const toJobRows = (jobs: Job[]): TableDataRow[] =>
   jobs.map((job) => ({
     id: job.id,
     name: job.name ? (

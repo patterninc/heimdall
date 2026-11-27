@@ -43,6 +43,8 @@ if [ "${RUN_TESTS}" = "true" ]; then
   (cd ${WORKING_DIR} && go test ./internal/pkg/... && go test ./pkg/...)
   # unit, integration and snapshot tests; fails on a failing test or coverage below the threshold
   install_web_deps
+  # fails when web/src/common/api/schema.d.ts is not the output of `pnpm gen:api` for api/openapi.yaml (also lints the spec)
+  (cd ${WORKING_DIR}/web && pnpm check:api)
   (cd ${WORKING_DIR}/web && pnpm test)
 fi
 

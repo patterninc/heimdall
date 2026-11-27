@@ -13,12 +13,8 @@ import { FilterMenu } from '@/components/FilterMenu/FilterMenu'
 import type { FilterDimension } from '@/components/FilterMenu/filterTypes'
 import ListEmptyState from '@/components/ListPage/ListEmptyState'
 import ListPage from '@/components/ListPage/ListPage'
-import {
-  ApiParams,
-  CLUSTER_COLUMNS,
-  ClusterType,
-  toClusterRows,
-} from './Helper'
+import type { ClustersQuery } from '@/common/api/types'
+import { CLUSTER_COLUMNS, toClusterRows } from './Helper'
 
 const FILTER_DEBOUNCE_MS = 300
 
@@ -45,7 +41,7 @@ const Clusters = (): React.JSX.Element => {
     serialize: (value) => value?.join(',') ?? '',
   })
 
-  const filterParams: ApiParams = {}
+  const filterParams: ClustersQuery = {}
   if (clusterId) filterParams.id = clusterId
   if (user) filterParams.username = user
   if (clusterName) filterParams.name = clusterName
@@ -56,14 +52,14 @@ const Clusters = (): React.JSX.Element => {
     equalityFn: isSameJson,
   })
 
-  const { data, isPending, isPlaceholderData } = useQuery<ClusterType[]>({
+  const { data, isPending, isPlaceholderData } = useQuery({
     queryKey: ['clusters', debouncedParams],
     queryFn: () => getClusters(debouncedParams),
     refetchInterval: refreshInterval.value,
     placeholderData: (prev) => prev,
   })
 
-  const { data: statusData } = useQuery<string[]>({
+  const { data: statusData } = useQuery({
     queryKey: ['clusterStatuses'],
     queryFn: getClusterStatus,
   })

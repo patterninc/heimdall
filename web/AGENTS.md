@@ -8,6 +8,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+## API types
+
+The API request and response types come from the OpenAPI spec in `../api/openapi.yaml`. Import them from `@/common/api/types`. Do not write API types by hand.
+
+- `pnpm gen:api` makes `src/common/api/schema.d.ts` again from the spec. Do not edit that file.
+- `pnpm check:api` fails when `schema.d.ts` is not the output of the spec. `build.sh --test` runs it.
+- `context` on jobs, commands and clusters is free-form (each plugin sets its keys). Read its keys with `contextString` and `contextEntries` from `@/common/api/context`.
+
+To change the API contract, read `../api/README.md`.
+
 ## Tests
 
 Vitest, React Testing Library and MSW. Run from `web/`:

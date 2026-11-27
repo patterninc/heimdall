@@ -1,9 +1,7 @@
-import type { ClusterType } from '@/modules/Clusters/Helper'
+import type { Cluster, ResourceStatus } from '@/common/api/types'
 import { FIXTURE_CREATED_AT, FIXTURE_UPDATED_AT } from './jobs'
 
-export const buildCluster = (
-  overrides: Partial<ClusterType> = {},
-): ClusterType => ({
+export const buildCluster = (overrides: Partial<Cluster> = {}): Cluster => ({
   id: 'cluster-emr',
   name: 'emr-prod',
   version: '7.1.0',
@@ -22,7 +20,7 @@ export const buildCluster = (
   ...overrides,
 })
 
-export const clusters: ClusterType[] = [
+export const clusters: Cluster[] = [
   buildCluster(),
   buildCluster({
     id: 'cluster-local',
@@ -41,4 +39,4 @@ export const clusters: ClusterType[] = [
   }),
 ]
 
-export const clusterStatuses = ['ACTIVE', 'INACTIVE']
+export const clusterStatuses: ResourceStatus[] = ['ACTIVE', 'INACTIVE']

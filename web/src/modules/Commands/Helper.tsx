@@ -2,49 +2,13 @@ import type { TableColumn, TableDataRow } from '@patterninc/pattern-ui/table'
 import { Tag } from '@patterninc/pattern-ui/tag'
 import React from 'react'
 
+import type { Command } from '@/common/api/types'
 import { formatDateWithTimeZone, myTimezone, orDash } from '@/common/Services'
 import { resourceStatusVariant } from '@/common/Services/status'
 import RowActionButton from '@/components/ListPage/RowActionButton'
 import TruncatedText from '@/components/TruncatedText/TruncatedText'
 
-export type ApiParams = {
-  id?: string
-  username?: string
-  name?: string
-  plugin?: string
-  version?: string
-  status?: string[]
-}
-
-export type CommandContext = {
-  logs_uri?: string
-  properties?: {
-    'spark.driver.cores'?: string
-    'spark.executor.cores'?: string
-    'spark.executor.instances'?: string
-    'spark.executor.memory'?: string
-  }
-  queries_uri?: string
-  results_uri?: string
-}
-
-export type CommandType = {
-  id: string
-  name: string
-  version: string
-  user: string
-  description: string
-  tags: string[]
-  created_at: number
-  updated_at: number
-  status: string
-  plugin: string
-  cluster_tags?: string[]
-  is_sync?: boolean
-  context?: CommandContext
-}
-
-/** Sorted client-side, so every column key must be a `CommandType` field. */
+/** Sorted client-side, so every column key must be a `Command` field. */
 export const COMMAND_COLUMNS: TableColumn[] = [
   { key: 'name', header: 'Name', sortable: true, minWidth: '200px' },
   { key: 'version', header: 'Version', sortable: true },
@@ -62,7 +26,7 @@ export const COMMAND_COLUMNS: TableColumn[] = [
   { key: 'actions', header: '', minWidth: '88px' },
 ]
 
-export const toCommandRows = (commands: CommandType[]): TableDataRow[] =>
+export const toCommandRows = (commands: Command[]): TableDataRow[] =>
   commands.map((command) => ({
     name: command.name || command.id,
     version: orDash(command.version),

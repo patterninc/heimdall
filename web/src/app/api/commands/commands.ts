@@ -1,22 +1,26 @@
+import type {
+  Command,
+  CommandsPage,
+  CommandsQuery,
+  ResourceStatus,
+} from '@/common/api/types'
 import { API_URL, buildQueryString } from '@/common/Services'
-import { ApiParams } from '@/modules/Commands/Helper'
 
-export const getCommands = async (params: ApiParams) => {
+export const getCommands = async (
+  params: CommandsQuery,
+): Promise<Command[]> => {
   const queryString = buildQueryString(params)
   const response = await fetch(`${API_URL}/commands?${queryString}`)
-  const data = await response.json()
-  return data.data
+  if (!response.ok) return []
+  const page: CommandsPage = await response.json()
+  return page.data ?? []
 }
 
-export const getCommandStatus = async () => {
+export const getCommandStatus = async (): Promise<ResourceStatus[]> => {
   const response = await fetch(`${API_URL}/command/statuses`)
-  const data = await response.json()
-  return data
+  if (!response.ok) return []
+  return await response.json()
 }
 
-export const getCommandDetails = async (id: string) => {
-  const queryString = buildQueryString({ id: id })
-  const response = await fetch(`${API_URL}/commands?${queryString}`)
-  const data = await response.json()
-  return data.data
-}
+export const getCommandDetails = (id: string): Promise<Command[]> =>
+  getCommands({ id })

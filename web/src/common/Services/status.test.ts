@@ -21,7 +21,7 @@ describe('resourceStatusVariant', () => {
   it.each([
     ['ACTIVE', 'positive'],
     ['INACTIVE', 'weak'],
-    ['DEPRECATED', 'negative'],
+    ['DELETED', 'negative'],
     [undefined, 'negative'],
   ])('maps %s to %s', (status, variant) => {
     expect(resourceStatusVariant(status)).toBe(variant)

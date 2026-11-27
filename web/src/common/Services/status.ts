@@ -1,6 +1,8 @@
 import type { TagVariant } from '@patterninc/pattern-ui/tag'
 
-const JOB_STATUS_VARIANTS: Record<string, TagVariant> = {
+import type { JobStatus } from '@/common/api/types'
+
+const JOB_STATUS_VARIANTS: Partial<Record<JobStatus, TagVariant>> = {
   SUCCEEDED: 'positive',
   FAILED: 'negative',
   RUNNING: 'caution',
@@ -10,7 +12,7 @@ const JOB_STATUS_VARIANTS: Record<string, TagVariant> = {
 }
 
 export const jobStatusVariant = (status?: string): TagVariant =>
-  (status && JOB_STATUS_VARIANTS[status]) || 'weak'
+  (status && JOB_STATUS_VARIANTS[status as JobStatus]) || 'weak'
 
 /** Commands and clusters share the ACTIVE / INACTIVE / other lifecycle. */
 export const resourceStatusVariant = (status?: string): TagVariant => {

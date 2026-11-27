@@ -1,6 +1,8 @@
 import DetailSection from '@/components/DetailPage/DetailSection'
 import React from 'react'
 
+import { contextEntries, contextString } from '@/common/api/context'
+import type { Command } from '@/common/api/types'
 import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
 import DetailFields from '@/components/DetailPage/DetailFields'
 import ExternalLinkList, {
@@ -8,10 +10,9 @@ import ExternalLinkList, {
 } from '@/components/DetailPage/ExternalLinkList'
 import KeyValueList from '@/components/DetailPage/KeyValueList'
 import TagList from '@/components/DetailPage/TagList'
-import { CommandType } from '../Helper'
 
 type CommandInformationPaneProps = {
-  command?: CommandType
+  command?: Command
   isLoading: boolean
 }
 
@@ -21,13 +22,11 @@ const CommandInformationPane = ({
 }: CommandInformationPaneProps): React.JSX.Element => {
   const context = command?.context
   const links: ExternalLink[] = [
-    { label: 'Logs', href: context?.logs_uri },
-    { label: 'Queries', href: context?.queries_uri },
-    { label: 'Results', href: context?.results_uri },
+    { label: 'Logs', href: contextString(context, 'logs_uri') },
+    { label: 'Queries', href: contextString(context, 'queries_uri') },
+    { label: 'Results', href: contextString(context, 'results_uri') },
   ].filter((link): link is ExternalLink => Boolean(link.href))
-  const properties = Object.entries(context?.properties ?? {}).map(
-    ([key, value]): [string, string] => [key, String(value)],
-  )
+  const properties = contextEntries(context, 'properties')
 
   return (
     <>

@@ -7,7 +7,6 @@ import { getCommandDetails } from '@/app/api/commands/commands'
 import { resourceStatusVariant } from '@/common/Services/status'
 import DetailPage from '@/components/DetailPage/DetailPage'
 import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
-import { CommandType } from '../Helper'
 import CommandInformationPane from './CommandInformationPane'
 
 type CommandDetailsProp = {
@@ -18,7 +17,7 @@ type CommandDetailsProp = {
 export const CommandDetails = ({
   id,
 }: CommandDetailsProp): React.JSX.Element => {
-  const { data, isPending, isError } = useQuery<CommandType[]>({
+  const { data, isPending, isError } = useQuery({
     queryKey: ['commandDetails', id],
     queryFn: () => getCommandDetails(id),
   })

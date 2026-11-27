@@ -13,11 +13,12 @@ export const noDataAvailableDescription =
   'Please update the filters to find what you need.'
 
 export const buildQueryString = (
-  params: Record<string, string | string[] | number>,
+  params: Record<string, string | readonly string[] | number | undefined>,
 ): string => {
   const queryParams = new URLSearchParams()
 
   Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined) return
     if (Array.isArray(value)) {
       queryParams.append(key, value.join(','))
     } else {

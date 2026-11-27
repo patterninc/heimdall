@@ -23,6 +23,10 @@ describe('buildQueryString', () => {
     )
   })
 
+  it('leaves out undefined values', () => {
+    expect(buildQueryString({ name: undefined, id: 'job-1' })).toBe('id=job-1')
+  })
+
   it('returns an empty string for no params', () => {
     expect(buildQueryString({})).toBe('')
   })

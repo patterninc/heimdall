@@ -7,7 +7,6 @@ import { getCluster } from '@/app/api/clusters/clusters'
 import { resourceStatusVariant } from '@/common/Services/status'
 import DetailPage from '@/components/DetailPage/DetailPage'
 import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
-import { ClusterType } from '../Helper'
 import ClusterInformationPane from './ClusterInformationPane'
 
 type ClusterDetailsProps = {
@@ -16,7 +15,7 @@ type ClusterDetailsProps = {
 }
 
 const ClustersDetails = ({ id }: ClusterDetailsProps): React.JSX.Element => {
-  const { data, isPending, isError } = useQuery<ClusterType[]>({
+  const { data, isPending, isError } = useQuery({
     queryKey: ['cluster', id],
     queryFn: () => getCluster(id),
   })

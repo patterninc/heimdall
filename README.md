@@ -30,6 +30,8 @@ Heimdall includes a web interface running alongside the API.
 * **API**: `http://localhost:9090/api/v1`
 * **Web UI**: `http://localhost:9090/ui`
 
+The API contract is the OpenAPI spec in [`api/openapi.yaml`](api/openapi.yaml). The web UI uses TypeScript types that are made from it. [`api/README.md`](api/README.md) tells you how to change the spec and make the types again.
+
 ---
 
 ## 🚀 Getting Started

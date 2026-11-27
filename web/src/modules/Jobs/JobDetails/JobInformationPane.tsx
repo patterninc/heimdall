@@ -4,6 +4,8 @@ import DetailSection from '@/components/DetailPage/DetailSection'
 import Link from 'next/link'
 import React from 'react'
 
+import { contextEntries, contextString } from '@/common/api/context'
+import type { Job } from '@/common/api/types'
 import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
 import DetailFields from '@/components/DetailPage/DetailFields'
 import ExternalLinkList, {
@@ -11,10 +13,9 @@ import ExternalLinkList, {
 } from '@/components/DetailPage/ExternalLinkList'
 import KeyValueList from '@/components/DetailPage/KeyValueList'
 import TagList from '@/components/DetailPage/TagList'
-import { JobType } from '../Helper'
 
 type JobInformationPaneProps = {
-  jobData?: JobType
+  jobData?: Job
   isLoading: boolean
 }
 
@@ -38,7 +39,8 @@ const JobInformationPane = ({
   const textAttributes: [string, string][] = attributes
     .filter(([, attr]) => attr?.kind !== 'link')
     .map(([label, attr]) => [label, attr?.value ?? '—'])
-  const properties = Object.entries(jobData?.context?.properties ?? {})
+  const properties = contextEntries(jobData?.context, 'properties')
+  const query = contextString(jobData?.context, 'query')
 
   return (
     <>
@@ -123,12 +125,12 @@ const JobInformationPane = ({
         </DetailSection>
       ) : null}
 
-      {jobData?.context?.query ? (
+      {query ? (
         <DetailSection label='SQL query' qaTestId='job-details-query'>
           {/* The theme sets inline `white-space: pre` on pre/code, hence the important modifiers to wrap long lines. */}
           <div className='px-3 pt-1 pb-3'>
             <CodeBlock
-              code={jobData.context.query}
+              code={query}
               language='sql'
               className='[&_.max-h-\[600px\]]:max-h-72 [&_code]:wrap-break-word! [&_code]:whitespace-pre-wrap! [&_pre]:whitespace-pre-wrap!'
             />

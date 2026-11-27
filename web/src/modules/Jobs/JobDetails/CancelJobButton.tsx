@@ -8,13 +8,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import React, { useState } from 'react'
 
 import { cancelJob } from '@/app/api/jobs/jobs'
+import type { Job, JobStatus } from '@/common/api/types'
 import { useIsSmUp } from '@/common/hooks/useIsSmUp'
-import { JobType } from '../Helper'
 
-const CANCELABLE_STATUSES = ['NEW', 'ACCEPTED', 'RUNNING']
+const CANCELABLE_STATUSES: JobStatus[] = ['NEW', 'ACCEPTED', 'RUNNING']
 
 type CancelJobButtonProps = {
-  job: JobType
+  job: Job
 }
 
 const CancelJobButton = ({ job }: CancelJobButtonProps): React.JSX.Element => {
@@ -26,13 +26,13 @@ const CancelJobButton = ({ job }: CancelJobButtonProps): React.JSX.Element => {
     mutationFn: (id: string) => cancelJob(id),
     onSuccess: (response) => {
       setConfirmOpen(false)
-      if (response.status === 'CANCELING') {
+      if ('status' in response && response.status === 'CANCELING') {
         pulse.info({ title: 'Job is being canceled…' })
         queryClient.invalidateQueries({ queryKey: ['job', job.id] })
       } else {
         pulse.error({
           title: 'Failed to cancel job',
-          description: response.error,
+          description: 'error' in response ? response.error : undefined,
         })
       }
     },
