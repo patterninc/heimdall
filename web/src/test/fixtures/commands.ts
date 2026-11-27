@@ -1,9 +1,7 @@
-import type { CommandType } from '@/modules/Commands/Helper'
+import type { Command, ResourceStatus } from '@/common/api/types'
 import { FIXTURE_CREATED_AT, FIXTURE_UPDATED_AT } from './jobs'
 
-export const buildCommand = (
-  overrides: Partial<CommandType> = {},
-): CommandType => ({
+export const buildCommand = (overrides: Partial<Command> = {}): Command => ({
   id: 'cmd-spark',
   name: 'spark-sql',
   version: '3.5.0',
@@ -25,7 +23,7 @@ export const buildCommand = (
   ...overrides,
 })
 
-export const commands: CommandType[] = [
+export const commands: Command[] = [
   buildCommand(),
   buildCommand({
     id: 'cmd-shell',
@@ -46,8 +44,12 @@ export const commands: CommandType[] = [
     user: 'carol',
     description: '',
     plugin: 'ping',
-    status: 'DEPRECATED',
+    status: 'DELETED',
   }),
 ]
 
-export const commandStatuses = ['ACTIVE', 'INACTIVE', 'DEPRECATED']
+export const commandStatuses: ResourceStatus[] = [
+  'ACTIVE',
+  'INACTIVE',
+  'DELETED',
+]

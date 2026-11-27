@@ -169,6 +169,39 @@ func (h *Heimdall) Init() error {
 
 }
 
+type apiRoute struct {
+	method  string
+	path    string
+	handler http.HandlerFunc
+}
+
+// apiRoutes lists the /api/v1 routes in match order: the router uses path prefixes, so a longer path must come before a shorter path that it starts with.
+func (h *Heimdall) apiRoutes() []apiRoute {
+	return []apiRoute{
+		{methodGET, `/job/statuses`, payloadHandler(h.getJobStatuses)},
+		{methodGET, `/job/{id}/status`, payloadHandler(h.getJobStatus)},
+		{methodPOST, `/job/{id}/cancel`, payloadHandler(h.cancelJob)},
+		{methodGET, `/job/{id}/{file}`, h.getJobFile},
+		{methodGET, `/job/{id}`, payloadHandler(h.getJob)},
+		{methodGET, `/jobs`, payloadHandler(h.getJobs)},
+		{methodPOST, `/job`, payloadHandler(h.submitJob)},
+		{methodGET, `/command/statuses`, payloadHandler(h.getCommandStatuses)},
+		{methodGET, `/command/{id}/status`, payloadHandler(h.getCommandStatus)},
+		{methodPUT, `/command/{id}/status`, payloadHandler(h.updateCommandStatus)},
+		{methodPUT, `/command/{id}`, payloadHandler(h.submitCommand)},
+		{methodGET, `/command/{id}`, payloadHandler(h.getCommand)},
+		{methodGET, `/commands`, payloadHandler(h.getCommands)},
+		{methodGET, `/cluster/statuses`, payloadHandler(h.getClusterStatuses)},
+		{methodGET, `/clusters/health`, h.getClustersHealth},
+		{methodGET, `/cluster/{id}/health`, payloadHandler(h.getClusterHealth)},
+		{methodGET, `/cluster/{id}/status`, payloadHandler(h.getClusterStatus)},
+		{methodPUT, `/cluster/{id}/status`, payloadHandler(h.updateClusterStatus)},
+		{methodPUT, `/cluster/{id}`, payloadHandler(h.submitCluster)},
+		{methodGET, `/cluster/{id}`, payloadHandler(h.getCluster)},
+		{methodGET, `/clusters`, payloadHandler(h.getClusters)},
+	}
+}
+
 // Start serves the API until ctx is done, then drains in-flight work for up to ShutdownTimeout seconds.
 func (h *Heimdall) Start(ctx context.Context) error {
 	// set routes
@@ -180,28 +213,9 @@ func (h *Heimdall) Start(ctx context.Context) error {
 	// set API routes
 	apiRouter := router.PathPrefix(defaultAPIPrefix).Subrouter()
 
-	// job(s) endpoints...
-	apiRouter.Methods(methodGET).PathPrefix(`/job/statuses`).HandlerFunc(payloadHandler(h.getJobStatuses))
-	apiRouter.Methods(methodGET).PathPrefix(`/job/{id}/status`).HandlerFunc(payloadHandler(h.getJobStatus))
-	apiRouter.Methods(methodPOST).PathPrefix(`/job/{id}/cancel`).HandlerFunc(payloadHandler(h.cancelJob))
-	apiRouter.Methods(methodGET).PathPrefix(`/job/{id}/{file}`).HandlerFunc(h.getJobFile)
-	apiRouter.Methods(methodGET).PathPrefix(`/job/{id}`).HandlerFunc(payloadHandler(h.getJob))
-	apiRouter.Methods(methodGET).PathPrefix(`/jobs`).HandlerFunc(payloadHandler(h.getJobs))
-	apiRouter.Methods(methodPOST).PathPrefix(`/job`).HandlerFunc(payloadHandler(h.submitJob))
-	apiRouter.Methods(methodGET).PathPrefix(`/command/statuses`).HandlerFunc(payloadHandler(h.getCommandStatuses))
-	apiRouter.Methods(methodGET).PathPrefix(`/command/{id}/status`).HandlerFunc(payloadHandler(h.getCommandStatus))
-	apiRouter.Methods(methodPUT).PathPrefix(`/command/{id}/status`).HandlerFunc(payloadHandler(h.updateCommandStatus))
-	apiRouter.Methods(methodPUT).PathPrefix(`/command/{id}`).HandlerFunc(payloadHandler(h.submitCommand))
-	apiRouter.Methods(methodGET).PathPrefix(`/command/{id}`).HandlerFunc(payloadHandler(h.getCommand))
-	apiRouter.Methods(methodGET).PathPrefix(`/commands`).HandlerFunc(payloadHandler(h.getCommands))
-	apiRouter.Methods(methodGET).PathPrefix(`/cluster/statuses`).HandlerFunc(payloadHandler(h.getClusterStatuses))
-	apiRouter.Methods(methodGET).PathPrefix(`/clusters/health`).HandlerFunc(h.getClustersHealth)
-	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}/health`).HandlerFunc(payloadHandler(h.getClusterHealth))
-	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}/status`).HandlerFunc(payloadHandler(h.getClusterStatus))
-	apiRouter.Methods(methodPUT).PathPrefix(`/cluster/{id}/status`).HandlerFunc(payloadHandler(h.updateClusterStatus))
-	apiRouter.Methods(methodPUT).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.submitCluster))
-	apiRouter.Methods(methodGET).PathPrefix(`/cluster/{id}`).HandlerFunc(payloadHandler(h.getCluster))
-	apiRouter.Methods(methodGET).PathPrefix(`/clusters`).HandlerFunc(payloadHandler(h.getClusters))
+	for _, route := range h.apiRoutes() {
+		apiRouter.Methods(route.method).PathPrefix(route.path).HandlerFunc(route.handler)
+	}
 
 	// metrics endpoint - proxy to metrics service
 	router.Path(`/metrics`).HandlerFunc(metricsRouteHandler)

@@ -13,12 +13,8 @@ import { FilterMenu } from '@/components/FilterMenu/FilterMenu'
 import type { FilterDimension } from '@/components/FilterMenu/filterTypes'
 import ListEmptyState from '@/components/ListPage/ListEmptyState'
 import ListPage from '@/components/ListPage/ListPage'
-import {
-  ApiParams,
-  COMMAND_COLUMNS,
-  CommandType,
-  toCommandRows,
-} from './Helper'
+import type { CommandsQuery } from '@/common/api/types'
+import { COMMAND_COLUMNS, toCommandRows } from './Helper'
 
 const FILTER_DEBOUNCE_MS = 300
 
@@ -46,7 +42,7 @@ const Commands = (): React.JSX.Element => {
     serialize: (value) => value?.join(',') ?? '',
   })
 
-  const filterParams: ApiParams = {}
+  const filterParams: CommandsQuery = {}
   if (commandId) filterParams.id = commandId
   if (user) filterParams.username = user
   if (commandName) filterParams.name = commandName
@@ -58,14 +54,14 @@ const Commands = (): React.JSX.Element => {
     equalityFn: isSameJson,
   })
 
-  const { data, isPending, isPlaceholderData } = useQuery<CommandType[]>({
+  const { data, isPending, isPlaceholderData } = useQuery({
     queryKey: ['commands', debouncedParams],
     queryFn: () => getCommands(debouncedParams),
     refetchInterval: refreshInterval.value,
     placeholderData: (prev) => prev,
   })
 
-  const { data: statusData } = useQuery<string[]>({
+  const { data: statusData } = useQuery({
     queryKey: ['commandStatuses'],
     queryFn: getCommandStatus,
   })

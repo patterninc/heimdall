@@ -1,0 +1,1049 @@
+openapi: 3.1.0
+info:
+  title: Heimdall API
+  version: 1.0.0-draft
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+  description: |
+    REST API of the Heimdall service, served under `/api/v1`.
+
+    This spec is written by hand from the Go handlers in `internal/pkg/heimdall`.
+    It is a draft. The Go API owners must confirm it. See `api/README.md`.
+
+    Request rules that apply to every operation:
+
+    - The server reads the caller from a request header. The auth plugin sets the
+      header name (`X-Heimdall-User` in `configs/local.yaml`). A request that is not
+      a `GET` and has no caller gets `401`.
+    - Path parameters and query parameters override fields with the same name in
+      the JSON body. The server always sets `user` to the caller.
+    - Every error body is an `Error` object. Most errors use status `500`, which
+      includes unknown IDs. The only other error codes are `401`, `403` and
+      `404` (job result not ready).
+    - Any other path under `/api/v1` gets `500` with
+      `{"error": "unknown endpoint: <METHOD> <path>"}`.
+servers:
+  - url: /api/v1
+security:
+  - HeimdallUser: []
+  - {}
+tags:
+  - name: jobs
+    description: Submit, read and cancel jobs.
+  - name: commands
+    description: Read and register commands.
+  - name: clusters
+    description: Read and register clusters, and run cluster health checks.
+paths:
+  /jobs:
+    get:
+      tags: [jobs]
+      operationId: listJobs
+      summary: List jobs, one page at a time
+      description: |
+        Text filters use SQL `LIKE`, so `%` is a wildcard. The server sorts on
+        `order_by` and uses the internal row ID to break ties. To get the next
+        page, send `next_cursor` from the last page as `cursor`, with the same
+        filters and sort.
+      parameters:
+        - $ref: '#/components/parameters/UsernameFilter'
+        - $ref: '#/components/parameters/IdFilter'
+        - $ref: '#/components/parameters/NameFilter'
+        - $ref: '#/components/parameters/VersionFilter'
+        - name: command
+          in: query
+          description: Filter on the command name (SQL `LIKE`).
+          schema:
+            type: string
+        - name: cluster
+          in: query
+          description: Filter on the cluster name (SQL `LIKE`).
+          schema:
+            type: string
+        - $ref: '#/components/parameters/StatusFilter'
+        - name: tags
+          in: query
+          description: Job tags, for example `team:data`. A job must have all of the tags.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: limit
+          in: query
+          description: Page size. Values below 1 or that are not numbers use the default. Values above 101 use 101.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 101
+            default: 101
+        - name: cursor
+          in: query
+          description: The `next_cursor` value from the last page. Do not send it for the first page.
+          schema:
+            type: string
+        - name: order_by
+          in: query
+          description: Sort column. Other values sort on the internal row ID.
+          schema:
+            type: string
+            enum: [id, created_at, updated_at]
+        - name: direction
+          in: query
+          description: Sort direction. Values other than `asc` sort descending.
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: One page of jobs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobsPage'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /job:
+    post:
+      tags: [jobs]
+      operationId: submitJob
+      summary: Submit a job
+      description: |
+        The server selects an active command whose tags contain
+        `command_criteria`, and an active cluster whose tags contain the
+        command's `cluster_tags` and `cluster_criteria`. If more than one pair
+        matches, the server selects one at random.
+
+        For an async command, the server stores the job and returns it with
+        status `NEW`. For a sync command, the server runs the job before it
+        responds, and the response can contain `result`.
+      security:
+        - HeimdallUser: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobInput'
+      responses:
+        '200':
+          description: The accepted job. For a sync job, the job after it ran.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmittedJob'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The caller is not in the `allowed_callers` list of the selected command.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /job/statuses:
+    get:
+      tags: [jobs]
+      operationId: getJobStatuses
+      summary: List all job status names
+      responses:
+        '200':
+          description: All job status names, sorted.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobStatus'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /job/{id}:
+    get:
+      tags: [jobs]
+      operationId: getJob
+      summary: Get a job
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: The job.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /job/{id}/status:
+    get:
+      tags: [jobs]
+      operationId: getJobStatus
+      summary: Get the status of a job
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: The status fields of the job.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatusSnapshot'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /job/{id}/cancel:
+    post:
+      tags: [jobs]
+      operationId: cancelJob
+      summary: Cancel a job
+      description: |
+        Sets the job status to `CANCELING`. The job must not be in a final
+        status (`FAILED`, `KILLED`, `SUCCEEDED` or `CANCELED`). The server sends
+        no request body to the handler, so send an empty body.
+      security:
+        - HeimdallUser: []
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: The job is now canceling.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCancelResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /job/{id}/{file}:
+    get:
+      tags: [jobs]
+      operationId: getJobFile
+      summary: Get an output file of a job
+      description: |
+        `stdout` and `stderr` are plain text. `result` is JSON. Only the user
+        who submitted the job can get `result`, and only after the job
+        succeeded.
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - name: file
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [stdout, stderr, result]
+      responses:
+        '200':
+          description: The file content.
+          content:
+            text/plain:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        '403':
+          description: '`result` only. The caller did not submit the job.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: '`result` only. The job did not succeed.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /commands:
+    get:
+      tags: [commands]
+      operationId: listCommands
+      summary: List commands
+      description: Returns 101 commands or fewer, newest first. Text filters use SQL `LIKE`.
+      parameters:
+        - $ref: '#/components/parameters/UsernameFilter'
+        - $ref: '#/components/parameters/IdFilter'
+        - $ref: '#/components/parameters/NameFilter'
+        - $ref: '#/components/parameters/VersionFilter'
+        - name: plugin
+          in: query
+          description: Filter on the plugin name (SQL `LIKE`).
+          schema:
+            type: string
+        - $ref: '#/components/parameters/StatusFilter'
+      responses:
+        '200':
+          description: The commands that match the filters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandsPage'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /command/statuses:
+    get:
+      tags: [commands]
+      operationId: getCommandStatuses
+      summary: List all command status names
+      responses:
+        '200':
+          description: All command status names, sorted.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResourceStatus'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /command/{id}:
+    get:
+      tags: [commands]
+      operationId: getCommand
+      summary: Get a command
+      parameters:
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: The command.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Command'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags: [commands]
+      operationId: upsertCommand
+      summary: Create or replace a command
+      description: |
+        Writes the command to the database. The running server does not load a
+        plugin handler for it, so jobs cannot use the command until the server
+        restarts with it in its config.
+      security:
+        - HeimdallUser: []
+      parameters:
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommandInput'
+      responses:
+        '200':
+          description: The stored command.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Command'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /command/{id}/status:
+    get:
+      tags: [commands]
+      operationId: getCommandStatus
+      summary: Get the status of a command
+      parameters:
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: The status fields of the command.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceStatusSnapshot'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags: [commands]
+      operationId: updateCommandStatus
+      summary: Set the status of a command
+      security:
+        - HeimdallUser: []
+      parameters:
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusUpdate'
+      responses:
+        '200':
+          description: The status fields of the command after the update.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceStatusSnapshot'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /clusters:
+    get:
+      tags: [clusters]
+      operationId: listClusters
+      summary: List clusters
+      description: Returns 101 clusters or fewer, newest first. Text filters use SQL `LIKE`.
+      parameters:
+        - $ref: '#/components/parameters/UsernameFilter'
+        - $ref: '#/components/parameters/IdFilter'
+        - $ref: '#/components/parameters/NameFilter'
+        - $ref: '#/components/parameters/VersionFilter'
+        - $ref: '#/components/parameters/StatusFilter'
+      responses:
+        '200':
+          description: The clusters that match the filters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClustersPage'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /cluster/statuses:
+    get:
+      tags: [clusters]
+      operationId: getClusterStatuses
+      summary: List all cluster status names
+      responses:
+        '200':
+          description: All cluster status names, sorted.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResourceStatus'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /clusters/health:
+    get:
+      tags: [clusters]
+      operationId: getClustersHealth
+      summary: Run health checks on all clusters
+      description: |
+        Checks each active cluster from the server config that has
+        `health_check` set and matches an active command. The status code is
+        `200` when no check has status `error`, and `503` when one or more do.
+      responses:
+        '200':
+          description: No check failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthChecks'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          description: One or more checks failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthChecks'
+  /cluster/{id}/health:
+    get:
+      tags: [clusters]
+      operationId: getClusterHealth
+      summary: Run a health check on one cluster
+      description: |
+        The cluster must be in the server config and have `health_check` set.
+        The status code is `200` also when the check fails. Read `healthy`.
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      responses:
+        '200':
+          description: The result of the check.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthChecks'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /cluster/{id}:
+    get:
+      tags: [clusters]
+      operationId: getCluster
+      summary: Get a cluster
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      responses:
+        '200':
+          description: The cluster.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cluster'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags: [clusters]
+      operationId: upsertCluster
+      summary: Create or replace a cluster
+      description: |
+        Writes the cluster to the database. The server does not store
+        `health_check`, `rbacs` or `attributes`, and health checks and job
+        routing use the server config, not this record.
+      security:
+        - HeimdallUser: []
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterInput'
+      responses:
+        '200':
+          description: The stored cluster.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cluster'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /cluster/{id}/status:
+    get:
+      tags: [clusters]
+      operationId: getClusterStatus
+      summary: Get the status of a cluster
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      responses:
+        '200':
+          description: The status fields of the cluster.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceStatusSnapshot'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags: [clusters]
+      operationId: updateClusterStatus
+      summary: Set the status of a cluster
+      security:
+        - HeimdallUser: []
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusUpdate'
+      responses:
+        '200':
+          description: The status fields of the cluster after the update.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceStatusSnapshot'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+components:
+  securitySchemes:
+    HeimdallUser:
+      type: apiKey
+      in: header
+      name: X-Heimdall-User
+      description: |
+        The caller's user name. The auth plugin config sets the header name.
+        `X-Heimdall-User` is the value in `configs/local.yaml`.
+  parameters:
+    JobId:
+      name: id
+      in: path
+      required: true
+      description: Job ID (a UUID that the server issues).
+      schema:
+        type: string
+    CommandId:
+      name: id
+      in: path
+      required: true
+      description: Command ID.
+      schema:
+        type: string
+    ClusterId:
+      name: id
+      in: path
+      required: true
+      description: Cluster ID.
+      schema:
+        type: string
+    UsernameFilter:
+      name: username
+      in: query
+      description: Filter on the user name (SQL `LIKE`).
+      schema:
+        type: string
+    IdFilter:
+      name: id
+      in: query
+      description: Filter on the ID (SQL `LIKE`).
+      schema:
+        type: string
+    NameFilter:
+      name: name
+      in: query
+      description: Filter on the name (SQL `LIKE`).
+      schema:
+        type: string
+    VersionFilter:
+      name: version
+      in: query
+      description: Filter on the version (SQL `LIKE`).
+      schema:
+        type: string
+    StatusFilter:
+      name: status
+      in: query
+      description: Status names, for example `RUNNING,FAILED`. An item matches one of them.
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          type: string
+  responses:
+    Unauthorized:
+      description: The request has no caller. Only requests that are not `GET` need a caller.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServerError:
+      description: |
+        Any other error, for example an unknown ID, a body that is not valid
+        JSON, or a database error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      description: Error body for every error response.
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: The error message.
+        id:
+          type: string
+          description: ID of the object in the request, when the handler had one (for example the job ID of a sync job that failed).
+    JobStatus:
+      type: string
+      enum: [NEW, ACCEPTED, RUNNING, FAILED, KILLED, SUCCEEDED, CANCELING, CANCELED]
+    ResourceStatus:
+      type: string
+      description: Status of a command or a cluster.
+      enum: [ACTIVE, INACTIVE, DELETED]
+    StatusInput:
+      type: string
+      description: A `ResourceStatus` value. The server ignores case, so `Active` is also correct.
+      enum: [ACTIVE, INACTIVE, DELETED, active, inactive, deleted]
+    Context:
+      type: object
+      description: |
+        Free-form settings. The plugin sets the keys. The server replaces the
+        values of sensitive keys (`password`, `private_key`, `token` and the
+        keys in `sensitive_context_keys`) with `REDACTED`.
+      additionalProperties: true
+    Tags:
+      type: array
+      description: A set of strings, sorted, with no duplicates.
+      uniqueItems: true
+      items:
+        type: string
+    Timestamp:
+      type: integer
+      description: Unix time in seconds.
+    JobAttribute:
+      type: object
+      description: A value that the cluster `attributes` templates make for a job.
+      properties:
+        kind:
+          type: string
+          description: How the UI shows the value. Values are `link` and `text`.
+        value:
+          type: string
+    ResultColumn:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          description: Column type name, for example `string`, `long` or a database type name.
+    Result:
+      type: object
+      description: Tabular result of a job.
+      properties:
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResultColumn'
+        data:
+          type: array
+          description: Rows. Each row has one value for each column.
+          items:
+            type: array
+            items: {}
+    Job:
+      type: object
+      description: |
+        A stored job, from `GET /job/{id}` and `GET /jobs`. The server leaves
+        out fields that are empty, zero or false.
+      required: [id, status, user, tags, command_criteria, cluster_criteria, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        user:
+          type: string
+          description: The user who submitted the job.
+        description:
+          type: string
+        tags:
+          $ref: '#/components/schemas/Tags'
+        context:
+          $ref: '#/components/schemas/Context'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        is_sync:
+          type: boolean
+          description: The job ran in the request. The server leaves out `false`.
+        store_result_sync:
+          type: boolean
+          description: For a sync job, the server writes the result before it responds. The server leaves out `false`.
+        error:
+          type: string
+          description: Error message of a failed job.
+        command_criteria:
+          $ref: '#/components/schemas/Tags'
+        cluster_criteria:
+          $ref: '#/components/schemas/Tags'
+        command_id:
+          type: string
+        command_name:
+          type: string
+        cluster_id:
+          type: string
+        cluster_name:
+          type: string
+        canceled_by:
+          type: string
+          description: The user who canceled the job.
+        job_attributes:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/JobAttribute'
+    SubmittedJob:
+      type: object
+      description: |
+        The job from `POST /job`. It does not contain the command, cluster or
+        time fields. The server leaves out fields that are empty, zero or false.
+      required: [id, status, user, tags]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        user:
+          type: string
+          description: The user who submitted the job.
+        description:
+          type: string
+        tags:
+          $ref: '#/components/schemas/Tags'
+        context:
+          $ref: '#/components/schemas/Context'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        is_sync:
+          type: boolean
+          description: The job ran in the request. The server leaves out `false`.
+        store_result_sync:
+          type: boolean
+          description: For a sync job, the server writes the result before it responds. The server leaves out `false`.
+        error:
+          type: string
+          description: Error message of a failed job.
+        command_criteria:
+          $ref: '#/components/schemas/Tags'
+        cluster_criteria:
+          $ref: '#/components/schemas/Tags'
+        command_id:
+          type: string
+        command_name:
+          type: string
+        cluster_id:
+          type: string
+        cluster_name:
+          type: string
+        canceled_by:
+          type: string
+          description: The user who canceled the job.
+        job_attributes:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/JobAttribute'
+        result:
+          $ref: '#/components/schemas/Result'
+    JobInput:
+      type: object
+      description: Body of `POST /job`. The server issues the job ID and ignores other job fields.
+      required: [command_criteria, cluster_criteria]
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+        description:
+          type: string
+        tags:
+          $ref: '#/components/schemas/Tags'
+        context:
+          $ref: '#/components/schemas/Context'
+        command_criteria:
+          $ref: '#/components/schemas/Tags'
+        cluster_criteria:
+          $ref: '#/components/schemas/Tags'
+        store_result_sync:
+          type: boolean
+    JobStatusSnapshot:
+      type: object
+      required: [status, updated_at, user]
+      properties:
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        error:
+          type: string
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+        user:
+          type: string
+    JobCancelResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: CANCELING
+    JobsPage:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Job'
+        has_more:
+          type: boolean
+          description: More rows exist. The server leaves out `false`.
+        next_cursor:
+          type: string
+          description: Send as `cursor` to get the next page. Present only when `has_more` is true.
+    Command:
+      type: object
+      description: A stored command. The server leaves out fields that are empty, zero or false.
+      required: [id, status, user, tags, cluster_tags, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        user:
+          type: string
+          description: The user who last wrote the command.
+        description:
+          type: string
+        tags:
+          $ref: '#/components/schemas/Tags'
+        context:
+          $ref: '#/components/schemas/Context'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+        status:
+          $ref: '#/components/schemas/ResourceStatus'
+        plugin:
+          type: string
+        is_sync:
+          type: boolean
+          description: Jobs run in the request. The server leaves out `false`.
+        cluster_tags:
+          $ref: '#/components/schemas/Tags'
+    CommandInput:
+      type: object
+      description: Body of `PUT /command/{id}`. The path sets the ID.
+      required: [status, plugin]
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+        description:
+          type: string
+        tags:
+          $ref: '#/components/schemas/Tags'
+        context:
+          $ref: '#/components/schemas/Context'
+        status:
+          $ref: '#/components/schemas/StatusInput'
+        plugin:
+          type: string
+        is_sync:
+          type: boolean
+        cluster_tags:
+          $ref: '#/components/schemas/Tags'
+        allowed_callers:
+          type: array
+          description: The server accepts this field but does not store it.
+          items:
+            type: string
+    CommandsPage:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Command'
+    Cluster:
+      type: object
+      description: A stored cluster. The server leaves out fields that are empty or zero.
+      required: [id, status, user, tags, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        user:
+          type: string
+          description: The user who last wrote the cluster.
+        description:
+          type: string
+        tags:
+          $ref: '#/components/schemas/Tags'
+        context:
+          $ref: '#/components/schemas/Context'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+        status:
+          $ref: '#/components/schemas/ResourceStatus'
+    ClusterInput:
+      type: object
+      description: Body of `PUT /cluster/{id}`. The path sets the ID.
+      required: [status]
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+        description:
+          type: string
+        tags:
+          $ref: '#/components/schemas/Tags'
+        context:
+          $ref: '#/components/schemas/Context'
+        status:
+          $ref: '#/components/schemas/StatusInput'
+        health_check:
+          type: boolean
+          description: The server accepts this field but does not store it.
+        rbacs:
+          type: array
+          description: The server accepts this field but does not store it.
+          items:
+            type: string
+        attributes:
+          type: object
+          description: The server accepts this field but does not store it.
+          additionalProperties:
+            $ref: '#/components/schemas/JobAttribute'
+    ClustersPage:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Cluster'
+    StatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/StatusInput'
+    ResourceStatusSnapshot:
+      type: object
+      required: [status, updated_at]
+      properties:
+        status:
+          $ref: '#/components/schemas/ResourceStatus'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+    HealthCheckResult:
+      type: object
+      required: [cluster_id, cluster_name, plugin, status, latency_ms]
+      properties:
+        cluster_id:
+          type: string
+        cluster_name:
+          type: string
+        plugin:
+          type: string
+          description: Plugin of the command that the check used.
+        status:
+          type: string
+          enum: [ok, error, unchecked]
+          description: '`unchecked` means that the plugin has no health check.'
+        latency_ms:
+          type: integer
+        error:
+          type: string
+    HealthChecks:
+      type: object
+      required: [healthy, checks]
+      properties:
+        healthy:
+          type: boolean
+          description: No check has status `error`.
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/HealthCheckResult'

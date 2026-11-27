@@ -1,21 +1,26 @@
-import { buildQueryString } from '@/common/Services'
-import { ApiParams } from '@/modules/Clusters/Helper'
+import type {
+  Cluster,
+  ClustersPage,
+  ClustersQuery,
+  ResourceStatus,
+} from '@/common/api/types'
+import { API_URL, buildQueryString } from '@/common/Services'
 
-export const getClusters = async (params: ApiParams) => {
+export const getClusters = async (
+  params: ClustersQuery,
+): Promise<Cluster[]> => {
   const queryString = buildQueryString(params)
-  const response = await fetch(`/api/v1/clusters?${queryString}`)
-  const data = await response.json()
-  return data?.data
+  const response = await fetch(`${API_URL}/clusters?${queryString}`)
+  if (!response.ok) return []
+  const page: ClustersPage = await response.json()
+  return page.data ?? []
 }
 
-export const getClusterStatus = async () => {
-  const response = await fetch('/api/v1/cluster/statuses')
-  const data = await response.json()
-  return data
+export const getClusterStatus = async (): Promise<ResourceStatus[]> => {
+  const response = await fetch(`${API_URL}/cluster/statuses`)
+  if (!response.ok) return []
+  return await response.json()
 }
 
-export const getCluster = async (id: string) => {
-  const response = await fetch(`/api/v1/clusters?id=${id}`)
-  const data = await response.json()
-  return data.data
-}
+export const getCluster = (id: string): Promise<Cluster[]> =>
+  getClusters({ id })

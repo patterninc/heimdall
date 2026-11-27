@@ -1,0 +1,6 @@
+extends:
+  - recommended
+rules:
+  operation-operationId-unique: error
+  # The server sends 500 for an unknown ID on GET routes, so these operations have no 4XX response to document.
+  operation-4xx-response: off

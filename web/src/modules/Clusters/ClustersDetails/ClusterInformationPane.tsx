@@ -1,14 +1,15 @@
 import DetailSection from '@/components/DetailPage/DetailSection'
 import React from 'react'
 
+import { contextEntries, contextString } from '@/common/api/context'
+import type { Cluster } from '@/common/api/types'
 import { formatDateWithTimeZone, myTimezone } from '@/common/Services'
 import DetailFields from '@/components/DetailPage/DetailFields'
 import KeyValueList from '@/components/DetailPage/KeyValueList'
 import TagList from '@/components/DetailPage/TagList'
-import { ClusterType } from '../Helper'
 
 type ClusterInformationPaneProps = {
-  cluster?: ClusterType
+  cluster?: Cluster
   isLoading: boolean
 }
 
@@ -17,14 +18,11 @@ const ClusterInformationPane = ({
   isLoading,
 }: ClusterInformationPaneProps): React.JSX.Element => {
   const context = cluster?.context
-  const properties = Object.entries(context?.properties ?? {}).map(
-    ([key, value]): [string, string] => [key, String(value)],
-  )
-  const hasRuntime = Boolean(
-    context?.emr_release_label ||
-    context?.role_arn ||
-    context?.execution_role_arn,
-  )
+  const properties = contextEntries(context, 'properties')
+  const emrReleaseLabel = contextString(context, 'emr_release_label')
+  const roleArn = contextString(context, 'role_arn')
+  const executionRoleArn = contextString(context, 'execution_role_arn')
+  const hasRuntime = Boolean(emrReleaseLabel || roleArn || executionRoleArn)
 
   return (
     <>
@@ -58,13 +56,13 @@ const ClusterInformationPane = ({
             fields={[
               {
                 label: 'EMR release',
-                value: context?.emr_release_label,
+                value: emrReleaseLabel,
                 mono: true,
               },
-              { label: 'Role ARN', value: context?.role_arn, mono: true },
+              { label: 'Role ARN', value: roleArn, mono: true },
               {
                 label: 'Execution role ARN',
-                value: context?.execution_role_arn,
+                value: executionRoleArn,
                 mono: true,
               },
             ]}

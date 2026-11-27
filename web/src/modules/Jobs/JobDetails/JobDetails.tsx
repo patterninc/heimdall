@@ -7,7 +7,6 @@ import { getJobDetails } from '@/app/api/jobs/jobs'
 import { jobStatusVariant } from '@/common/Services/status'
 import DetailPage from '@/components/DetailPage/DetailPage'
 import ApiResponseButton from '@/components/ApiResponseButton/ApiResponseButton'
-import { JobType } from '../Helper'
 import CancelJobButton from './CancelJobButton'
 import JobInformationPane from './JobInformationPane'
 
@@ -20,7 +19,7 @@ const JobDetails = ({ id }: JobDetailsProp): React.JSX.Element => {
     data: jobData,
     isPending,
     isError,
-  } = useQuery<JobType>({
+  } = useQuery({
     queryKey: ['job', id],
     queryFn: () => getJobDetails(id),
   })
@@ -46,7 +45,10 @@ const JobDetails = ({ id }: JobDetailsProp): React.JSX.Element => {
         </>
       }
     >
-      <JobInformationPane jobData={jobData} isLoading={isPending} />
+      <JobInformationPane
+        jobData={jobData ?? undefined}
+        isLoading={isPending}
+      />
     </DetailPage>
   )
 }

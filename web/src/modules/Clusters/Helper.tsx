@@ -2,39 +2,12 @@ import type { TableColumn, TableDataRow } from '@patterninc/pattern-ui/table'
 import { Tag } from '@patterninc/pattern-ui/tag'
 import React from 'react'
 
+import type { Cluster } from '@/common/api/types'
 import { formatDateWithTimeZone, myTimezone, orDash } from '@/common/Services'
 import { resourceStatusVariant } from '@/common/Services/status'
 import RowActionButton from '@/components/ListPage/RowActionButton'
 
-export type ClusterContext = {
-  emr_release_label: string
-  execution_role_arn: string
-  properties: Record<string, string>
-  role_arn: string
-}
-
-export type ClusterType = {
-  id: string
-  name: string
-  version: string
-  user: string
-  description: string
-  tags: string[]
-  context: ClusterContext
-  created_at: number
-  updated_at: number
-  status: string
-}
-
-export type ApiParams = {
-  id?: string
-  username?: string
-  name?: string
-  version?: string
-  status?: string[]
-}
-
-/** Sorted client-side, so every column key must be a `ClusterType` field. */
+/** Sorted client-side, so every column key must be a `Cluster` field. */
 export const CLUSTER_COLUMNS: TableColumn[] = [
   { key: 'name', header: 'Name', sortable: true, minWidth: '200px' },
   { key: 'version', header: 'Version', sortable: true },
@@ -45,7 +18,7 @@ export const CLUSTER_COLUMNS: TableColumn[] = [
   { key: 'actions', header: '', minWidth: '88px' },
 ]
 
-export const toClusterRows = (clusters: ClusterType[]): TableDataRow[] =>
+export const toClusterRows = (clusters: Cluster[]): TableDataRow[] =>
   clusters.map((cluster) => ({
     name: cluster.name || cluster.id,
     version: orDash(cluster.version),

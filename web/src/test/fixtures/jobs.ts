@@ -1,11 +1,11 @@
-import type { JobType, JobsResponse } from '@/modules/Jobs/Helper'
+import type { Job, JobStatus, JobsPage } from '@/common/api/types'
 
 /** 2026-01-15 10:30:00 UTC */
 export const FIXTURE_CREATED_AT = 1768473000
 /** 2026-01-15 10:45:00 UTC */
 export const FIXTURE_UPDATED_AT = 1768473900
 
-export const buildJob = (overrides: Partial<JobType> = {}): JobType => ({
+export const buildJob = (overrides: Partial<Job> = {}): Job => ({
   id: 'job-0001',
   name: 'daily-revenue-rollup',
   version: '1.2.0',
@@ -38,7 +38,7 @@ export const buildJob = (overrides: Partial<JobType> = {}): JobType => ({
   ...overrides,
 })
 
-export const jobs: JobType[] = [
+export const jobs: Job[] = [
   buildJob(),
   buildJob({
     id: 'job-0002',
@@ -58,15 +58,15 @@ export const jobs: JobType[] = [
 ]
 
 export const jobsPage = (
-  data: JobType[] = jobs,
+  data: Job[] = jobs,
   next_cursor?: string,
-): JobsResponse => ({
+): JobsPage => ({
   data,
   has_more: Boolean(next_cursor),
   next_cursor,
 })
 
-export const jobStatuses = [
+export const jobStatuses: JobStatus[] = [
   'NEW',
   'ACCEPTED',
   'RUNNING',

@@ -14,6 +14,8 @@
     "lint-fix": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0 --fix",
     "format": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "type-check": "next typegen && tsc --noEmit",
+    "gen:api": "openapi-typescript ../api/openapi.yaml --redocly ../api/redocly.yaml -o src/common/api/schema.d.ts",
+    "check:api": "openapi-typescript ../api/openapi.yaml --redocly ../api/redocly.yaml -o src/common/api/schema.d.ts --check",
     "test": "vitest run --coverage",
     "test:watch": "vitest"
   },
@@ -54,6 +56,7 @@
     "eslint-plugin-prettier": "^5.2.3",
     "jsdom": "^31.0.1",
     "msw": "^3.0.7",
+    "openapi-typescript": "^7.13.0",
     "postcss": "^8",
     "prettier": "^3.5.2",
     "prettier-plugin-sort-json": "^4.1.1",

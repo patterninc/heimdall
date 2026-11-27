@@ -5,7 +5,7 @@ import { useQueryState } from 'nuqs'
 import React, { useContext, useState } from 'react'
 import { useDebounceValue } from 'usehooks-ts'
 
-import { fetchJobs, getJobStatus } from '@/app/api/jobs/jobs'
+import { type JobFilters, fetchJobs, getJobStatus } from '@/app/api/jobs/jobs'
 import { AutoRefreshContext } from '@/common/AutoRefreshProvider/context'
 import { SortBy, toggleSort } from '@/common/Services'
 import { FilterMenu } from '@/components/FilterMenu/FilterMenu'
@@ -13,7 +13,6 @@ import type { FilterDimension } from '@/components/FilterMenu/filterTypes'
 import ListEmptyState from '@/components/ListPage/ListEmptyState'
 import ListPage from '@/components/ListPage/ListPage'
 import {
-  ApiParams,
   JOB_COLUMNS,
   JOBS_PAGE_SIZE,
   TagPair,
@@ -60,7 +59,7 @@ const Jobs = (): React.JSX.Element => {
     serialize: (value) => serializeTags(value),
   })
 
-  const filterParams: ApiParams = {}
+  const filterParams: JobFilters = {}
   if (jobId) filterParams.id = jobId
   if (name) filterParams.name = name
   if (user) filterParams.username = user
@@ -69,7 +68,7 @@ const Jobs = (): React.JSX.Element => {
   if (commandId) filterParams.command = commandId
   if (status.length > 0) filterParams.status = status
   const serializedTags = serializeTags(tags)
-  if (serializedTags) filterParams.tags = serializedTags
+  if (serializedTags) filterParams.tags = serializedTags.split(',')
 
   // Text filters apply as you type; debounce so each keystroke doesn't hit the API.
   const [debouncedParams] = useDebounceValue(filterParams, FILTER_DEBOUNCE_MS, {
@@ -104,7 +103,7 @@ const Jobs = (): React.JSX.Element => {
     placeholderData: (prev) => prev,
   })
 
-  const { data: jobStatuses } = useQuery<string[]>({
+  const { data: jobStatuses } = useQuery({
     queryKey: ['jobStatuses'],
     queryFn: getJobStatus,
   })

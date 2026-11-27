@@ -16,7 +16,7 @@ describe('Jobs list page', () => {
     expect(await screen.findByText('3 results')).toBeInTheDocument()
     for (const job of jobs) {
       const row = screen.getByTestId(`job-row-${job.id}`)
-      expect(within(row).getByText(job.name)).toBeInTheDocument()
+      expect(within(row).getByText(job.name!)).toBeInTheDocument()
       expect(within(row).getByText(job.status)).toBeInTheDocument()
       expect(within(row).getByRole('button', { name: 'View' })).toHaveAttribute(
         'href',

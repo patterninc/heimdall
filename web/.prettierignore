@@ -4,3 +4,4 @@ pnpm-lock.yaml
 **/.next/*
 **/tsconfig.json
 .prettierrc
+src/common/api/schema.d.ts
