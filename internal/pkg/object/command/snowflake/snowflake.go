@@ -6,12 +6,15 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	sf "github.com/snowflakedb/gosnowflake"
 
+	"github.com/patterninc/heimdall/internal/pkg/aws"
 	heimdallContext "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
@@ -22,6 +25,13 @@ import (
 const (
 	privateKeyType      = `PRIVATE KEY`
 	snowflakeDriverName = `snowflake`
+	formatQueryTag      = `heimdall-job-%s`
+	s3Prefix            = `s3://`
+	resultFilename      = `result.json` // the file heimdall serves for a job, under its result directory
+
+	// result_limit picks the user's most recent queries before the where clause runs, so it is set to the maximum
+	queryByTagSelect = `select query_id from table(information_schema.query_history_by_user(result_limit => 10000)) where query_tag = ? order by start_time desc limit 1`
+	queryCancel      = `select system$cancel_query(?)`
 )
 
 var (
@@ -139,12 +149,145 @@ func (s *commandContext) StreamResult(ctx context.Context, w io.Writer, r *plugi
 	}
 	defer db.Close()
 
-	rows, err := db.QueryContext(ctx, jobContext.Query)
+	rows, err := db.QueryContext(sf.WithQueryTag(ctx, queryTag(j.ID)), jobContext.Query)
 	if err != nil {
 		return err
 	}
 
 	return result.StreamRows(w, rows)
+
+}
+
+// Resume implements plugin.Resumer. Snowflake keeps running a query after its client disconnects,
+// so the job's query is found by its query tag and its result fetched by query ID; a query that was never
+// submitted runs now.
+func (s *commandContext) Resume(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+
+	return writeResult(ctx, r, func(w io.Writer) error {
+		return s.resume(ctx, w, r, j, c)
+	})
+
+}
+
+func (s *commandContext) resume(ctx context.Context, w io.Writer, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+
+	jobContext := &jobContext{}
+	if err := j.Context.Unmarshal(jobContext); err != nil {
+		return err
+	}
+
+	db, err := s.open(c, r.UserAgent)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	queryID, err := queryByTag(ctx, db, j.ID)
+	if err != nil {
+		return err
+	}
+	if queryID == `` {
+		return streamQuery(ctx, w, db, j.ID, jobContext.Query)
+	}
+
+	// the driver polls a running query until it finishes; a failed or canceled query returns its error
+	rows, err := db.QueryContext(sf.WithFetchResultByID(ctx, queryID), ``)
+	if err != nil {
+		return err
+	}
+
+	return result.StreamRows(w, rows)
+
+}
+
+func streamQuery(ctx context.Context, w io.Writer, db *sql.DB, jobID, query string) error {
+
+	rows, err := db.QueryContext(sf.WithQueryTag(ctx, queryTag(jobID)), query)
+	if err != nil {
+		return err
+	}
+
+	return result.StreamRows(w, rows)
+
+}
+
+// writeResult streams the result to the file heimdall serves for the job.
+func writeResult(ctx context.Context, r *plugin.Runtime, write func(io.Writer) error) error {
+
+	name := r.ResultDirectory + "/" + resultFilename
+	if strings.HasPrefix(r.ResultDirectory, s3Prefix) {
+		return aws.StreamToS3(ctx, name, write)
+	}
+
+	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+
+	writeErr := write(f)
+	closeErr := f.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+
+	return closeErr
+
+}
+
+func queryTag(jobID string) string {
+	return fmt.Sprintf(formatQueryTag, jobID)
+}
+
+// queryByTag returns the ID of the job's query, or an empty string if it was never submitted.
+func queryByTag(ctx context.Context, db *sql.DB, jobID string) (string, error) {
+
+	var queryID string
+	if err := db.QueryRowContext(ctx, queryByTagSelect, queryTag(jobID)).Scan(&queryID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return ``, err
+	}
+
+	return queryID, nil
+
+}
+
+// open connects to the cluster's warehouse as its user, with the command's role.
+func (s *commandContext) open(c *cluster.Cluster, application string) (*sql.DB, error) {
+
+	clusterContext := &clusterContext{}
+	if c.Context != nil {
+		if err := c.Context.Unmarshal(clusterContext); err != nil {
+			return nil, err
+		}
+	}
+
+	// prepare snowflake config
+	privateKeyBytes, err := os.ReadFile(clusterContext.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the private key
+	privateKey, err := parsePrivateKey(privateKeyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// s.Role from command context; empty string = Snowflake uses user's default role
+	dsn, err := sf.DSN(&sf.Config{
+		Account:       clusterContext.Account,
+		User:          clusterContext.User,
+		Database:      clusterContext.Database,
+		Warehouse:     clusterContext.Warehouse,
+		Role:          s.Role,
+		Authenticator: sf.AuthTypeJwt,
+		PrivateKey:    privateKey,
+		Application:   application,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return sql.Open(snowflakeDriverName, dsn)
 
 }
 
@@ -253,7 +396,21 @@ func scanToString(v any) string {
 	}
 }
 
+// Cleanup cancels the job's query if it is still running, so a query left by an agent that died stops using the warehouse.
 func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.Cluster) error {
-	// TODO: Implement cleanup if needed
-	return nil
+
+	db, err := s.open(c, ``)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	queryID, err := queryByTag(ctx, db, jobID)
+	if err != nil || queryID == `` {
+		return err
+	}
+
+	_, err = db.ExecContext(ctx, queryCancel, queryID)
+	return err
+
 }
