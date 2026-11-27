@@ -3,7 +3,7 @@
 Agent-agnostic guide for making and self-verifying **UI-only** changes to the Heimdall web app
 (Next.js + `@patterninc/react-ui`). Any coding agent or engineer can follow it.
 
-The loop is: **edit → gate on lint/type-check/build → verify the rendered result in a real browser → done.**
+The loop is: **edit → gate on lint/type-check/tests/build → verify the rendered result in a real browser → done.**
 Do not call a UI task done on a passing type-check alone — the bugs that matter here
 (missing element, broken layout, stray placeholder, bad responsiveness, false-success handlers) only
 show up when rendered.
@@ -104,12 +104,15 @@ Browser verification (required below) needs a browser-automation tool. This proj
   docker exec heimdall_postgres psql -U heimdall -d heimdall -c "update jobs set ... where job_id='<id>';"
   ```
 
-## Gate: lint / type-check / build (must pass) — run in `web/`
+## Gate: lint / type-check / tests / build (must pass) — run in `web/`
 
 - `npx prettier --check <changed files>`
 - `npx eslint <changed files>`
 - `npx tsc --noEmit 2>&1 | grep -E "<your files>"`
   (Type errors inside `node_modules/...` are pre-existing noise — filter to the files you touched.)
+- `pnpm test` — unit, integration and snapshot tests with the coverage gate (CI runs it too). If a
+  snapshot changes because of your intended UI change, update it with `pnpm vitest run -u` and
+  review the `.snap` diff. How the tests are laid out: [`web/AGENTS.md`](../../web/AGENTS.md#tests).
 
 ## Verify in a real browser (required)
 

@@ -1,0 +1,398 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`DetailPage > matches the snapshot in the error state 1`] = `
+<div>
+  <div
+    class="flex min-h-0 flex-1 flex-col"
+    qa-test-id="cluster-details"
+  >
+    <div
+      class="w-full overflow-hidden sticky z-30 bg-base-inverse top-14 md:top-0"
+      data-name="ContentHeader"
+      qa-test-id="cluster-details-header"
+    >
+      <div
+        class="relative flex h-18 items-center gap-3 p-4"
+      >
+        <div
+          class="flex min-w-0 flex-1 items-center gap-3"
+        >
+          <button
+            aria-label="Back to clusters"
+            class="relative isolate box-border flex shrink-0 items-center justify-center rounded-xl transition-colors duration-150 ease-out px-2 size-9 bg-depth-black-4 hover:bg-depth-black-8 focus:bg-depth-black-8 focus-visible:shadow-button-secondary data-[state=open]:bg-depth-black-8 aria-expanded:bg-depth-black-8 focus:outline-none cursor-pointer"
+            data-slot="tooltip-trigger"
+            data-state="closed"
+            qa-test-id="cluster-details-back"
+            tabindex="0"
+          >
+            <div
+              class="[&_svg]:pointer-events-none text-icon-sub"
+            >
+              <svg
+                color="var(--color-icon-sub)"
+                fill="transparent"
+                height="20"
+                viewBox="0 0 24 24"
+                width="20"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M10.25 6.75L4.75 12L10.25 17.25"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                />
+                
+  
+                <path
+                  d="M19.25 12H5"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                />
+              </svg>
+            </div>
+          </button>
+          <div
+            class="min-w-0"
+          >
+            <p
+              class="pui-text-label-medium truncate text-text-sub"
+            >
+              emr-prod
+            </p>
+            <p
+              class="pui-text-mono-small truncate text-text-soft"
+            >
+              cluster-emr
+            </p>
+          </div>
+          <div
+            class="flex shrink-0 items-center"
+          >
+            <span
+              class="pui-text-mono-small inline-flex items-center justify-center gap-0.5 whitespace-nowrap transition-colors bg-positive-lighter text-positive-base rounded-lg px-1.5 py-1"
+              data-slot="tag"
+              qa-test-id="cluster-details-status"
+            >
+              <span
+                class="flex min-w-0 items-center justify-center truncate px-0.5 py-0"
+              >
+                ACTIVE
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="flex flex-col gap-4 px-4 pb-6"
+    >
+      <div
+        class="relative mx-auto flex w-50 max-w-50 shrink-0 flex-col items-center justify-center gap-1"
+        qa-test-id="cluster-details-error"
+        style="min-height: 260px;"
+      >
+        <span
+          aria-hidden="true"
+          class="pui-text-mono-small inline-flex items-center justify-center gap-0.5 whitespace-nowrap transition-colors bg-depth-black-4 text-text-soft rounded-[10px] p-2 pointer-events-none absolute z-0 -left-[22%] top-[42%] -rotate-106 opacity-35"
+          data-slot="tag"
+          qa-test-id="tag"
+        >
+          <span
+            class="flex min-w-0 items-center justify-center truncate px-0.5 py-0"
+          >
+            Tiny revolutions
+          </span>
+        </span>
+        <span
+          aria-hidden="true"
+          class="pui-text-mono-small inline-flex items-center justify-center gap-0.5 whitespace-nowrap transition-colors bg-depth-black-4 text-text-soft rounded-[10px] p-2 pointer-events-none absolute z-0 left-[2%] top-[31%] -rotate-75 opacity-50"
+          data-slot="tag"
+          qa-test-id="tag"
+        >
+          <span
+            class="flex min-w-0 items-center justify-center truncate px-0.5 py-0"
+          >
+            Clever chaos
+          </span>
+        </span>
+        <span
+          aria-hidden="true"
+          class="pui-text-mono-small inline-flex items-center justify-center gap-0.5 whitespace-nowrap transition-colors bg-depth-black-4 text-text-soft rounded-[10px] p-2 pointer-events-none absolute z-0 left-[17%] top-[22%] -rotate-85 opacity-65"
+          data-slot="tag"
+          qa-test-id="tag"
+        >
+          <span
+            class="flex min-w-0 items-center justify-center truncate px-0.5 py-0"
+          >
+            Half-baked genius
+          </span>
+        </span>
+        <span
+          aria-hidden="true"
+          class="pui-text-mono-small inline-flex items-center justify-center gap-0.5 whitespace-nowrap transition-colors bg-depth-black-4 text-text-soft rounded-[10px] p-2 pointer-events-none absolute z-0 left-[40%] top-[28%] -rotate-92 opacity-50"
+          data-slot="tag"
+          qa-test-id="tag"
+        >
+          <span
+            class="flex min-w-0 items-center justify-center truncate px-0.5 py-0"
+          >
+            Thinking out loud
+          </span>
+        </span>
+        <span
+          aria-hidden="true"
+          class="pui-text-mono-small inline-flex items-center justify-center gap-0.5 whitespace-nowrap transition-colors bg-depth-black-4 text-text-soft rounded-[10px] p-2 pointer-events-none absolute z-0 left-[71%] top-[40%] -rotate-73 opacity-35"
+          data-slot="tag"
+          qa-test-id="tag"
+        >
+          <span
+            class="flex min-w-0 items-center justify-center truncate px-0.5 py-0"
+          >
+            Idea soup
+          </span>
+        </span>
+        <div
+          class="relative h-64 w-full shrink-0 overflow-hidden"
+        >
+          <div
+            class="pointer-events-none absolute inset-0 z-10 mask-[linear-gradient(to_bottom,transparent_0%,transparent_22%,black_58%,black_100%)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,transparent_22%,black_58%,black_100%)] bg-base-inverse"
+          />
+          <div
+            class="pointer-events-none absolute inset-0 z-10 mask-[linear-gradient(to_bottom,transparent_0%,transparent_42%,black_74%,black_100%)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,transparent_42%,black_74%,black_100%)] bg-base-inverse"
+          />
+          <div
+            class="relative z-20 flex flex-col items-center justify-center gap-4 px-4 pt-30 pb-8"
+          >
+            <div
+              class="text-center"
+            >
+              <h3
+                class="pui-text-body-medium-alt w-50 whitespace-normal text-text-sub"
+              >
+                We couldn't load this cluster
+              </h3>
+              <div
+                class="pui-text-body-small w-50 whitespace-normal text-text-soft"
+              >
+                It may have been removed, or the server is unavailable.
+              </div>
+            </div>
+            <button
+              class="relative isolate box-border flex shrink-0 items-center justify-center rounded-xl transition-colors duration-150 ease-out px-2 h-9 bg-depth-black-4 hover:bg-depth-black-8 focus:bg-depth-black-8 focus-visible:shadow-button-secondary data-[state=open]:bg-depth-black-8 aria-expanded:bg-depth-black-8 focus:outline-none text-text-sub cursor-pointer"
+              qa-test-id="button"
+              tabindex="0"
+            >
+              <span
+                class="pui-text-label-medium overflow-hidden px-1 text-nowrap text-ellipsis whitespace-pre lowercase text-text-sub"
+                style="visibility: visible;"
+              >
+                Back to clusters
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`DetailPage > matches the snapshot with header, status and content 1`] = `
+<div>
+  <div
+    class="flex min-h-0 flex-1 flex-col"
+    qa-test-id="cluster-details"
+  >
+    <div
+      class="w-full overflow-hidden sticky z-30 bg-base-inverse top-14 md:top-0"
+      data-name="ContentHeader"
+      qa-test-id="cluster-details-header"
+    >
+      <div
+        class="relative flex h-18 items-center gap-3 p-4"
+      >
+        <div
+          class="flex min-w-0 flex-1 items-center gap-3"
+        >
+          <button
+            aria-label="Back to clusters"
+            class="relative isolate box-border flex shrink-0 items-center justify-center rounded-xl transition-colors duration-150 ease-out px-2 size-9 bg-depth-black-4 hover:bg-depth-black-8 focus:bg-depth-black-8 focus-visible:shadow-button-secondary data-[state=open]:bg-depth-black-8 aria-expanded:bg-depth-black-8 focus:outline-none cursor-pointer"
+            data-slot="tooltip-trigger"
+            data-state="closed"
+            qa-test-id="cluster-details-back"
+            tabindex="0"
+          >
+            <div
+              class="[&_svg]:pointer-events-none text-icon-sub"
+            >
+              <svg
+                color="var(--color-icon-sub)"
+                fill="transparent"
+                height="20"
+                viewBox="0 0 24 24"
+                width="20"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M10.25 6.75L4.75 12L10.25 17.25"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                />
+                
+  
+                <path
+                  d="M19.25 12H5"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                />
+              </svg>
+            </div>
+          </button>
+          <div
+            class="min-w-0"
+          >
+            <p
+              class="pui-text-label-medium truncate text-text-sub"
+            >
+              emr-prod
+            </p>
+            <p
+              class="pui-text-mono-small truncate text-text-soft"
+            >
+              cluster-emr
+            </p>
+          </div>
+          <div
+            class="flex shrink-0 items-center"
+          >
+            <span
+              class="pui-text-mono-small inline-flex items-center justify-center gap-0.5 whitespace-nowrap transition-colors bg-positive-lighter text-positive-base rounded-lg px-1.5 py-1"
+              data-slot="tag"
+              qa-test-id="cluster-details-status"
+            >
+              <span
+                class="flex min-w-0 items-center justify-center truncate px-0.5 py-0"
+              >
+                ACTIVE
+              </span>
+            </span>
+          </div>
+        </div>
+        <div
+          class="flex shrink-0 items-center justify-end gap-3 justify-self-end"
+        >
+          <div
+            class="flex items-center gap-2"
+          >
+            <button
+              type="button"
+            >
+              Header action
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="flex flex-col gap-4 px-4 pb-6"
+    >
+      <p>
+        Detail content
+      </p>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`DetailPage > matches the snapshot with only the required header props 1`] = `
+<div>
+  <div
+    class="flex min-h-0 flex-1 flex-col"
+    qa-test-id="cluster-details"
+  >
+    <div
+      class="w-full overflow-hidden sticky z-30 bg-base-inverse top-14 md:top-0"
+      data-name="ContentHeader"
+      qa-test-id="cluster-details-header"
+    >
+      <div
+        class="relative flex h-18 items-center gap-3 p-4"
+      >
+        <div
+          class="flex min-w-0 flex-1 items-center gap-3"
+        >
+          <button
+            aria-label="Back to clusters"
+            class="relative isolate box-border flex shrink-0 items-center justify-center rounded-xl transition-colors duration-150 ease-out px-2 size-9 bg-depth-black-4 hover:bg-depth-black-8 focus:bg-depth-black-8 focus-visible:shadow-button-secondary data-[state=open]:bg-depth-black-8 aria-expanded:bg-depth-black-8 focus:outline-none cursor-pointer"
+            data-slot="tooltip-trigger"
+            data-state="closed"
+            qa-test-id="cluster-details-back"
+            tabindex="0"
+          >
+            <div
+              class="[&_svg]:pointer-events-none text-icon-sub"
+            >
+              <svg
+                color="var(--color-icon-sub)"
+                fill="transparent"
+                height="20"
+                viewBox="0 0 24 24"
+                width="20"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M10.25 6.75L4.75 12L10.25 17.25"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                />
+                
+  
+                <path
+                  d="M19.25 12H5"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                />
+              </svg>
+            </div>
+          </button>
+          <div
+            class="min-w-0 w-full"
+          >
+            <p
+              class="pui-text-label-medium truncate text-text-sub"
+            >
+              cluster-emr
+            </p>
+          </div>
+        </div>
+        <div
+          class="flex shrink-0 items-center justify-end gap-3 justify-self-end"
+        >
+          <div
+            class="flex items-center gap-2"
+          />
+        </div>
+      </div>
+    </div>
+    <div
+      class="flex flex-col gap-4 px-4 pb-6"
+    >
+      <p>
+        Detail content
+      </p>
+    </div>
+  </div>
+</div>
+`;

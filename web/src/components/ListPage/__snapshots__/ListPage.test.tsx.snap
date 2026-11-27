@@ -1,0 +1,1334 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ListPage > matches the snapshot for the empty state 1`] = `
+<div>
+  <div
+    class="flex min-h-0 flex-1 flex-col"
+    qa-test-id="clusters-page"
+  >
+    <div
+      class="w-full overflow-hidden sticky z-30 bg-base-inverse top-14 md:top-0"
+      data-name="ContentHeader"
+      qa-test-id="clusters-page-header"
+    >
+      <div
+        class="relative flex h-18 items-center gap-3 p-4"
+      >
+        <div
+          class="flex min-w-0 flex-1 items-center gap-3"
+        >
+          <div
+            class="min-w-0 w-full"
+          >
+            <p
+              class="pui-text-label-medium truncate text-text-sub"
+            >
+              Clusters
+            </p>
+            <p
+              class="pui-text-mono-small truncate text-text-soft"
+            >
+              0 results
+            </p>
+          </div>
+        </div>
+        <div
+          class="flex shrink-0 items-center justify-end gap-3 justify-self-end"
+        >
+          <div
+            class="min-w-0"
+            qa-test-id="auto-refresh-select"
+          >
+            <button
+              aria-disabled="false"
+              aria-expanded="false"
+              aria-haspopup="dialog"
+              aria-label="Auto-refresh interval"
+              class="inline-flex w-full items-center gap-3 rounded-xl border transition-colors outline-none border-transparent bg-base-inverse hover:bg-depth-black-4 focus:bg-depth-black-4 focus-visible:border-depth-black-4 disabled:bg-depth-black-4 data-[disabled]:bg-depth-black-4 data-[state=open]:border-depth-black-4 data-[state=open]:bg-depth-black-4 h-10 px-2.5 focus-visible:shadow-outline-secondary group cursor-pointer"
+              data-base-ui-click-trigger=""
+              data-slot="select-control"
+              data-state="closed"
+              id="base-ui-_id0_"
+              qa-test-id="drawer-trigger"
+              style="width: 212px;"
+              tabindex="0"
+              type="button"
+            >
+              <div
+                class="inline-flex items-center justify-center shrink-0 size-icon-md"
+                qa-test-id="prefix"
+              >
+                <svg
+                  color="var(--color-icon-sub)"
+                  fill="transparent"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M11.25 4.75L8.75 7L11.25 9.25"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                  />
+                  
+  
+                  <path
+                    d="M12.75 19.25L15.25 17L12.75 14.75"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                  />
+                  
+  
+                  <path
+                    d="M9.75 7H13.25C16.5637 7 19.25 9.68629 19.25 13V13.25"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                  />
+                  
+  
+                  <path
+                    d="M14.25 17H10.75C7.43629 17 4.75 14.3137 4.75 11V10.75"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                  />
+                </svg>
+              </div>
+              <span
+                class="pui-text-label-medium min-w-0 flex-1 truncate text-left text-text-sub"
+              >
+                Auto-refresh off
+              </span>
+              <svg
+                class="shrink-0 transition-transform duration-200"
+                color="var(--color-icon-sub)"
+                data-slot="select-suffix"
+                fill="transparent"
+                height="24"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M15.25 10.75L12 14.25L8.75 10.75"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="bg-base-inverse sticky top-30 z-20 flex justify-end px-4 pb-3 md:top-16"
+    >
+      <button
+        type="button"
+      >
+        Filters
+      </button>
+    </div>
+    <div
+      class="flex min-h-0 flex-1 flex-col px-4 pb-4"
+    >
+      <div
+        class="flex min-h-0 flex-col"
+        style="max-height: 744px;"
+      >
+        <div
+          class="group/table relative flex max-h-full w-full flex-col overflow-hidden rounded-2xl bg-base-weak min-h-0"
+          data-slot="table"
+          qa-test-id="clusters-table"
+        >
+          <div
+            class="relative flex min-h-0 min-w-0 flex-1 flex-col"
+          >
+            <div
+              class="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto"
+            >
+              <div
+                class="[container-type:inline-size] flex min-h-0 flex-1 flex-col"
+              >
+                <table
+                  class="w-full border-collapse"
+                  style="min-width: 608px; table-layout: auto; width: 100%;"
+                >
+                  <colgroup>
+                    <col
+                      style="min-width: 200px; max-width: 400px;"
+                    />
+                    <col
+                      style="min-width: 64px; max-width: 400px;"
+                    />
+                    <col
+                      style="min-width: 64px; max-width: 400px;"
+                    />
+                    <col
+                      style="min-width: 64px; max-width: 400px;"
+                    />
+                    <col
+                      style="min-width: 64px; max-width: 400px;"
+                    />
+                    <col
+                      style="min-width: 64px; max-width: 400px;"
+                    />
+                    <col
+                      style="width: 1px; min-width: 88px; max-width: 400px;"
+                    />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th
+                        class="sticky top-0 z-10 border-0 p-0 align-middle table-header-bg-weak"
+                      >
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors hover:bg-depth-black-8 flex-1 justify-start rounded-tl-2xl"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        >
+                          <p
+                            class="pui-text-body-medium-compact relative shrink-0 whitespace-nowrap transition-colors text-text-soft group-hover/header:text-text-sub"
+                          >
+                            Name
+                          </p>
+                          <button
+                            aria-label="Sort column descending"
+                            class="relative flex size-5 shrink-0 items-center justify-center cursor-pointer"
+                            tabindex="0"
+                            type="button"
+                          >
+                            <div
+                              class="flex items-center justify-center"
+                              style="color: var(--color-icon-soft);"
+                            >
+                              <svg
+                                color="currentColor"
+                                fill="transparent"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                width="20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M15.25 9.25L12 5.75L8.75 9.25M15.25 14.75L12 18.25L8.75 14.75"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="1.5"
+                                />
+                              </svg>
+                            </div>
+                          </button>
+                        </div>
+                      </th>
+                      <th
+                        class="sticky top-0 z-10 border-0 p-0 align-middle table-header-bg-weak"
+                      >
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors hover:bg-depth-black-8 flex-1 justify-start"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        >
+                          <p
+                            class="pui-text-body-medium-compact relative shrink-0 whitespace-nowrap transition-colors text-text-soft group-hover/header:text-text-sub"
+                          >
+                            Version
+                          </p>
+                          <button
+                            aria-label="Sort column descending"
+                            class="relative flex size-5 shrink-0 items-center justify-center cursor-pointer"
+                            tabindex="0"
+                            type="button"
+                          >
+                            <div
+                              class="flex items-center justify-center"
+                              style="color: var(--color-icon-soft);"
+                            >
+                              <svg
+                                color="currentColor"
+                                fill="transparent"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                width="20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M15.25 9.25L12 5.75L8.75 9.25M15.25 14.75L12 18.25L8.75 14.75"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="1.5"
+                                />
+                              </svg>
+                            </div>
+                          </button>
+                        </div>
+                      </th>
+                      <th
+                        class="sticky top-0 z-10 border-0 p-0 align-middle table-header-bg-weak"
+                      >
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors hover:bg-depth-black-8 flex-1 justify-start"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        >
+                          <p
+                            class="pui-text-body-medium-compact relative shrink-0 whitespace-nowrap transition-colors text-text-soft group-hover/header:text-text-sub"
+                          >
+                            User
+                          </p>
+                          <button
+                            aria-label="Sort column descending"
+                            class="relative flex size-5 shrink-0 items-center justify-center cursor-pointer"
+                            tabindex="0"
+                            type="button"
+                          >
+                            <div
+                              class="flex items-center justify-center"
+                              style="color: var(--color-icon-soft);"
+                            >
+                              <svg
+                                color="currentColor"
+                                fill="transparent"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                width="20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M15.25 9.25L12 5.75L8.75 9.25M15.25 14.75L12 18.25L8.75 14.75"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="1.5"
+                                />
+                              </svg>
+                            </div>
+                          </button>
+                        </div>
+                      </th>
+                      <th
+                        class="sticky top-0 z-10 border-0 p-0 align-middle table-header-bg-weak"
+                      >
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors hover:bg-depth-black-8 flex-1 justify-start whitespace-nowrap"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        >
+                          <p
+                            class="pui-text-body-medium-compact relative shrink-0 whitespace-nowrap transition-colors text-text-soft group-hover/header:text-text-sub"
+                          >
+                            Created At
+                          </p>
+                          <button
+                            aria-label="Sort column descending"
+                            class="relative flex size-5 shrink-0 items-center justify-center cursor-pointer"
+                            tabindex="0"
+                            type="button"
+                          >
+                            <div
+                              class="flex items-center justify-center"
+                              style="color: var(--color-icon-soft);"
+                            >
+                              <svg
+                                color="currentColor"
+                                fill="transparent"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                width="20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M15.25 9.25L12 5.75L8.75 9.25M15.25 14.75L12 18.25L8.75 14.75"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="1.5"
+                                />
+                              </svg>
+                            </div>
+                          </button>
+                        </div>
+                      </th>
+                      <th
+                        class="sticky top-0 z-10 border-0 p-0 align-middle table-header-bg-weak"
+                      >
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors hover:bg-depth-black-8 flex-1 justify-start whitespace-nowrap"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        >
+                          <p
+                            class="pui-text-body-medium-compact relative shrink-0 whitespace-nowrap transition-colors text-text-soft group-hover/header:text-text-sub"
+                          >
+                            Updated At
+                          </p>
+                          <button
+                            aria-label="Sort column descending"
+                            class="relative flex size-5 shrink-0 items-center justify-center cursor-pointer"
+                            tabindex="0"
+                            type="button"
+                          >
+                            <div
+                              class="flex items-center justify-center"
+                              style="color: var(--color-icon-soft);"
+                            >
+                              <svg
+                                color="currentColor"
+                                fill="transparent"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                width="20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M15.25 9.25L12 5.75L8.75 9.25M15.25 14.75L12 18.25L8.75 14.75"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="1.5"
+                                />
+                              </svg>
+                            </div>
+                          </button>
+                        </div>
+                      </th>
+                      <th
+                        class="sticky top-0 z-10 border-0 p-0 align-middle table-header-bg-weak"
+                      >
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors hover:bg-depth-black-8 flex-1 justify-start"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        >
+                          <p
+                            class="pui-text-body-medium-compact relative shrink-0 whitespace-nowrap transition-colors text-text-soft group-hover/header:text-text-sub"
+                          >
+                            Status
+                          </p>
+                          <button
+                            aria-label="Sort column descending"
+                            class="relative flex size-5 shrink-0 items-center justify-center cursor-pointer"
+                            tabindex="0"
+                            type="button"
+                          >
+                            <div
+                              class="flex items-center justify-center"
+                              style="color: var(--color-icon-soft);"
+                            >
+                              <svg
+                                color="currentColor"
+                                fill="transparent"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                width="20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M15.25 9.25L12 5.75L8.75 9.25M15.25 14.75L12 18.25L8.75 14.75"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="1.5"
+                                />
+                              </svg>
+                            </div>
+                          </button>
+                        </div>
+                      </th>
+                      <th
+                        class="sticky top-0 border-0 p-0 align-middle table-header-bg-weak z-20"
+                        style="inset-inline-end: 0px;"
+                      >
+                        <span
+                          class="sr-only"
+                        >
+                          actions
+                        </span>
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors flex-1 justify-start rounded-tr-2xl"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td
+                        class="border-0 p-0 align-middle"
+                        colspan="7"
+                      >
+                        <div
+                          aria-label="No data available"
+                          class="sticky left-0 flex items-center justify-center gap-2 w-[100cqw] min-h-80"
+                          role="status"
+                        >
+                          <div
+                            class="flex flex-col items-center gap-3 py-10 text-center"
+                          >
+                            <div
+                              class="flex flex-col items-center gap-1"
+                            >
+                              <p
+                                class="pui-text-mono-small text-depth-black-36"
+                                qa-test-id="no-data-available"
+                              >
+                                No Data Available
+                              </p>
+                              <p
+                                class="pui-text-body-medium-alt text-text-sub"
+                              >
+                                Please update the filters to find what you need.
+                              </p>
+                            </div>
+                            <button
+                              class="relative isolate box-border flex shrink-0 items-center justify-center rounded-10 transition-colors duration-150 ease-out px-1.5 h-8 bg-depth-black-4 hover:bg-depth-black-8 focus:bg-depth-black-8 focus-visible:shadow-button-secondary data-[state=open]:bg-depth-black-8 aria-expanded:bg-depth-black-8 focus:outline-none text-text-sub cursor-pointer"
+                              qa-test-id="empty-state-clear-filters"
+                              tabindex="0"
+                            >
+                              <span
+                                class="pui-text-label-medium overflow-hidden px-1 text-nowrap text-ellipsis whitespace-pre lowercase text-text-sub"
+                                style="visibility: visible;"
+                              >
+                                Clear filters
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`ListPage > matches the snapshot with rows 1`] = `
+<div>
+  <div
+    class="flex min-h-0 flex-1 flex-col"
+    qa-test-id="clusters-page"
+  >
+    <div
+      class="w-full overflow-hidden sticky z-30 bg-base-inverse top-14 md:top-0"
+      data-name="ContentHeader"
+      qa-test-id="clusters-page-header"
+    >
+      <div
+        class="relative flex h-18 items-center gap-3 p-4"
+      >
+        <div
+          class="flex min-w-0 flex-1 items-center gap-3"
+        >
+          <div
+            class="min-w-0 w-full"
+          >
+            <p
+              class="pui-text-label-medium truncate text-text-sub"
+            >
+              Clusters
+            </p>
+            <p
+              class="pui-text-mono-small truncate text-text-soft"
+            >
+              2 results
+            </p>
+          </div>
+        </div>
+        <div
+          class="flex shrink-0 items-center justify-end gap-3 justify-self-end"
+        >
+          <div
+            class="min-w-0"
+            qa-test-id="auto-refresh-select"
+          >
+            <button
+              aria-disabled="false"
+              aria-expanded="false"
+              aria-haspopup="dialog"
+              aria-label="Auto-refresh interval"
+              class="inline-flex w-full items-center gap-3 rounded-xl border transition-colors outline-none border-transparent bg-base-inverse hover:bg-depth-black-4 focus:bg-depth-black-4 focus-visible:border-depth-black-4 disabled:bg-depth-black-4 data-[disabled]:bg-depth-black-4 data-[state=open]:border-depth-black-4 data-[state=open]:bg-depth-black-4 h-10 px-2.5 focus-visible:shadow-outline-secondary group cursor-pointer"
+              data-base-ui-click-trigger=""
+              data-slot="select-control"
+              data-state="closed"
+              id="base-ui-_id0_"
+              qa-test-id="drawer-trigger"
+              style="width: 212px;"
+              tabindex="0"
+              type="button"
+            >
+              <div
+                class="inline-flex items-center justify-center shrink-0 size-icon-md"
+                qa-test-id="prefix"
+              >
+                <svg
+                  color="var(--color-icon-sub)"
+                  fill="transparent"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M11.25 4.75L8.75 7L11.25 9.25"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                  />
+                  
+  
+                  <path
+                    d="M12.75 19.25L15.25 17L12.75 14.75"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                  />
+                  
+  
+                  <path
+                    d="M9.75 7H13.25C16.5637 7 19.25 9.68629 19.25 13V13.25"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                  />
+                  
+  
+                  <path
+                    d="M14.25 17H10.75C7.43629 17 4.75 14.3137 4.75 11V10.75"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                  />
+                </svg>
+              </div>
+              <span
+                class="pui-text-label-medium min-w-0 flex-1 truncate text-left text-text-sub"
+              >
+                Auto-refresh off
+              </span>
+              <svg
+                class="shrink-0 transition-transform duration-200"
+                color="var(--color-icon-sub)"
+                data-slot="select-suffix"
+                fill="transparent"
+                height="24"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M15.25 10.75L12 14.25L8.75 10.75"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="bg-base-inverse sticky top-30 z-20 flex justify-end px-4 pb-3 md:top-16"
+    >
+      <button
+        type="button"
+      >
+        Filters
+      </button>
+    </div>
+    <div
+      class="flex min-h-0 flex-1 flex-col px-4 pb-4"
+    >
+      <div
+        class="flex min-h-0 flex-col"
+        style="max-height: 744px;"
+      >
+        <div
+          class="group/table relative flex max-h-full w-full flex-col overflow-hidden rounded-2xl bg-base-weak min-h-0"
+          data-slot="table"
+          qa-test-id="clusters-table"
+        >
+          <div
+            class="relative flex min-h-0 min-w-0 flex-1 flex-col"
+          >
+            <div
+              aria-label="Resize actions column"
+              aria-orientation="vertical"
+              aria-valuemin="88"
+              aria-valuenow="0"
+              class="absolute inset-y-0 z-30 w-4 translate-x-1/2 group/resize-handle flex cursor-col-resize items-center justify-center select-none focus-visible:outline-none opacity-0 transition-opacity duration-150 group-hover/table:opacity-100 focus-visible:opacity-100"
+              qa-test-id="column-resize-handle"
+              role="separator"
+              style="right: 0px;"
+              tabindex="0"
+            >
+              <div
+                class="h-8 w-1.5 rounded-full bg-border-sub group-focus-visible/resize-handle:outline-2 group-focus-visible/resize-handle:outline-offset-2 group-focus-visible/resize-handle:outline-primary-base"
+              />
+            </div>
+            <div
+              class="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto"
+            >
+              <div
+                class="[container-type:inline-size] flex min-h-0 flex-1 flex-col"
+              >
+                <table
+                  class="w-full border-collapse"
+                  style="min-width: 608px; table-layout: auto; width: 100%;"
+                >
+                  <colgroup>
+                    <col
+                      style="min-width: 200px; max-width: 400px;"
+                    />
+                    <col
+                      style="min-width: 64px; max-width: 400px;"
+                    />
+                    <col
+                      style="min-width: 64px; max-width: 400px;"
+                    />
+                    <col
+                      style="min-width: 64px; max-width: 400px;"
+                    />
+                    <col
+                      style="min-width: 64px; max-width: 400px;"
+                    />
+                    <col
+                      style="min-width: 64px; max-width: 400px;"
+                    />
+                    <col
+                      style="width: 1px; min-width: 88px; max-width: 400px;"
+                    />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th
+                        class="sticky top-0 z-10 border-0 p-0 align-middle table-header-bg-weak"
+                      >
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors hover:bg-depth-black-8 flex-1 justify-start rounded-tl-2xl"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        >
+                          <p
+                            class="pui-text-body-medium-compact relative shrink-0 whitespace-nowrap transition-colors text-text-soft group-hover/header:text-text-sub"
+                          >
+                            Name
+                          </p>
+                          <button
+                            aria-label="Sort column ascending"
+                            class="relative flex size-5 shrink-0 items-center justify-center cursor-pointer"
+                            tabindex="0"
+                            type="button"
+                          >
+                            <div
+                              class="flex items-center justify-center"
+                              style="color: var(--color-icon-soft);"
+                            >
+                              <svg
+                                color="currentColor"
+                                fill="transparent"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                width="20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M15.25 14.25L12 10.75L8.75 14.25"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="1.5"
+                                />
+                              </svg>
+                            </div>
+                          </button>
+                        </div>
+                      </th>
+                      <th
+                        class="sticky top-0 z-10 border-0 p-0 align-middle table-header-bg-weak"
+                      >
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors hover:bg-depth-black-8 flex-1 justify-start"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        >
+                          <p
+                            class="pui-text-body-medium-compact relative shrink-0 whitespace-nowrap transition-colors text-text-soft group-hover/header:text-text-sub"
+                          >
+                            Version
+                          </p>
+                          <button
+                            aria-label="Sort column descending"
+                            class="relative flex size-5 shrink-0 items-center justify-center cursor-pointer"
+                            tabindex="0"
+                            type="button"
+                          >
+                            <div
+                              class="flex items-center justify-center"
+                              style="color: var(--color-icon-soft);"
+                            >
+                              <svg
+                                color="currentColor"
+                                fill="transparent"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                width="20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M15.25 9.25L12 5.75L8.75 9.25M15.25 14.75L12 18.25L8.75 14.75"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="1.5"
+                                />
+                              </svg>
+                            </div>
+                          </button>
+                        </div>
+                      </th>
+                      <th
+                        class="sticky top-0 z-10 border-0 p-0 align-middle table-header-bg-weak"
+                      >
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors hover:bg-depth-black-8 flex-1 justify-start"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        >
+                          <p
+                            class="pui-text-body-medium-compact relative shrink-0 whitespace-nowrap transition-colors text-text-soft group-hover/header:text-text-sub"
+                          >
+                            User
+                          </p>
+                          <button
+                            aria-label="Sort column descending"
+                            class="relative flex size-5 shrink-0 items-center justify-center cursor-pointer"
+                            tabindex="0"
+                            type="button"
+                          >
+                            <div
+                              class="flex items-center justify-center"
+                              style="color: var(--color-icon-soft);"
+                            >
+                              <svg
+                                color="currentColor"
+                                fill="transparent"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                width="20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M15.25 9.25L12 5.75L8.75 9.25M15.25 14.75L12 18.25L8.75 14.75"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="1.5"
+                                />
+                              </svg>
+                            </div>
+                          </button>
+                        </div>
+                      </th>
+                      <th
+                        class="sticky top-0 z-10 border-0 p-0 align-middle table-header-bg-weak"
+                      >
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors hover:bg-depth-black-8 flex-1 justify-start whitespace-nowrap"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        >
+                          <p
+                            class="pui-text-body-medium-compact relative shrink-0 whitespace-nowrap transition-colors text-text-soft group-hover/header:text-text-sub"
+                          >
+                            Created At
+                          </p>
+                          <button
+                            aria-label="Sort column descending"
+                            class="relative flex size-5 shrink-0 items-center justify-center cursor-pointer"
+                            tabindex="0"
+                            type="button"
+                          >
+                            <div
+                              class="flex items-center justify-center"
+                              style="color: var(--color-icon-soft);"
+                            >
+                              <svg
+                                color="currentColor"
+                                fill="transparent"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                width="20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M15.25 9.25L12 5.75L8.75 9.25M15.25 14.75L12 18.25L8.75 14.75"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="1.5"
+                                />
+                              </svg>
+                            </div>
+                          </button>
+                        </div>
+                      </th>
+                      <th
+                        class="sticky top-0 z-10 border-0 p-0 align-middle table-header-bg-weak"
+                      >
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors hover:bg-depth-black-8 flex-1 justify-start whitespace-nowrap"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        >
+                          <p
+                            class="pui-text-body-medium-compact relative shrink-0 whitespace-nowrap transition-colors text-text-soft group-hover/header:text-text-sub"
+                          >
+                            Updated At
+                          </p>
+                          <button
+                            aria-label="Sort column descending"
+                            class="relative flex size-5 shrink-0 items-center justify-center cursor-pointer"
+                            tabindex="0"
+                            type="button"
+                          >
+                            <div
+                              class="flex items-center justify-center"
+                              style="color: var(--color-icon-soft);"
+                            >
+                              <svg
+                                color="currentColor"
+                                fill="transparent"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                width="20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M15.25 9.25L12 5.75L8.75 9.25M15.25 14.75L12 18.25L8.75 14.75"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="1.5"
+                                />
+                              </svg>
+                            </div>
+                          </button>
+                        </div>
+                      </th>
+                      <th
+                        class="sticky top-0 z-10 border-0 p-0 align-middle table-header-bg-weak"
+                      >
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors hover:bg-depth-black-8 flex-1 justify-start"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        >
+                          <p
+                            class="pui-text-body-medium-compact relative shrink-0 whitespace-nowrap transition-colors text-text-soft group-hover/header:text-text-sub"
+                          >
+                            Status
+                          </p>
+                          <button
+                            aria-label="Sort column descending"
+                            class="relative flex size-5 shrink-0 items-center justify-center cursor-pointer"
+                            tabindex="0"
+                            type="button"
+                          >
+                            <div
+                              class="flex items-center justify-center"
+                              style="color: var(--color-icon-soft);"
+                            >
+                              <svg
+                                color="currentColor"
+                                fill="transparent"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                width="20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M15.25 9.25L12 5.75L8.75 9.25M15.25 14.75L12 18.25L8.75 14.75"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="1.5"
+                                />
+                              </svg>
+                            </div>
+                          </button>
+                        </div>
+                      </th>
+                      <th
+                        class="sticky top-0 border-0 p-0 align-middle table-header-bg-weak z-20 table-sticky-shadow-left"
+                        style="inset-inline-end: 0px;"
+                      >
+                        <span
+                          class="sr-only"
+                        >
+                          actions
+                        </span>
+                        <div
+                          class="box-border content-stretch items-center gap-2 group/header flex h-full min-h-10 w-full border-b border-solid border-depth-black-4 px-4 transition-colors flex-1 justify-start rounded-tr-2xl"
+                          data-slot="table-header-cell"
+                          qa-test-id="table-header-cell"
+                        />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      class="group hover:[@media(hover:hover)]:bg-depth-black-4 border-b border-solid border-depth-black-4"
+                      data-selected="false"
+                      qa-test-id="cluster-row-cluster-emr"
+                    >
+                      <td
+                        class="border-0 p-0 align-middle"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 min-w-0 flex-1"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="flex min-h-px min-w-0 flex-1 flex-col items-start"
+                          >
+                            <p
+                              class="pui-text-label-medium-loose relative w-full shrink-0 text-text-sub"
+                            >
+                              emr-prod
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="border-0 p-0 align-middle"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 min-w-0 flex-1"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="flex min-h-px min-w-0 flex-1 flex-col items-start"
+                          >
+                            <p
+                              class="pui-text-label-medium-loose relative w-full shrink-0 text-text-sub"
+                            >
+                              7.1.0
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="border-0 p-0 align-middle"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 min-w-0 flex-1"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="flex min-h-px min-w-0 flex-1 flex-col items-start"
+                          >
+                            <p
+                              class="pui-text-label-medium-loose relative w-full shrink-0 text-text-sub"
+                            >
+                              alice
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="border-0 p-0 align-middle"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 min-w-0 flex-1 whitespace-nowrap"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="flex min-h-px min-w-0 flex-1 flex-col items-start"
+                          >
+                            <p
+                              class="pui-text-label-medium-loose relative w-full shrink-0 text-text-sub"
+                            >
+                              2026-01-15 10:30:00
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="border-0 p-0 align-middle"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 min-w-0 flex-1 whitespace-nowrap"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="flex min-h-px min-w-0 flex-1 flex-col items-start"
+                          >
+                            <p
+                              class="pui-text-label-medium-loose relative w-full shrink-0 text-text-sub"
+                            >
+                              2026-01-15 10:45:00
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="border-0 p-0 align-middle"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 min-w-0 flex-1"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="shrink-0"
+                          >
+                            <span
+                              class="pui-text-mono-small inline-flex items-center justify-center gap-0.5 whitespace-nowrap transition-colors bg-positive-lighter text-positive-base rounded-lg px-1.5 py-1"
+                              data-slot="tag"
+                              qa-test-id="tag"
+                            >
+                              <span
+                                class="flex min-w-0 items-center justify-center truncate px-0.5 py-0"
+                              >
+                                ACTIVE
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="border-0 p-0 align-middle sticky z-10 table-sticky-cell-weak table-sticky-shadow-left"
+                        style="inset-inline-end: 0px;"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 min-w-0 flex-1"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="pui-text-label-medium-loose w-full min-w-0 flex-1"
+                          >
+                            <span
+                              class="rounded-10"
+                              qa-test-id="cluster-view-cluster-emr"
+                              tabindex="0"
+                            >
+                              <a
+                                class="relative isolate box-border flex shrink-0 items-center justify-center rounded-10 transition-colors duration-150 ease-out px-1.5 h-8 bg-depth-black-4 hover:bg-depth-black-8 focus:bg-depth-black-8 focus-visible:shadow-button-secondary data-[state=open]:bg-depth-black-8 aria-expanded:bg-depth-black-8 focus:outline-none text-text-sub cursor-pointer"
+                                href="/clusters/cluster-emr"
+                                role="button"
+                                tabindex="0"
+                              >
+                                <span
+                                  class="pui-text-label-medium overflow-hidden px-1 text-nowrap text-ellipsis whitespace-pre lowercase text-text-sub"
+                                  style="visibility: visible;"
+                                >
+                                  View
+                                </span>
+                              </a>
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr
+                      class="group hover:[@media(hover:hover)]:bg-depth-black-4"
+                      data-selected="false"
+                      qa-test-id="cluster-row-cluster-local"
+                    >
+                      <td
+                        class="border-0 p-0 align-middle"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 rounded-bl-2xl min-w-0 flex-1"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="flex min-h-px min-w-0 flex-1 flex-col items-start"
+                          >
+                            <p
+                              class="pui-text-label-medium-loose relative w-full shrink-0 text-text-sub"
+                            >
+                              local
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="border-0 p-0 align-middle"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 min-w-0 flex-1"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="flex min-h-px min-w-0 flex-1 flex-col items-start"
+                          >
+                            <p
+                              class="pui-text-label-medium-loose relative w-full shrink-0 text-text-sub"
+                            >
+                              1.0.0
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="border-0 p-0 align-middle"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 min-w-0 flex-1"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="flex min-h-px min-w-0 flex-1 flex-col items-start"
+                          >
+                            <p
+                              class="pui-text-label-medium-loose relative w-full shrink-0 text-text-sub"
+                            >
+                              bob
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="border-0 p-0 align-middle"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 min-w-0 flex-1 whitespace-nowrap"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="flex min-h-px min-w-0 flex-1 flex-col items-start"
+                          >
+                            <p
+                              class="pui-text-label-medium-loose relative w-full shrink-0 text-text-sub"
+                            >
+                              2026-01-15 10:30:00
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="border-0 p-0 align-middle"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 min-w-0 flex-1 whitespace-nowrap"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="flex min-h-px min-w-0 flex-1 flex-col items-start"
+                          >
+                            <p
+                              class="pui-text-label-medium-loose relative w-full shrink-0 text-text-sub"
+                            >
+                              2026-01-15 10:45:00
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="border-0 p-0 align-middle"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 min-w-0 flex-1"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="shrink-0"
+                          >
+                            <span
+                              class="pui-text-mono-small inline-flex items-center justify-center gap-0.5 whitespace-nowrap transition-colors bg-depth-black-4 text-text-soft rounded-lg px-1.5 py-1"
+                              data-slot="tag"
+                              qa-test-id="tag"
+                            >
+                              <span
+                                class="flex min-w-0 items-center justify-center truncate px-0.5 py-0"
+                              >
+                                INACTIVE
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        class="border-0 p-0 align-middle sticky z-10 table-sticky-cell-weak table-sticky-shadow-left"
+                        style="inset-inline-end: 0px;"
+                      >
+                        <div
+                          class="relative box-border flex h-full w-full items-center border-solid border-depth-black-4 min-h-14 px-4 py-2 gap-2.5 rounded-br-2xl min-w-0 flex-1"
+                          data-slot="table-row-cell"
+                          qa-test-id="table-row-cell"
+                        >
+                          <div
+                            class="pui-text-label-medium-loose w-full min-w-0 flex-1"
+                          >
+                            <span
+                              class="rounded-10"
+                              qa-test-id="cluster-view-cluster-local"
+                              tabindex="0"
+                            >
+                              <a
+                                class="relative isolate box-border flex shrink-0 items-center justify-center rounded-10 transition-colors duration-150 ease-out px-1.5 h-8 bg-depth-black-4 hover:bg-depth-black-8 focus:bg-depth-black-8 focus-visible:shadow-button-secondary data-[state=open]:bg-depth-black-8 aria-expanded:bg-depth-black-8 focus:outline-none text-text-sub cursor-pointer"
+                                href="/clusters/cluster-local"
+                                role="button"
+                                tabindex="0"
+                              >
+                                <span
+                                  class="pui-text-label-medium overflow-hidden px-1 text-nowrap text-ellipsis whitespace-pre lowercase text-text-sub"
+                                  style="visibility: visible;"
+                                >
+                                  View
+                                </span>
+                              </a>
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;

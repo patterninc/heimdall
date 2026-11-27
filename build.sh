@@ -24,9 +24,26 @@ done
 rm -rf ${OUTPUT_DIR} > /dev/null 2>&1
 mkdir -p ${OUTPUT_DIR}/web ${OUTPUT_DIR}/plugins
 
+# install web dependencies once, for the web tests and the web build
+WEB_DEPS_INSTALLED=false
+install_web_deps() {
+  if [ "${WEB_DEPS_INSTALLED}" = "true" ]; then
+    return
+  fi
+  # node 25+ no longer bundles corepack, so install the pinned pnpm when it isn't already on the PATH
+  if ! command -v pnpm > /dev/null 2>&1; then
+    npm install --global "$(node -p "require('${WORKING_DIR}/web/package.json').packageManager")"
+  fi
+  (cd ${WORKING_DIR}/web && pnpm install --frozen-lockfile)
+  WEB_DEPS_INSTALLED=true
+}
+
 if [ "${RUN_TESTS}" = "true" ]; then
   echo "running tests"
   (cd ${WORKING_DIR} && go test ./internal/pkg/... && go test ./pkg/...)
+  # unit, integration and snapshot tests; fails on a failing test or coverage below the threshold
+  install_web_deps
+  (cd ${WORKING_DIR}/web && pnpm test)
 fi
 
 if [ "${BUILD_GO}" = "true" ]; then
@@ -47,11 +64,6 @@ fi
 
 if [ "${BUILD_WEB}" = "true" ]; then
   # build web
-  # node 25+ no longer bundles corepack, so install the pinned pnpm when it isn't already on the PATH
-  if ! command -v pnpm > /dev/null 2>&1; then
-    npm install --global "$(node -p "require('${WORKING_DIR}/web/package.json').packageManager")"
-  fi
-  (cd ${WORKING_DIR}/web && pnpm install --frozen-lockfile)
-
+  install_web_deps
   (cd ${WORKING_DIR}/web && pnpm run build)
 fi
