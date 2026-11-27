@@ -5,6 +5,8 @@
   "packageManager": "pnpm@12.15.0",
   "scripts": {
     "dev": "PORT=4000 next dev",
+    "dev:stack": "sh scripts/dev-stack.sh",
+    "dev:stack:down": "sh scripts/dev-stack.sh --down",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
