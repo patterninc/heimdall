@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	sf "github.com/snowflakedb/gosnowflake"
 
+	"github.com/patterninc/heimdall/internal/pkg/aws"
 	heimdallContext "github.com/patterninc/heimdall/pkg/context"
 	"github.com/patterninc/heimdall/pkg/object/cluster"
 	"github.com/patterninc/heimdall/pkg/object/job"
@@ -24,20 +26,12 @@ const (
 	privateKeyType      = `PRIVATE KEY`
 	snowflakeDriverName = `snowflake`
 	formatQueryTag      = `heimdall-job-%s`
-	queryHistorySlack   = 60 // seconds before the job was created, for clock skew
+	s3Prefix            = `s3://`
+	resultFilename      = `result.json` // the file heimdall serves for a job, under its result directory
 
-	// query history only applies result_limit before the where clause, so the time range keeps it to queries
-	// that started around the job; without end_time_range_end, queries still running are included
-	queryHistorySelect = `select query_id
-from table(information_schema.query_history_by_user(end_time_range_start => to_timestamp_ltz(%d), result_limit => 10000))
-where query_tag = ?
-order by start_time desc
-limit 1`
-
-	runningQueryCancel = `select system$cancel_query(query_id)
-from table(information_schema.query_history_by_user(end_time_range_start => dateadd('minute', -1, current_timestamp()), result_limit => 10000))
-where query_tag = ?
-  and upper(execution_status) in ('RUNNING', 'QUEUED', 'BLOCKED', 'RESUMING_WAREHOUSE')`
+	// result_limit picks the user's most recent queries before the where clause runs, so it is set to the maximum
+	queryByTagSelect = `select query_id from table(information_schema.query_history_by_user(result_limit => 10000)) where query_tag = ? order by start_time desc limit 1`
+	queryCancel      = `select system$cancel_query(?)`
 )
 
 var (
@@ -124,10 +118,18 @@ func (s *commandContext) StreamResult(ctx context.Context, w io.Writer, r *plugi
 
 }
 
-// ResumeStream implements plugin.StreamResumer. Snowflake keeps running a query after its client disconnects,
+// Resume implements plugin.Resumer. Snowflake keeps running a query after its client disconnects,
 // so the job's query is found by its query tag and its result fetched by query ID; a query that was never
 // submitted runs now.
-func (s *commandContext) ResumeStream(ctx context.Context, w io.Writer, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+func (s *commandContext) Resume(ctx context.Context, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
+
+	return writeResult(ctx, r, func(w io.Writer) error {
+		return s.resume(ctx, w, r, j, c)
+	})
+
+}
+
+func (s *commandContext) resume(ctx context.Context, w io.Writer, r *plugin.Runtime, j *job.Job, c *cluster.Cluster) error {
 
 	jobContext := &jobContext{}
 	if err := j.Context.Unmarshal(jobContext); err != nil {
@@ -140,13 +142,12 @@ func (s *commandContext) ResumeStream(ctx context.Context, w io.Writer, r *plugi
 	}
 	defer db.Close()
 
-	var queryID string
-	err = db.QueryRowContext(ctx, fmt.Sprintf(queryHistorySelect, j.CreatedAt-queryHistorySlack), queryTag(j.ID)).Scan(&queryID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return streamQuery(ctx, w, db, j.ID, jobContext.Query)
-	}
+	queryID, err := queryByTag(ctx, db, j.ID)
 	if err != nil {
 		return err
+	}
+	if queryID == `` {
+		return streamQuery(ctx, w, db, j.ID, jobContext.Query)
 	}
 
 	// the driver polls a running query until it finishes; a failed or canceled query returns its error
@@ -170,8 +171,43 @@ func streamQuery(ctx context.Context, w io.Writer, db *sql.DB, jobID, query stri
 
 }
 
+// writeResult streams the result to the file heimdall serves for the job.
+func writeResult(ctx context.Context, r *plugin.Runtime, write func(io.Writer) error) error {
+
+	name := r.ResultDirectory + "/" + resultFilename
+	if strings.HasPrefix(r.ResultDirectory, s3Prefix) {
+		return aws.StreamToS3(ctx, name, write)
+	}
+
+	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+
+	writeErr := write(f)
+	closeErr := f.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+
+	return closeErr
+
+}
+
 func queryTag(jobID string) string {
 	return fmt.Sprintf(formatQueryTag, jobID)
+}
+
+// queryByTag returns the ID of the job's query, or an empty string if it was never submitted.
+func queryByTag(ctx context.Context, db *sql.DB, jobID string) (string, error) {
+
+	var queryID string
+	if err := db.QueryRowContext(ctx, queryByTagSelect, queryTag(jobID)).Scan(&queryID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return ``, err
+	}
+
+	return queryID, nil
+
 }
 
 // open connects to the cluster's warehouse as its user, with the command's role.
@@ -329,15 +365,12 @@ func (s *commandContext) Cleanup(ctx context.Context, jobID string, c *cluster.C
 	}
 	defer db.Close()
 
-	rows, err := db.QueryContext(ctx, runningQueryCancel, queryTag(jobID))
-	if err != nil {
+	queryID, err := queryByTag(ctx, db, jobID)
+	if err != nil || queryID == `` {
 		return err
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-	}
-
-	return rows.Err()
+	_, err = db.ExecContext(ctx, queryCancel, queryID)
+	return err
 
 }

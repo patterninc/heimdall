@@ -149,11 +149,7 @@ func (h *Heimdall) runJob(ctx context.Context, j *job.Job, command *command.Comm
 
 		var err error
 		if resume {
-			if rs, ok := handler.(plugin.StreamResumer); ok {
-				err = h.writeResultToDestination(pluginCtx, runtime, func(w io.Writer) error {
-					return rs.ResumeStream(pluginCtx, w, runtime, j, cluster)
-				})
-			} else if rs, ok := handler.(plugin.Resumer); ok {
+			if rs, ok := handler.(plugin.Resumer); ok {
 				err = rs.Resume(pluginCtx, runtime, j, cluster)
 			} else {
 				err = ErrJobNotResumable
