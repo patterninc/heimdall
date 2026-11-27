@@ -25,8 +25,8 @@ func TestResumable(t *testing.T) {
 
 func TestQueryTag(t *testing.T) {
 
-	if got := queryTag(`abc-123`); got != `heimdall-abc-123` {
-		t.Fatalf("got %q, want heimdall-abc-123", got)
+	if got := queryTag(`abc-123`); got != `heimdall-job-abc-123` {
+		t.Fatalf("got %q, want heimdall-job-abc-123", got)
 	}
 
 	query := fmt.Sprintf(queryHistorySelect, 1700000000-queryHistorySlack)

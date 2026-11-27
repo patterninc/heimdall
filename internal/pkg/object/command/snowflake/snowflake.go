@@ -23,7 +23,7 @@ import (
 const (
 	privateKeyType      = `PRIVATE KEY`
 	snowflakeDriverName = `snowflake`
-	formatQueryTag      = `heimdall-%s`
+	formatQueryTag      = `heimdall-job-%s`
 	queryHistorySlack   = 60 // seconds before the job was created, for clock skew
 
 	// query history only applies result_limit before the where clause, so the time range keeps it to queries
