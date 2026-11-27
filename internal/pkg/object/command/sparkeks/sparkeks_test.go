@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/kubeflow/spark-operator/v2/api/v1beta2"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestUpdateS3ToS3aURI(t *testing.T) {
@@ -86,4 +88,88 @@ func TestPrintState(t *testing.T) {
 	defer f.Close()
 	printState(f, "RUNNING")
 	// Optionally check file contents if needed
+}
+
+func sparkAppWith(state v1beta2.ApplicationStateType, msg, driverPod string) *v1beta2.SparkApplication {
+	app := &v1beta2.SparkApplication{}
+	app.Status.AppState.State = state
+	app.Status.AppState.ErrorMessage = msg
+	app.Status.DriverInfo.PodName = driverPod
+	return app
+}
+
+func driverPodWith(name string, exit *int32) corev1.Pod {
+	pod := corev1.Pod{}
+	pod.Name = name
+	pod.Labels = map[string]string{sparkRoleLabel: sparkRoleDriver}
+	if exit != nil {
+		pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+			Name:  sparkDriverContainerName,
+			State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: *exit}},
+		}}
+	}
+	return pod
+}
+
+func TestIsDriverPodNotFound(t *testing.T) {
+	tests := []struct {
+		name string
+		app  *v1beta2.SparkApplication
+		want bool
+	}{
+		{"failed driver pod not found", sparkAppWith(v1beta2.ApplicationStateFailed, "driver pod not found", ""), true},
+		{"failing driver pod not found", sparkAppWith(v1beta2.ApplicationStateFailing, "driver pod not found", ""), true},
+		{"genuine driver failure", sparkAppWith(v1beta2.ApplicationStateFailed, "driver container failed with ExitCode: 1", ""), false},
+		{"empty message", sparkAppWith(v1beta2.ApplicationStateFailed, "", ""), false},
+		{"completed", sparkAppWith(v1beta2.ApplicationStateCompleted, "", ""), false},
+		{"nil", nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isDriverPodNotFound(tt.app); got != tt.want {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDriverOutcomeEvidence(t *testing.T) {
+	zero, one := int32(0), int32(1)
+	failed := sparkAppWith(v1beta2.ApplicationStateFailed, "driver pod not found", "drv")
+	tests := []struct {
+		name string
+		app  *v1beta2.SparkApplication
+		pods []corev1.Pod
+		want bool
+	}{
+		{"no pods, still failed: unknown", failed, nil, false},
+		{"driver exit 0: success", failed, []corev1.Pod{driverPodWith("drv", &zero)}, true},
+		{"driver exit 1: failure", failed, []corev1.Pod{driverPodWith("drv", &one)}, false},
+		{"driver without termination info: unknown", failed, []corev1.Pod{driverPodWith("drv", nil)}, false},
+		{"non-driver pod exit 0 ignored", failed, []corev1.Pod{func() corev1.Pod {
+			p := driverPodWith("exec-1", &zero)
+			p.Labels = map[string]string{sparkRoleLabel: "executor"}
+			return p
+		}()}, false},
+		{"CR re-read now COMPLETED", sparkAppWith(v1beta2.ApplicationStateCompleted, "", "drv"), nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, why := driverOutcomeEvidence(tt.app, tt.pods)
+			if got != tt.want {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+			if got && why == "" {
+				t.Error("positive evidence must carry a reason")
+			}
+		})
+	}
+}
+
+func TestDriverPodNotFoundOutcomeUnknownMessage(t *testing.T) {
+	for _, want := range []string{"outcome unknown", driverPodNotFoundMsg, "race", "check the job output"} {
+		if !strings.Contains(driverPodNotFoundOutcomeUnknown, want) {
+			t.Errorf("message missing %q: %s", want, driverPodNotFoundOutcomeUnknown)
+		}
+	}
 }

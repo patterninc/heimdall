@@ -76,6 +76,16 @@ const (
 	unknownErrorMsg             = "Unknown error"
 	sparkJobSubmissionFailedMsg = "spark job submission failed"
 	sparkAppUnknownStateMsg     = "spark app entered unknown state"
+
+	// driverPodNotFoundMsg is the errorMessage the Spark operator records when it
+	// cannot find the driver pod, which may have been garbage-collected already.
+	driverPodNotFoundMsg = "driver pod not found"
+	// sparkDriverContainerName is the container name Spark gives the driver.
+	sparkDriverContainerName = "spark-kubernetes-driver"
+	sparkRoleLabel           = "spark-role"
+	sparkRoleDriver          = "driver"
+	// driverPodRecheckAttempts bounds how often the CR/pods are re-read before giving up.
+	driverPodRecheckAttempts = 3
 )
 
 var (
@@ -1007,6 +1017,15 @@ func (e *executionContext) monitorJobAndCollectLogs(ctx context.Context) error {
 			e.runtime.Stdout.WriteString("Spark job completed successfully\n")
 			return nil
 		case v1beta2.ApplicationStateFailed:
+			if isDriverPodNotFound(sparkApp) {
+				if ok, why := e.resolveDriverPodNotFound(monitorCtx, sparkApp); ok {
+					e.runtime.Stdout.WriteString(fmt.Sprintf("Spark operator reported %q, but the job succeeded: %s\n", driverPodNotFoundMsg, why))
+					return nil
+				}
+				collectSparkApplicationLogs(ctx, e, sparkApp, true)
+				e.runtime.Stderr.WriteString(fmt.Sprintf("Spark job outcome unknown: %s\n", driverPodNotFoundMsg))
+				return fmt.Errorf("%s", driverPodNotFoundOutcomeUnknown)
+			}
 			collectSparkApplicationLogs(ctx, e, sparkApp, true)
 			errorMessage := sparkApp.Status.AppState.ErrorMessage
 			if errorMessage == "" {
@@ -1054,4 +1073,83 @@ func isTerminalState(state v1beta2.ApplicationStateType) bool {
 		}
 	}
 	return false
+}
+
+// driverPodNotFoundOutcomeUnknown is returned when the operator lost the driver pod and no
+// positive evidence of success exists. It stays a failure, but tells callers it is unverified.
+const driverPodNotFoundOutcomeUnknown = "spark job failed (outcome unknown): spark operator reported \"" + driverPodNotFoundMsg +
+	"\"; this is often a race where the finished driver pod was garbage-collected before the operator recorded COMPLETED, " +
+	"so the job may have succeeded; check the job output before retrying"
+
+// isDriverPodNotFound reports whether the application failed only because the operator could not find the driver pod.
+func isDriverPodNotFound(app *v1beta2.SparkApplication) bool {
+	return app != nil &&
+		(app.Status.AppState.State == v1beta2.ApplicationStateFailed || app.Status.AppState.State == v1beta2.ApplicationStateFailing) &&
+		strings.Contains(strings.ToLower(app.Status.AppState.ErrorMessage), driverPodNotFoundMsg)
+}
+
+// driverSucceeded reports positive evidence that the driver exited 0: the driver container
+// terminated with exit code 0. Pod phase Succeeded alone is not used; it needs that exit code.
+func driverSucceeded(pod corev1.Pod) bool {
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Name == sparkDriverContainerName && cs.State.Terminated != nil {
+			return cs.State.Terminated.ExitCode == 0
+		}
+	}
+	return false
+}
+
+// isDriverPod matches the driver by recorded pod name, else by the spark-role label.
+func isDriverPod(pod corev1.Pod, driverPodName string) bool {
+	if driverPodName != "" && pod.Name == driverPodName {
+		return true
+	}
+	return pod.Labels[sparkRoleLabel] == sparkRoleDriver
+}
+
+// driverOutcomeEvidence decides from a freshly re-read CR and the pods still present whether
+// there is positive evidence of success. Anything else (including a driver that exited non-zero)
+// returns false. It is pure so it can be tested without a cluster.
+func driverOutcomeEvidence(app *v1beta2.SparkApplication, pods []corev1.Pod) (bool, string) {
+	if app != nil && app.Status.AppState.State == v1beta2.ApplicationStateCompleted {
+		return true, "operator recorded COMPLETED on re-read"
+	}
+	driverPodName := ""
+	if app != nil {
+		driverPodName = app.Status.DriverInfo.PodName
+	}
+	for _, pod := range pods {
+		if isDriverPod(pod, driverPodName) && driverSucceeded(pod) {
+			return true, fmt.Sprintf("driver pod %s container terminated with exit code 0", pod.Name)
+		}
+	}
+	return false, ""
+}
+
+// resolveDriverPodNotFound re-reads the CR and driver pods a bounded number of times,
+// since the operator may still record COMPLETED. It returns true only on positive evidence.
+// Scope note: the Spark event log / history server is not consulted; see PR description.
+func (e *executionContext) resolveDriverPodNotFound(ctx context.Context, app *v1beta2.SparkApplication) (bool, string) {
+	for attempt := 0; attempt < driverPodRecheckAttempts; attempt++ {
+		current := app
+		if attempt > 0 {
+			time.Sleep(jobCheckInterval)
+			fresh, err := e.sparkClient.SparkoperatorV1beta2().SparkApplications(app.Namespace).Get(ctx, app.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, ""
+			}
+			current = fresh
+		}
+		pods, err := getSparkApplicationPods(ctx, e.kubeClient, app.Name, app.Namespace)
+		if err != nil {
+			pods = nil
+		}
+		if ok, why := driverOutcomeEvidence(current, pods); ok {
+			return true, why
+		}
+		if ctx.Err() != nil {
+			return false, ""
+		}
+	}
+	return false, ""
 }
